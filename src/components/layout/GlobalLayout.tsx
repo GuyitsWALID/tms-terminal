@@ -103,7 +103,7 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
               <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--brand-strong)] font-black text-white">T</div>
               <div>
                 <p className="font-rajdhani text-xl font-bold uppercase leading-none tracking-wide">TMS Terminal</p>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">Market Intelligence Grid</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">The Market Syndicate</p>
               </div>
             </Link>
 
