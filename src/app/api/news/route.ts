@@ -1,61 +1,213 @@
-import { NextResponse } from 'next/server';
-import axios from 'axios';
-import * as cheerio from 'cheerio';
+import { NextResponse } from "next/server";
+import * as cheerio from "cheerio";
+import { featuredNews } from "@/lib/terminalData";
+import {
+  SCRAPER_TTL_MS,
+  analyzeSentiment,
+  fetchWithTimeout,
+  inferImpactFromText,
+  isCacheFresh,
+  makeCacheRecord,
+  normalizeText,
+  safeId,
+  type CacheRecord,
+} from "@/lib/api/scraperUtils";
 
 type NewsApiItem = {
   id: string;
   timestamp: string;
   headline: string;
-  impact: 'high' | 'medium' | 'low';
-  sentiment: 'bullish' | 'bearish' | 'neutral';
+  impact: "high" | "medium" | "low";
+  sentiment: "bullish" | "bearish" | "neutral";
   sentimentScore: number;
   source: string;
   category: string;
 };
 
-export async function GET() {
-  try {
-    const response = await axios.get('https://www.financialjuice.com/', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      }
+const NEWS_CACHE_KEY = "news-feed";
+const NEWS_CACHE = new Map<string, CacheRecord<NewsApiItem[]>>();
+
+const fallbackNewsItems = (): NewsApiItem[] =>
+  featuredNews.map((item) => ({
+    id: item.id,
+    timestamp: item.timestamp,
+    headline: item.headline,
+    impact: item.impact,
+    sentiment: item.sentiment,
+    sentimentScore: item.sentimentScore,
+    source: item.source,
+    category: item.category,
+  }));
+
+const parseForexFactoryNews = async (): Promise<NewsApiItem[]> => {
+  const response = await fetchWithTimeout("https://www.forexfactory.com/news", 15000);
+  if (!response.ok) throw new Error(`ForexFactory news request failed (${response.status})`);
+
+  const html = await response.text();
+  const $ = cheerio.load(html);
+  const rows = $(".flexposts__story, .news__story, article, .story");
+  const items: NewsApiItem[] = [];
+
+  rows.each((index, element) => {
+    const row = $(element);
+
+    const headline =
+      normalizeText(row.find(".flexposts__story-title, .news__story-title, h3, h2, a").first().text()) ||
+      normalizeText(row.text());
+
+    if (!headline || headline.length < 12) return;
+
+    const timestamp =
+      normalizeText(row.find("time, .flexposts__story-time, .news__story-time, .date, .time").first().text()) ||
+      `${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+
+    const category =
+      normalizeText(row.find(".flexposts__story-topic, .topic, .category, .tag").first().text()) || "Macro";
+
+    const { sentiment, score } = analyzeSentiment(headline);
+    const impact = inferImpactFromText(`${headline} ${category}`);
+
+    items.push({
+      id: safeId(`${headline}-${timestamp}`, index),
+      timestamp,
+      headline,
+      impact,
+      sentiment,
+      sentimentScore: score,
+      source: "Forex Factory",
+      category,
     });
+  });
 
-    const $ = cheerio.load(response.data);
-    const newsItems: NewsApiItem[] = [];
+  return items;
+};
 
-    // Financial Juice specific selectors for headlines
-    $('.news-item, .headline, .item').each((_, el) => {
-      const headline = $(el).find('a, span').first().text().trim();
-      const timestamp = $(el).find('.time, .date').text().trim() || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const parseFinancialJuiceNews = async (): Promise<NewsApiItem[]> => {
+  const response = await fetchWithTimeout("https://www.financialjuice.com/", 12000);
+  if (!response.ok) throw new Error(`FinancialJuice request failed (${response.status})`);
 
-      if (headline && headline.length > 10) {
-        // Sentiment Analysis Logic
-        const bullishWords = ['hike', 'growth', 'strong', 'bullish', 'surge', 'outperform', 'gain', 'support'];
-        const bearishWords = ['cut', 'drop', 'weak', 'bearish', 'collapse', 'underperform', 'loss', 'slide'];
-        let score = 0;
-        const lowerText = headline.toLowerCase();
-        bullishWords.forEach(word => { if (lowerText.includes(word)) score += 0.2; });
-        bearishWords.forEach(word => { if (lowerText.includes(word)) score -= 0.2; });
-        score = Math.max(-1, Math.min(1, score));
+  const html = await response.text();
+  const $ = cheerio.load(html);
+  const items: NewsApiItem[] = [];
 
-        newsItems.push({
-          id: Math.random().toString(36).substr(2, 9),
-          timestamp,
-          headline,
-          impact: headline.length < 50 ? 'medium' : 'low',
-          sentiment: score > 0.2 ? 'bullish' : score < -0.2 ? 'bearish' : 'neutral',
-          sentimentScore: score,
-          source: "Financial Juice",
-          category: "General",
+  $(".news-item, .headline, .item, article").each((index, element) => {
+    const row = $(element);
+    const headline = normalizeText(row.find("a, h3, h2, span").first().text()) || normalizeText(row.text());
+    if (!headline || headline.length < 12) return;
+
+    const timestamp =
+      normalizeText(row.find("time, .time, .date").first().text()) ||
+      `${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+
+    const category = normalizeText(row.find(".category, .tag").first().text()) || "General";
+    const { sentiment, score } = analyzeSentiment(headline);
+    const impact = inferImpactFromText(`${headline} ${category}`);
+
+    items.push({
+      id: safeId(`${headline}-${timestamp}`, index),
+      timestamp,
+      headline,
+      impact,
+      sentiment,
+      sentimentScore: score,
+      source: "Financial Juice",
+      category,
+    });
+  });
+
+  return items;
+};
+
+const dedupeNews = (items: NewsApiItem[]) => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = normalizeText(item.headline).toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+export async function GET() {
+  const cached = NEWS_CACHE.get(NEWS_CACHE_KEY);
+  if (cached && isCacheFresh(cached)) {
+    return NextResponse.json(cached.data, {
+      headers: {
+        "Cache-Control": "no-store",
+        "x-news-cache": "HIT",
+        "x-news-source": cached.source,
+      },
+    });
+  }
+
+  try {
+    const forexFactoryItems = await parseForexFactoryNews();
+    if (forexFactoryItems.length > 0) {
+      const merged = dedupeNews(forexFactoryItems).slice(0, 40);
+      const record = makeCacheRecord(merged, "forexfactory");
+      NEWS_CACHE.set(NEWS_CACHE_KEY, record);
+
+      return NextResponse.json(merged, {
+        headers: {
+          "Cache-Control": "no-store",
+          "x-news-cache": "MISS",
+          "x-news-source": "forexfactory",
+        },
+      });
+    }
+
+    throw new Error("ForexFactory parser returned no rows");
+  } catch (forexError: unknown) {
+    const ffMessage = forexError instanceof Error ? forexError.message : "forexfactory failed";
+    console.error("News scraper warning:", ffMessage);
+
+    try {
+      const fallbackItems = await parseFinancialJuiceNews();
+      if (fallbackItems.length > 0) {
+        const merged = dedupeNews(fallbackItems).slice(0, 40);
+        const record = makeCacheRecord(merged, "financialjuice");
+        NEWS_CACHE.set(NEWS_CACHE_KEY, record);
+
+        return NextResponse.json(merged, {
+          headers: {
+            "Cache-Control": "no-store",
+            "x-news-cache": "MISS",
+            "x-news-source": "financialjuice",
+            "x-news-fallback-reason": "forexfactory-failed",
+          },
         });
       }
-    });
 
-    return NextResponse.json(newsItems);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Financial Juice Scraper Error:', message);
-    return NextResponse.json({ error: "Failed to scrape Financial Juice" }, { status: 500 });
+      throw new Error("FinancialJuice parser returned no rows");
+    } catch (fallbackError: unknown) {
+      const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "financialjuice failed";
+      console.error("News fallback warning:", fallbackMessage);
+
+      if (cached) {
+        return NextResponse.json(cached.data, {
+          headers: {
+            "Cache-Control": "no-store",
+            "x-news-cache": "STALE",
+            "x-news-source": cached.source,
+            "x-news-fallback-reason": "stale-cache",
+          },
+        });
+      }
+
+      const fallback = fallbackNewsItems();
+      NEWS_CACHE.set(NEWS_CACHE_KEY, makeCacheRecord(fallback, "local-fallback"));
+      return NextResponse.json(fallback, {
+        headers: {
+          "Cache-Control": "no-store",
+          "x-news-cache": "MISS",
+          "x-news-source": "local-fallback",
+          "x-news-fallback-reason": "all-sources-failed",
+        },
+      });
+    }
+  } finally {
+    for (const [key, value] of NEWS_CACHE.entries()) {
+      if (Date.now() - value.createdAt > SCRAPER_TTL_MS * 6) NEWS_CACHE.delete(key);
+    }
   }
 }
