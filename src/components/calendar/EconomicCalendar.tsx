@@ -1,11 +1,15 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Bell, Folder, ShieldCheck, Star, TrendingUp } from "lucide-react";
+import { Bell, Calendar as CalendarIcon, ChevronDown, Folder, ShieldCheck, Star, TrendingUp } from "lucide-react";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { calendarEvents, marketSentiment, sessions } from "@/lib/terminalData";
 import { fetchEconomicCalendar } from "@/lib/api/dataService";
 import type { EconomicEvent } from "@/types";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "../ui/calendar";
+import { Button } from "@/components/ui/button";
 
 const IMPACT_COLORS = {
   high: "ff-impact-high",
@@ -26,13 +30,15 @@ export default function EconomicCalendar() {
   const [impactFilter, setImpactFilter] = useState<"all" | "high" | "medium" | "low">("all");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   useEffect(() => {
     let isMounted = true;
 
     const loadCalendar = async () => {
+      setIsLoading(true);
       try {
-        const liveEvents = await fetchEconomicCalendar();
+        const liveEvents = await fetchEconomicCalendar(selectedDate);
         if (!isMounted) return;
 
         if (Array.isArray(liveEvents) && liveEvents.length > 0) {
@@ -63,7 +69,7 @@ export default function EconomicCalendar() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [selectedDate]);
 
   const filteredEvents = useMemo(
     () => events.filter((event) => impactFilter === "all" || event.impact === impactFilter),
@@ -71,7 +77,7 @@ export default function EconomicCalendar() {
   );
 
   const activeEvent = useMemo(() => {
-    return events.find((event) => event.id === activeEventId) ?? events[0];
+    return events.find((event) => event.id === activeEventId) ?? events[0] ?? calendarEvents[0];
   }, [events, activeEventId]);
 
   const toggleStar = (id: string) => {
@@ -92,6 +98,23 @@ export default function EconomicCalendar() {
             {errorMessage ? <p className="mt-1 text-xs text-[#ff9d7a]">{errorMessage}</p> : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  data-empty={!selectedDate}
+                  className="h-8 w-[220px] justify-start gap-1.5 px-2.5 text-left text-[13px] font-normal text-[var(--ink-primary)] data-[empty=true]:text-[var(--ink-muted)]"
+                >
+                  <CalendarIcon size={14} className="opacity-75" />
+                  <span className="truncate">{selectedDate ? format(selectedDate, "PPP") : "Pick a date"}</span>
+                  <ChevronDown size={14} className="ml-auto opacity-65" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus />
+              </PopoverContent>
+            </Popover>
+
             {(["all", "high", "medium", "low"] as const).map((impact) => (
               <button
                 key={impact}
@@ -140,7 +163,10 @@ export default function EconomicCalendar() {
                   <tr
                     key={event.id}
                     onClick={() => setActiveEventId(event.id)}
-                    className={cn("cursor-pointer hover:bg-[var(--surface-hover)]", activeEvent.id === event.id && "bg-[var(--surface-hover)]")}
+                    className={cn(
+                      "cursor-pointer hover:bg-[var(--surface-hover)]",
+                      activeEvent?.id === event.id && "bg-[var(--surface-hover)]"
+                    )}
                   >
                     <td className="px-3 py-2 font-semibold">{event.time}</td>
                     <td className="px-3 py-2 font-semibold text-[var(--ink-primary)]">{event.currency}</td>
@@ -181,8 +207,8 @@ export default function EconomicCalendar() {
               <ShieldCheck size={16} className="text-[var(--ink-primary)]" />
               <h3 className="ff-panel-title text-sm">Verified Analyst Insight</h3>
             </div>
-            <p className="font-semibold text-[var(--ink-primary)]">{activeEvent.event}</p>
-            <p className="mt-2 text-sm text-[var(--ink-muted)]">{activeEvent.verifiedOpinion ?? "Live event loaded. Insight pending from trusted analysts."}</p>
+            <p className="font-semibold text-[var(--ink-primary)]">{activeEvent?.event}</p>
+            <p className="mt-2 text-sm text-[var(--ink-muted)]">{activeEvent?.verifiedOpinion ?? "Live event loaded. Insight pending from trusted analysts."}</p>
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
               <div className="rounded border border-[var(--line-strong)] bg-[var(--surface-1)] p-2">
                 <p className="text-[var(--ink-muted)]">Confidence</p>
@@ -238,6 +264,3 @@ export default function EconomicCalendar() {
     </div>
   );
 }
-
-
-

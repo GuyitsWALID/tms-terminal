@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans, Rajdhani } from "next/font/google";
+import { IBM_Plex_Sans, Rajdhani, Geist } from "next/font/google";
 import "./globals.css";
 import GlobalLayout from "@/components/layout/GlobalLayout";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const plexSans = IBM_Plex_Sans({
   variable: "--font-plex-sans",
@@ -28,7 +31,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${plexSans.variable} ${rajdhani.variable} h-full antialiased`}
+      className={cn("h-full", "antialiased", plexSans.variable, rajdhani.variable, "font-sans", geist.variable)}
     >
       <body className="min-h-full flex flex-col">
         <GlobalLayout>
