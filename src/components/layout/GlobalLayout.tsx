@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -19,6 +19,7 @@ import {
   Moon,
   BarChart3,
   Home,
+  User,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,9 +37,11 @@ const menuItems = [
 export default function GlobalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [assetMode, setAssetMode] = useState("EURUSD");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [now, setNow] = useState("--:--:--");
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("tms-theme");
@@ -76,6 +79,23 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    const handleOutside = (event: MouseEvent) => {
+      if (!profileMenuRef.current) return;
+      if (!profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    if (isProfileMenuOpen) {
+      window.addEventListener("mousedown", handleOutside);
+    }
+
+    return () => {
+      window.removeEventListener("mousedown", handleOutside);
+    };
+  }, [isProfileMenuOpen]);
 
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
@@ -179,6 +199,45 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
             <div className="hidden w-[110px] xl:w-[126px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-3 py-1.5 sm:block">
               <p className="font-rajdhani text-base leading-none whitespace-nowrap">{now}</p>
               <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--ink-muted)]">UTC</p>
+            </div>
+
+            <div className="relative" ref={profileMenuRef}>
+              <button
+                onClick={() => setIsProfileMenuOpen((open) => !open)}
+                className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-2 text-[var(--ink-primary)]"
+                aria-label="Open user profile menu"
+                aria-expanded={isProfileMenuOpen}
+                aria-haspopup="menu"
+              >
+                <User size={14} />
+              </button>
+
+              {isProfileMenuOpen ? (
+                <div className="absolute right-0 top-11 z-[70] w-48 rounded-md border border-[var(--line-strong)] bg-[var(--surface-1)] p-2 shadow-lg" role="menu" aria-label="Profile menu">
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="mb-2 block rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)] hover:bg-[var(--surface-hover)]"
+                    role="menuitem"
+                  >
+                    Profile Page
+                  </Link>
+                  <button
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="mb-2 w-full rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)] hover:bg-[var(--surface-hover)]"
+                    role="menuitem"
+                  >
+                    Login
+                  </button>
+                  <button
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="w-full rounded-md bg-[var(--brand-strong)] px-3 py-2 text-xs font-bold uppercase tracking-wide text-white hover:opacity-90"
+                    role="menuitem"
+                  >
+                    Sign Up
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <button className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-2 lg:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>

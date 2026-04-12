@@ -3,6 +3,7 @@ export type ImpactLevel = 'high' | 'medium' | 'low';
 export interface EconomicEvent {
   id: string;
   time: string;
+  eventDate?: string;
   currency: string;
   event: string;
   actual: string;

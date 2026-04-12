@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, Calendar as CalendarIcon, ChevronDown, Folder, ShieldCheck, Star, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { calendarEvents, marketSentiment, sessions } from "@/lib/terminalData";
-import { fetchEconomicCalendar } from "@/lib/api/dataService";
+import { fetchEconomicCalendarWithMeta } from "@/lib/api/dataService";
 import type { EconomicEvent } from "@/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "../ui/calendar";
@@ -27,10 +27,15 @@ export default function EconomicCalendar() {
   const [starredEvents, setStarredEvents] = useState<Set<string>>(new Set(["ec-02"]));
   const [events, setEvents] = useState<EconomicEvent[]>(calendarEvents);
   const [activeEventId, setActiveEventId] = useState<string>(calendarEvents[0]?.id ?? "");
+  const [viewMode, setViewMode] = useState<"week" | "day">("week");
   const [impactFilter, setImpactFilter] = useState<"all" | "high" | "medium" | "low">("all");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const initialDateRef = useRef<Date | undefined>(new Date());
+  const [calendarSource, setCalendarSource] = useState<string>("unknown");
+  const [calendarCache, setCalendarCache] = useState<string>("unknown");
+  const [fallbackReason, setFallbackReason] = useState<string>("");
 
   useEffect(() => {
     let isMounted = true;
@@ -38,8 +43,13 @@ export default function EconomicCalendar() {
     const loadCalendar = async () => {
       setIsLoading(true);
       try {
-        const liveEvents = await fetchEconomicCalendar(selectedDate);
+        const result = await fetchEconomicCalendarWithMeta(initialDateRef.current);
+        const liveEvents = result.events;
         if (!isMounted) return;
+
+        setCalendarSource(result.source);
+        setCalendarCache(result.cache);
+        setFallbackReason(result.fallbackReason);
 
         if (Array.isArray(liveEvents) && liveEvents.length > 0) {
           setEvents(
@@ -69,16 +79,24 @@ export default function EconomicCalendar() {
     return () => {
       isMounted = false;
     };
-  }, [selectedDate]);
+  }, []);
+
+  const selectedDateKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : "";
+
+  const dateScopedEvents = useMemo(() => {
+    if (viewMode === "week") return events;
+    if (!selectedDateKey) return events;
+    return events.filter((event) => event.eventDate === selectedDateKey);
+  }, [events, viewMode, selectedDateKey]);
 
   const filteredEvents = useMemo(
-    () => events.filter((event) => impactFilter === "all" || event.impact === impactFilter),
-    [events, impactFilter]
+    () => dateScopedEvents.filter((event) => impactFilter === "all" || event.impact === impactFilter),
+    [dateScopedEvents, impactFilter]
   );
 
   const activeEvent = useMemo(() => {
-    return events.find((event) => event.id === activeEventId) ?? events[0] ?? calendarEvents[0];
-  }, [events, activeEventId]);
+    return filteredEvents.find((event) => event.id === activeEventId) ?? filteredEvents[0] ?? dateScopedEvents[0] ?? events[0] ?? calendarEvents[0];
+  }, [filteredEvents, dateScopedEvents, events, activeEventId]);
 
   const toggleStar = (id: string) => {
     const newStarred = new Set(starredEvents);
@@ -96,8 +114,40 @@ export default function EconomicCalendar() {
             <p className="mt-1 text-sm text-[var(--ink-muted)]">Live releases, verified opinions, and pre-event alerts.</p>
             {isLoading ? <p className="mt-1 text-xs text-[var(--ink-muted)]">Syncing live calendar...</p> : null}
             {errorMessage ? <p className="mt-1 text-xs text-[#ff9d7a]">{errorMessage}</p> : null}
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+              <span className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-0.5 text-[var(--ink-muted)]">
+                Source: <span className="font-semibold text-[var(--ink-primary)]">{calendarSource}</span>
+              </span>
+              <span className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-0.5 text-[var(--ink-muted)]">
+                Cache: <span className="font-semibold text-[var(--ink-primary)]">{calendarCache}</span>
+              </span>
+              {fallbackReason ? (
+                <span className="rounded border border-[#ff9d7a55] bg-[#ff9d7a12] px-2 py-0.5 text-[#ffb38f]">Fallback: {fallbackReason}</span>
+              ) : null}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex overflow-hidden rounded border border-[var(--line-soft)]">
+              <button
+                onClick={() => setViewMode("week")}
+                className={cn(
+                  "px-2.5 py-1 text-xs font-semibold uppercase tracking-wide",
+                  viewMode === "week" ? "bg-[var(--surface-hover)] text-[var(--ink-primary)]" : "bg-[var(--surface-1)] text-[var(--ink-muted)]"
+                )}
+              >
+                Week
+              </button>
+              <button
+                onClick={() => setViewMode("day")}
+                className={cn(
+                  "border-l border-[var(--line-soft)] px-2.5 py-1 text-xs font-semibold uppercase tracking-wide",
+                  viewMode === "day" ? "bg-[var(--surface-hover)] text-[var(--ink-primary)]" : "bg-[var(--surface-1)] text-[var(--ink-muted)]"
+                )}
+              >
+                Selected Day
+              </button>
+            </div>
+
             <Popover>
               <PopoverTrigger asChild>
                 <Button
