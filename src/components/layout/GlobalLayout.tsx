@@ -173,14 +173,18 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
             </div>
 
             <div className="border-t border-[var(--line-soft)] bg-[var(--surface-1)]">
-              <div className="ff-scroll mx-auto flex max-w-[1460px] overflow-x-auto whitespace-nowrap px-1 md:px-4">
-                {[...tickerTape, ...tickerTape].map((item, idx) => (
-                  <div key={`${item.symbol}-${idx}`} className="flex min-w-fit items-center gap-2 border-r border-[var(--line-soft)] px-4 py-2 text-xs">
-                    <span className="font-semibold text-[var(--ink-primary)]">{item.symbol}</span>
-                    <span className="font-mono text-[var(--ink-primary)]">{item.price}</span>
-                    <span className={cn("font-semibold", item.isUp ? "text-[#31d488]" : "text-[#ff7878]")}>{item.change}</span>
-                  </div>
-                ))}
+              <div className="ticker-marquee mx-auto max-w-[1460px] px-1 md:px-4">
+                <div className="ticker-track whitespace-nowrap">
+                  {Array.from({ length: 4 }).flatMap((_, loop) =>
+                    tickerTape.map((item, idx) => (
+                      <div key={`${item.symbol}-${loop}-${idx}`} className="flex min-w-fit items-center gap-2 border-r border-[var(--line-soft)] px-4 py-2 text-xs">
+                        <span className="font-semibold text-[var(--ink-primary)]">{item.symbol}</span>
+                        <span className="font-mono text-[var(--ink-primary)]">{item.price}</span>
+                        <span className={cn("font-semibold", item.isUp ? "text-[#31d488]" : "text-[#ff7878]")}>{item.change}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </header>
