@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
-import { Bell, MessageSquare, ShieldCheck, Star, TrendingUp } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Bell, Folder, ShieldCheck, Star, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { calendarEvents, marketSentiment, sessions } from "@/lib/terminalData";
+import { fetchEconomicCalendar } from "@/lib/api/dataService";
+import type { EconomicEvent } from "@/types";
 
 const IMPACT_COLORS = {
   high: "ff-impact-high",
@@ -11,12 +13,66 @@ const IMPACT_COLORS = {
   low: "ff-impact-low",
 };
 
+const IMPACT_FOLDER_COLORS = {
+  high: "text-[#ff636c]",
+  medium: "text-[#ffb347]",
+  low: "text-[#ffd84d]",
+};
+
 export default function EconomicCalendar() {
   const [starredEvents, setStarredEvents] = useState<Set<string>>(new Set(["ec-02"]));
-  const [activeEvent, setActiveEvent] = useState(calendarEvents[0]);
+  const [events, setEvents] = useState<EconomicEvent[]>(calendarEvents);
+  const [activeEventId, setActiveEventId] = useState<string>(calendarEvents[0]?.id ?? "");
   const [impactFilter, setImpactFilter] = useState<"all" | "high" | "medium" | "low">("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const filteredEvents = calendarEvents.filter((event) => impactFilter === "all" || event.impact === impactFilter);
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCalendar = async () => {
+      try {
+        const liveEvents = await fetchEconomicCalendar();
+        if (!isMounted) return;
+
+        if (Array.isArray(liveEvents) && liveEvents.length > 0) {
+          setEvents(
+            liveEvents.map((event) => ({
+              ...event,
+              verifiedOpinion: event.verifiedOpinion ?? "Live data connected. Analyst notes will appear when available.",
+              isStarred: event.isStarred ?? false,
+            }))
+          );
+          setActiveEventId((current) => current || liveEvents[0].id);
+          setErrorMessage(null);
+          return;
+        }
+
+        setErrorMessage("Calendar API returned no events. Showing fallback data.");
+      } catch (error: unknown) {
+        if (!isMounted) return;
+        const message = error instanceof Error ? error.message : "Unknown calendar error";
+        setErrorMessage(`${message}. Showing fallback data.`);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    loadCalendar();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const filteredEvents = useMemo(
+    () => events.filter((event) => impactFilter === "all" || event.impact === impactFilter),
+    [events, impactFilter]
+  );
+
+  const activeEvent = useMemo(() => {
+    return events.find((event) => event.id === activeEventId) ?? events[0];
+  }, [events, activeEventId]);
 
   const toggleStar = (id: string) => {
     const newStarred = new Set(starredEvents);
@@ -31,7 +87,9 @@ export default function EconomicCalendar() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-rajdhani text-3xl font-bold uppercase leading-none">Economic Calendar</h1>
-            <p className="mt-1 text-sm text-[var(--ink-muted)]">High-density releases, verified opinions, and pre-event alerts.</p>
+            <p className="mt-1 text-sm text-[var(--ink-muted)]">Live releases, verified opinions, and pre-event alerts.</p>
+            {isLoading ? <p className="mt-1 text-xs text-[var(--ink-muted)]">Syncing live calendar...</p> : null}
+            {errorMessage ? <p className="mt-1 text-xs text-[#ff9d7a]">{errorMessage}</p> : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {(["all", "high", "medium", "low"] as const).map((impact) => (
@@ -54,8 +112,8 @@ export default function EconomicCalendar() {
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_350px]">
         <div className="ff-panel overflow-hidden">
-          <div className="flex items-center justify-between border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-2">
-            <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">Today: Scheduled Releases</h2>
+          <div className="flex items-center justify-between border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-1.5">
+            <h2 className="ff-panel-title text-xs text-[var(--ink-primary)]">This Week: Economic Calendar</h2>
             <button className="rounded border border-[var(--line-strong)] bg-[var(--surface-1)] px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-primary)]">
               <Bell size={12} className="mr-1 inline" />
               Alert All Starred
@@ -70,6 +128,7 @@ export default function EconomicCalendar() {
                   <th className="px-3 py-2">Currency</th>
                   <th className="px-3 py-2">Event</th>
                   <th className="px-3 py-2 text-center">Impact</th>
+                  <th className="px-3 py-2 text-center">Detail</th>
                   <th className="px-3 py-2 text-center">Actual</th>
                   <th className="px-3 py-2 text-center">Forecast</th>
                   <th className="px-3 py-2 text-center">Previous</th>
@@ -80,19 +139,17 @@ export default function EconomicCalendar() {
                 {filteredEvents.map((event) => (
                   <tr
                     key={event.id}
-                    onClick={() => setActiveEvent(event)}
+                    onClick={() => setActiveEventId(event.id)}
                     className={cn("cursor-pointer hover:bg-[var(--surface-hover)]", activeEvent.id === event.id && "bg-[var(--surface-hover)]")}
                   >
                     <td className="px-3 py-2 font-semibold">{event.time}</td>
                     <td className="px-3 py-2 font-semibold text-[var(--ink-primary)]">{event.currency}</td>
-                    <td className="px-3 py-2">
-                      <span className="flex items-center gap-1 text-[var(--ink-primary)]">
-                        {event.event}
-                        {event.verifiedOpinion ? <MessageSquare size={12} className="text-[var(--ink-primary)]" /> : null}
-                      </span>
-                    </td>
+                    <td className="px-3 py-2 text-[var(--ink-primary)]">{event.event}</td>
                     <td className="px-3 py-2 text-center">
                       <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${IMPACT_COLORS[event.impact]}`}>{event.impact}</span>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <Folder size={14} className={`mx-auto ${IMPACT_FOLDER_COLORS[event.impact]}`} />
                     </td>
                     <td className="px-3 py-2 text-center font-mono text-[var(--ink-primary)]">{event.actual}</td>
                     <td className="px-3 py-2 text-center font-mono text-[var(--ink-muted)]">{event.forecast}</td>
@@ -125,7 +182,7 @@ export default function EconomicCalendar() {
               <h3 className="ff-panel-title text-sm">Verified Analyst Insight</h3>
             </div>
             <p className="font-semibold text-[var(--ink-primary)]">{activeEvent.event}</p>
-            <p className="mt-2 text-sm text-[var(--ink-muted)]">{activeEvent.verifiedOpinion}</p>
+            <p className="mt-2 text-sm text-[var(--ink-muted)]">{activeEvent.verifiedOpinion ?? "Live event loaded. Insight pending from trusted analysts."}</p>
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
               <div className="rounded border border-[var(--line-strong)] bg-[var(--surface-1)] p-2">
                 <p className="text-[var(--ink-muted)]">Confidence</p>

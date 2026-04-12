@@ -16,6 +16,21 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Live Economic Calendar Setup
+
+Create a `.env.local` file in the project root and add your RapidAPI key:
+
+```bash
+RAPIDAPI_KEY=your_rapidapi_key_here
+```
+
+The app now uses `GET /api/calendar` as a live proxy to:
+
+- Host: `forex-factory-scraper1.p.rapidapi.com`
+- Endpoint: `/get_calendar_details`
+
+If `RAPIDAPI_KEY` is missing or the provider fails, UI components automatically fall back to local mock calendar data.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

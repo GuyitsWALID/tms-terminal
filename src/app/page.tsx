@@ -1,14 +1,19 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, MessageSquare } from "lucide-react";
+import { ChevronRight, Folder } from "lucide-react";
 import {
-  calendarEvents,
   featuredNews,
   forumsMostReplied,
   hotStory,
   majorPairs,
   marketSentiment,
   sessions,
+  calendarEvents,
 } from "@/lib/terminalData";
+import { fetchEconomicCalendar } from "@/lib/api/dataService";
+import type { EconomicEvent } from "@/types";
 
 const impactClass = {
   high: "ff-impact-high",
@@ -16,7 +21,37 @@ const impactClass = {
   low: "ff-impact-low",
 };
 
+const impactFolderColor = {
+  high: "text-[#ff636c]",
+  medium: "text-[#ffb347]",
+  low: "text-[#ffd84d]",
+};
+
 export default function Home() {
+  const [liveCalendarEvents, setLiveCalendarEvents] = useState<EconomicEvent[]>(calendarEvents);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCalendar = async () => {
+      try {
+        const events = await fetchEconomicCalendar();
+        if (!isMounted) return;
+        if (Array.isArray(events) && events.length > 0) {
+          setLiveCalendarEvents(events);
+        }
+      } catch {
+        // Keep static fallback on failure.
+      }
+    };
+
+    loadCalendar();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <div className="space-y-3">
       <section className="ff-panel overflow-hidden">
@@ -85,24 +120,23 @@ export default function Home() {
                 <th className="px-3 py-2">Currency</th>
                 <th className="px-3 py-2">Event</th>
                 <th className="px-3 py-2 text-center">Impact</th>
+                <th className="px-3 py-2 text-center">Detail</th>
                 <th className="px-3 py-2 text-center">Actual</th>
                 <th className="px-3 py-2 text-center">Forecast</th>
                 <th className="px-3 py-2 text-center">Previous</th>
               </tr>
             </thead>
             <tbody>
-              {calendarEvents.map((event) => (
+              {liveCalendarEvents.map((event) => (
                 <tr key={event.id} className="hover:bg-[var(--surface-hover)]">
                   <td className="px-3 py-2 font-semibold">{event.time}</td>
                   <td className="px-3 py-2 font-semibold text-[var(--ink-primary)]">{event.currency}</td>
-                  <td className="px-3 py-2">
-                    <span className="flex items-center gap-1 text-[var(--ink-primary)]">
-                      {event.event}
-                      {event.verifiedOpinion ? <MessageSquare size={12} className="text-[var(--ink-primary)]" /> : null}
-                    </span>
-                  </td>
+                  <td className="px-3 py-2 text-[var(--ink-primary)]">{event.event}</td>
                   <td className="px-3 py-2 text-center">
                     <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${impactClass[event.impact]}`}>{event.impact}</span>
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <Folder size={14} className={`mx-auto ${impactFolderColor[event.impact]}`} />
                   </td>
                   <td className="px-3 py-2 text-center font-mono text-[var(--ink-primary)]">{event.actual}</td>
                   <td className="px-3 py-2 text-center font-mono text-[var(--ink-muted)]">{event.forecast}</td>

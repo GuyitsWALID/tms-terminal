@@ -1,6 +1,5 @@
-import { NextResponse } from 'next/server';
-import axios from 'axios';
-import * as cheerio from 'cheerio';
+import { NextRequest, NextResponse } from "next/server";
+import { calendarEvents } from "@/lib/terminalData";
 
 type CalendarApiEvent = {
   id: string;
@@ -10,56 +9,178 @@ type CalendarApiEvent = {
   actual: string;
   forecast: string;
   previous: string;
-  impact: 'high' | 'medium' | 'low';
+  impact: "high" | "medium" | "low";
+  isStarred: boolean;
 };
 
-export async function GET() {
+const RAPIDAPI_HOST = "forex-factory-scraper1.p.rapidapi.com";
+const RAPIDAPI_BASE_URL = `https://${RAPIDAPI_HOST}`;
+
+const fallbackCalendarEvents = (): CalendarApiEvent[] =>
+  calendarEvents.map((event) => ({
+    id: event.id,
+    time: event.time,
+    currency: event.currency,
+    event: event.event,
+    actual: event.actual,
+    forecast: event.forecast,
+    previous: event.previous,
+    impact: event.impact,
+    isStarred: event.isStarred,
+  }));
+
+const readField = (row: Record<string, unknown>, keys: string[], fallback = "-") => {
+  for (const key of keys) {
+    const value = row[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number") return String(value);
+  }
+  return fallback;
+};
+
+const parseImpact = (row: Record<string, unknown>): CalendarApiEvent["impact"] => {
+  const raw = ["impact", "impact_level", "volatility", "importance"]
+    .map((key) => row[key])
+    .filter((value) => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+
+  const redBars = (raw.match(/red|high|\uD83D\uDFE5/g) || []).length;
+  const orangeBars = (raw.match(/orange|med|moderate|\uD83D\uDFE7/g) || []).length;
+
+  if (raw.includes("high") || redBars >= 2) return "high";
+  if (raw.includes("medium") || raw.includes("med") || orangeBars >= 2) return "medium";
+  return "low";
+};
+
+const normalizePayload = (payload: unknown): CalendarApiEvent[] => {
+  const root = (payload ?? {}) as Record<string, unknown>;
+  const candidates = [
+    root,
+    (root.data ?? null) as Record<string, unknown> | null,
+    (root.result ?? null) as Record<string, unknown> | null,
+  ].filter(Boolean) as Record<string, unknown>[];
+
+  let rows: unknown[] = [];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      rows = candidate;
+      break;
+    }
+    if (Array.isArray(candidate.events)) {
+      rows = candidate.events;
+      break;
+    }
+    if (Array.isArray(candidate.calendar)) {
+      rows = candidate.calendar;
+      break;
+    }
+    if (Array.isArray(candidate.results)) {
+      rows = candidate.results;
+      break;
+    }
+  }
+
+  if (!rows.length && Array.isArray(payload)) rows = payload;
+
+  return rows
+    .map((item, index) => {
+      const row = (item ?? {}) as Record<string, unknown>;
+      const currency = readField(row, ["currency", "currency_code", "ccy"], "N/A");
+      const event = readField(row, ["event", "event_name", "title", "name"], "Untitled Event");
+      const time = readField(row, ["time", "event_time", "date_time", "datetime"], "All Day");
+
+      const idSource = readField(row, ["id", "event_id", "timestamp"], `${currency}-${event}-${index}`);
+      const safeId = idSource.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-_]/g, "").toLowerCase();
+
+      return {
+        id: safeId || `event-${index}`,
+        time,
+        currency,
+        event,
+        actual: readField(row, ["actual", "actual_value"], "-"),
+        forecast: readField(row, ["forecast", "forecast_value", "consensus"], "-"),
+        previous: readField(row, ["previous", "previous_value", "prior"], "-"),
+        impact: parseImpact(row),
+        isStarred: false,
+      } satisfies CalendarApiEvent;
+    })
+    .filter((event) => Boolean(event.currency && event.event));
+};
+
+export async function GET(request: NextRequest) {
   try {
-    // We target the specific page for the Economic Calendar
-    const response = await axios.get('https://www.forexfactory.com/calendar', {
+    const apiKey = process.env.RAPIDAPI_KEY;
+    if (!apiKey) {
+      return NextResponse.json(fallbackCalendarEvents(), {
+        headers: {
+          "x-calendar-source": "fallback",
+          "x-calendar-fallback-reason": "missing-api-key",
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
+    const now = new Date();
+    const search = request.nextUrl.searchParams;
+    const year = search.get("year") ?? String(now.getUTCFullYear());
+    const month = search.get("month") ?? String(now.getUTCMonth() + 1);
+    const day = search.get("day") ?? String(now.getUTCDate());
+    const currency = search.get("currency") ?? "ALL";
+    const eventName = search.get("event_name") ?? "ALL";
+    const timezone = search.get("timezone") ?? "GMT+00:00";
+    const timeFormat = search.get("time_format") ?? "24h";
+
+    const url = new URL(`${RAPIDAPI_BASE_URL}/get_calendar_details`);
+    url.searchParams.set("year", year);
+    url.searchParams.set("month", month);
+    url.searchParams.set("day", day);
+    url.searchParams.set("currency", currency);
+    url.searchParams.set("event_name", eventName);
+    url.searchParams.set("timezone", timezone);
+    url.searchParams.set("time_format", timeFormat);
+
+    const upstream = await fetch(url, {
+      method: "GET",
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-      }
+        "x-rapidapi-key": apiKey,
+        "x-rapidapi-host": RAPIDAPI_HOST,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
     });
 
-    const $ = cheerio.load(response.data);
-    const events: CalendarApiEvent[] = [];
+    if (!upstream.ok) {
+      const details = await upstream.text();
+      console.error("Calendar provider request failed", { status: upstream.status, details });
 
-    // Forex Factory uses a specific table structure for their calendar
-    $('.calendar__row').each((_, el) => {
-      const row = $(el);
-      const time = row.find('.calendar__time').text().trim();
-      const currency = row.find('.calendar__currency').text().trim();
-      const event = row.find('.calendar__event').text().trim();
-      const actual = row.find('.calendar__actual').text().trim();
-      const forecast = row.find('.calendar__forecast').text().trim();
-      const previous = row.find('.calendar__previous').text().trim();
+      return NextResponse.json(fallbackCalendarEvents(), {
+        headers: {
+          "x-calendar-source": "fallback",
+          "x-calendar-fallback-reason": `provider-${upstream.status}`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
 
-      // Determine impact based on the 'impact' class (e.g., 'high', 'medium', 'low')
-      const impactClass = row.find('.calendar__impact').attr('class') || '';
-      let impact: CalendarApiEvent['impact'] = 'low';
-      if (impactClass.includes('high')) impact = 'high';
-      else if (impactClass.includes('medium')) impact = 'medium';
+    const payload = (await upstream.json()) as unknown;
+    const normalized = normalizePayload(payload);
 
-      if (event && currency) {
-        events.push({
-          id: Math.random().toString(36).substr(2, 9),
-          time,
-          currency,
-          event,
-          actual,
-          forecast,
-          previous,
-          impact,
-        });
-      }
+    return NextResponse.json(normalized, {
+      headers: {
+        "Cache-Control": "no-store",
+      },
     });
-
-    return NextResponse.json(events);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('ForexFactory Scraper Error:', message);
-    return NextResponse.json({ error: "Failed to scrape Forex Factory" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("RapidAPI Calendar Error:", message);
+    return NextResponse.json(fallbackCalendarEvents(), {
+      headers: {
+        "x-calendar-source": "fallback",
+        "x-calendar-fallback-reason": "runtime-error",
+        "Cache-Control": "no-store",
+      },
+    });
   }
 }
