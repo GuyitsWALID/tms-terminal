@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  Activity,
   BadgeAlert,
   Bell,
   Calendar,
@@ -18,17 +18,17 @@ import {
   Sun,
   Moon,
   BarChart3,
+  Home,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sessions, tickerTape } from "@/lib/terminalData";
 
 const menuItems = [
-  { id: "terminal", name: "Terminal", icon: Activity, path: "/" },
   { id: "calendar", name: "Calendar", icon: Calendar, path: "/calendar" },
   { id: "news", name: "News", icon: Newspaper, path: "/news" },
   { id: "analysis", name: "Analysis", icon: LineChart, path: "/analysis" },
-  { id: "charts", name: "Charts", icon: BarChart3, path: "/charts" },
+  { id: "charts", name: "Markets", icon: BarChart3, path: "/charts" },
   { id: "academy", name: "Academy", icon: GraduationCap, path: "/academy" },
   { id: "forum", name: "Forum", icon: ShieldCheck, path: "/forum" },
 ];
@@ -99,12 +99,27 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
           <header className="ff-topbar sticky top-0 z-50">
             <div className="mx-auto flex h-16 w-full max-w-[1460px] items-center justify-between gap-4 px-3 md:px-6">
           <div className="flex min-w-0 items-center gap-4 xl:gap-5">
-            <Link href="/" className="flex shrink-0 items-center gap-2 border-r border-[var(--line-soft)] pr-4 xl:pr-5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--brand-strong)] font-black text-white">T</div>
+            <Link href="/" className="flex shrink-0 items-center gap-2 border-r border-[var(--line-soft)] pr-3 xl:pr-4">
+              <Image
+                src="/TMSLOGO.png"
+                alt="TMS Logo"
+                width={36}
+                height={36}
+                className="h-9 w-9 rounded-md object-cover"
+                priority
+              />
               <div>
                 <p className="font-rajdhani text-xl font-bold uppercase leading-none tracking-wide">TMS Terminal</p>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">The Market Syndicate</p>
               </div>
+            </Link>
+
+            <Link
+              href="/"
+              aria-label="Home"
+              className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] text-[var(--ink-primary)] transition-colors hover:bg-[var(--surface-hover)] lg:flex"
+            >
+              <Home size={16} />
             </Link>
 
             <nav className="mr-2 hidden min-w-0 items-center gap-1 2xl:mr-3 lg:flex">
