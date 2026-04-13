@@ -12,10 +12,16 @@ export type EconomicCalendarResponse = {
   fallbackReason: string;
 };
 
-export async function fetchEconomicCalendarWithMeta(date?: Date): Promise<EconomicCalendarResponse> {
+export type EconomicCalendarFetchOptions = {
+  date?: Date;
+  scope?: "week" | "day" | "month";
+};
+
+export async function fetchEconomicCalendarWithMeta(options?: EconomicCalendarFetchOptions): Promise<EconomicCalendarResponse> {
+  const { date, scope = "week" } = options ?? {};
   const url = new URL("/api/calendar", window.location.origin);
 
-  url.searchParams.set("scope", "week");
+  url.searchParams.set("scope", scope);
   url.searchParams.set("tz_offset", "3");
 
   if (date) {
@@ -37,7 +43,7 @@ export async function fetchEconomicCalendarWithMeta(date?: Date): Promise<Econom
 }
 
 export async function fetchEconomicCalendar(date?: Date) {
-  const result = await fetchEconomicCalendarWithMeta(date);
+  const result = await fetchEconomicCalendarWithMeta({ date });
   return result.events;
 }
 

@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Bell, Calendar as CalendarIcon, ChevronDown, Folder, ShieldCheck, Star, TrendingUp } from "lucide-react";
-import { format } from "date-fns";
+import { endOfWeek, format, isSameMonth, isWithinInterval, startOfWeek } from "date-fns";
+import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { calendarEvents, marketSentiment, sessions } from "@/lib/terminalData";
 import { fetchEconomicCalendarWithMeta } from "@/lib/api/dataService";
@@ -23,19 +24,28 @@ const IMPACT_FOLDER_COLORS = {
   low: "text-[#ffd84d]",
 };
 
+const parseEventDate = (date: string | undefined) => {
+  if (!date) return null;
+  const [year, month, day] = date.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
 export default function EconomicCalendar() {
   const [starredEvents, setStarredEvents] = useState<Set<string>>(new Set(["ec-02"]));
   const [events, setEvents] = useState<EconomicEvent[]>(calendarEvents);
   const [activeEventId, setActiveEventId] = useState<string>(calendarEvents[0]?.id ?? "");
-  const [viewMode, setViewMode] = useState<"week" | "day">("week");
+  const [viewMode, setViewMode] = useState<"week" | "month" | "day">("week");
   const [impactFilter, setImpactFilter] = useState<"all" | "high" | "medium" | "low">("all");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const initialDateRef = useRef<Date | undefined>(new Date());
+  const [focusDate, setFocusDate] = useState<Date>(new Date());
+  const [selectedRange, setSelectedRange] = useState<DateRange | undefined>();
   const [calendarSource, setCalendarSource] = useState<string>("unknown");
   const [calendarCache, setCalendarCache] = useState<string>("unknown");
   const [fallbackReason, setFallbackReason] = useState<string>("");
+
+  const fetchAnchorDate = useMemo(() => new Date(focusDate.getFullYear(), focusDate.getMonth(), 1), [focusDate]);
 
   useEffect(() => {
     let isMounted = true;
@@ -43,28 +53,31 @@ export default function EconomicCalendar() {
     const loadCalendar = async () => {
       setIsLoading(true);
       try {
-        const result = await fetchEconomicCalendarWithMeta(initialDateRef.current);
-        const liveEvents = result.events;
+        const result = await fetchEconomicCalendarWithMeta({
+          date: fetchAnchorDate,
+          scope: "month",
+        });
+
         if (!isMounted) return;
 
         setCalendarSource(result.source);
         setCalendarCache(result.cache);
         setFallbackReason(result.fallbackReason);
 
-        if (Array.isArray(liveEvents) && liveEvents.length > 0) {
+        if (Array.isArray(result.events) && result.events.length > 0) {
           setEvents(
-            liveEvents.map((event) => ({
+            result.events.map((event) => ({
               ...event,
               verifiedOpinion: event.verifiedOpinion ?? "Live data connected. Analyst notes will appear when available.",
               isStarred: event.isStarred ?? false,
             }))
           );
-          setActiveEventId((current) => current || liveEvents[0].id);
+          setActiveEventId((current) => current || result.events[0].id);
           setErrorMessage(null);
           return;
         }
 
-        setErrorMessage("Calendar API returned no events. Showing fallback data.");
+        setErrorMessage("No events returned for this month from source. Showing latest available feed.");
       } catch (error: unknown) {
         if (!isMounted) return;
         const message = error instanceof Error ? error.message : "Unknown calendar error";
@@ -79,15 +92,56 @@ export default function EconomicCalendar() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [fetchAnchorDate]);
 
-  const selectedDateKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : "";
+  const normalizedRange = useMemo(() => {
+    if (!selectedRange?.from) return null;
+
+    const from = new Date(selectedRange.from.getFullYear(), selectedRange.from.getMonth(), selectedRange.from.getDate());
+    if (!selectedRange.to) return { from, to: null as Date | null };
+
+    const to = new Date(selectedRange.to.getFullYear(), selectedRange.to.getMonth(), selectedRange.to.getDate());
+    return from <= to ? { from, to } : { from: to, to: from };
+  }, [selectedRange]);
 
   const dateScopedEvents = useMemo(() => {
-    if (viewMode === "week") return events;
-    if (!selectedDateKey) return events;
-    return events.filter((event) => event.eventDate === selectedDateKey);
-  }, [events, viewMode, selectedDateKey]);
+    const monthRows = events.filter((event) => {
+      const eventDate = parseEventDate(event.eventDate);
+      return eventDate ? isSameMonth(eventDate, focusDate) : false;
+    });
+    const availableRows = monthRows.length > 0 ? monthRows : events;
+
+    if (viewMode === "month") return availableRows;
+
+    if (viewMode === "week") {
+      const weekStart = startOfWeek(focusDate, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(focusDate, { weekStartsOn: 1 });
+      const weekRows = availableRows.filter((event) => {
+        const eventDate = parseEventDate(event.eventDate);
+        return eventDate ? isWithinInterval(eventDate, { start: weekStart, end: weekEnd }) : false;
+      });
+
+      if (weekRows.length > 0) return weekRows;
+
+      const firstEventDate = parseEventDate(availableRows[0]?.eventDate);
+      if (!firstEventDate) return availableRows;
+
+      const sourceWeekStart = startOfWeek(firstEventDate, { weekStartsOn: 1 });
+      const sourceWeekEnd = endOfWeek(firstEventDate, { weekStartsOn: 1 });
+      return availableRows.filter((event) => {
+        const eventDate = parseEventDate(event.eventDate);
+        return eventDate ? isWithinInterval(eventDate, { start: sourceWeekStart, end: sourceWeekEnd }) : false;
+      });
+    }
+
+    if (!normalizedRange?.from || !normalizedRange.to) return [];
+    const rangeEnd = normalizedRange.to;
+
+    return availableRows.filter((event) => {
+      const eventDate = parseEventDate(event.eventDate);
+      return eventDate ? isWithinInterval(eventDate, { start: normalizedRange.from, end: rangeEnd }) : false;
+    });
+  }, [events, focusDate, viewMode, normalizedRange]);
 
   const filteredEvents = useMemo(
     () => dateScopedEvents.filter((event) => impactFilter === "all" || event.impact === impactFilter),
@@ -104,6 +158,30 @@ export default function EconomicCalendar() {
     else newStarred.add(id);
     setStarredEvents(newStarred);
   };
+
+  const dateTriggerLabel = useMemo(() => {
+    if (viewMode === "day") {
+      if (!normalizedRange?.from) return "Pick a date range";
+      if (!normalizedRange.to) return `Start: ${format(normalizedRange.from, "PPP")} (pick end date)`;
+      if (normalizedRange.from.getTime() === normalizedRange.to.getTime()) return format(normalizedRange.from, "PPP");
+      return `${format(normalizedRange.from, "MMM d, yyyy")} - ${format(normalizedRange.to, "MMM d, yyyy")}`;
+    }
+
+    return format(focusDate, "PPP");
+  }, [viewMode, normalizedRange, focusDate]);
+
+  const handleRangeSelect = (range: DateRange | undefined) => {
+    setSelectedRange(range);
+    if (range?.from) setFocusDate(range.from);
+  };
+
+  const handleDayDoubleClick = (day: Date) => {
+    const singleDay = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    setSelectedRange({ from: singleDay, to: singleDay });
+    setFocusDate(singleDay);
+  };
+
+  const tableTitle = viewMode === "month" ? "This Month: Economic Calendar" : viewMode === "day" ? "Selected Range: Economic Calendar" : "This Week: Economic Calendar";
 
   return (
     <div className="space-y-3">
@@ -122,7 +200,12 @@ export default function EconomicCalendar() {
                 Cache: <span className="font-semibold text-[var(--ink-primary)]">{calendarCache}</span>
               </span>
               {fallbackReason ? (
-                <span className="rounded border border-[#ff9d7a55] bg-[#ff9d7a12] px-2 py-0.5 text-[#ffb38f]">Fallback: {fallbackReason}</span>
+                <span className="rounded border border-[#ff9d7a55] bg-[#ff9d7a12] px-2 py-0.5 text-[#ffb38f]">Note: {fallbackReason}</span>
+              ) : null}
+              {viewMode === "day" && normalizedRange?.from && !normalizedRange.to ? (
+                <span className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-0.5 text-[var(--ink-muted)]">
+                  Range mode: pick an end date, or double-click any date for single-day mode.
+                </span>
               ) : null}
             </div>
           </div>
@@ -136,6 +219,15 @@ export default function EconomicCalendar() {
                 )}
               >
                 Week
+              </button>
+              <button
+                onClick={() => setViewMode("month")}
+                className={cn(
+                  "border-l border-[var(--line-soft)] px-2.5 py-1 text-xs font-semibold uppercase tracking-wide",
+                  viewMode === "month" ? "bg-[var(--surface-hover)] text-[var(--ink-primary)]" : "bg-[var(--surface-1)] text-[var(--ink-muted)]"
+                )}
+              >
+                Month
               </button>
               <button
                 onClick={() => setViewMode("day")}
@@ -152,16 +244,36 @@ export default function EconomicCalendar() {
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  data-empty={!selectedDate}
-                  className="h-8 w-[220px] justify-start gap-1.5 px-2.5 text-left text-[13px] font-normal text-[var(--ink-primary)] data-[empty=true]:text-[var(--ink-muted)]"
+                  className="h-8 w-[260px] justify-start gap-1.5 px-2.5 text-left text-[13px] font-normal text-[var(--ink-primary)]"
                 >
                   <CalendarIcon size={14} className="opacity-75" />
-                  <span className="truncate">{selectedDate ? format(selectedDate, "PPP") : "Pick a date"}</span>
+                  <span className="truncate">{dateTriggerLabel}</span>
                   <ChevronDown size={14} className="ml-auto opacity-65" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus />
+                {viewMode === "day" ? (
+                  <Calendar
+                    mode="range"
+                    selected={selectedRange}
+                    onSelect={handleRangeSelect}
+                    onDayClick={(day, _modifiers, event) => {
+                      if (event.detail === 2) handleDayDoubleClick(day);
+                    }}
+                    defaultMonth={focusDate}
+                    initialFocus
+                  />
+                ) : (
+                  <Calendar
+                    mode="single"
+                    selected={focusDate}
+                    onSelect={(date) => {
+                      if (!date) return;
+                      setFocusDate(date);
+                    }}
+                    initialFocus
+                  />
+                )}
               </PopoverContent>
             </Popover>
 
@@ -186,7 +298,7 @@ export default function EconomicCalendar() {
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_350px]">
         <div className="ff-panel overflow-hidden">
           <div className="flex items-center justify-between border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-1.5">
-            <h2 className="ff-panel-title text-xs text-[var(--ink-primary)]">This Week: Economic Calendar</h2>
+            <h2 className="ff-panel-title text-xs text-[var(--ink-primary)]">{tableTitle}</h2>
             <button className="rounded border border-[var(--line-strong)] bg-[var(--surface-1)] px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-primary)]">
               <Bell size={12} className="mr-1 inline" />
               Alert All Starred
