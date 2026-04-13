@@ -10,6 +10,7 @@ import {
   safeId,
   type CacheRecord,
 } from "@/lib/api/scraperUtils";
+import { getMonthJobCachedRows, triggerMonthScrapeJob } from "@/lib/api/calendarMonthJob";
 
 type CalendarApiEvent = {
   id: string;
@@ -237,12 +238,17 @@ export async function GET(request: NextRequest) {
   const now = new Date();
   const search = request.nextUrl.searchParams;
 
-  const year = search.get("year") ?? String(now.getUTCFullYear());
-  const month = search.get("month") ?? String(now.getUTCMonth() + 1);
-  const day = search.get("day") ?? String(now.getUTCDate());
+  const requestedYear = search.get("year") ?? String(now.getUTCFullYear());
+  const requestedMonth = search.get("month") ?? String(now.getUTCMonth() + 1);
+  const requestedDay = search.get("day") ?? String(now.getUTCDate());
   const rawScope = search.get("scope") ?? "week";
   const scope: "day" | "week" | "month" = rawScope === "day" || rawScope === "month" ? rawScope : "week";
   const tzOffset = Number(search.get("tz_offset") ?? "3");
+
+  // Month scope is always pinned to the real current month.
+  const year = scope === "month" ? String(now.getUTCFullYear()) : requestedYear;
+  const month = scope === "month" ? String(now.getUTCMonth() + 1) : requestedMonth;
+  const day = scope === "month" ? String(now.getUTCDate()) : requestedDay;
 
   const cacheKey =
     scope === "month"
@@ -261,6 +267,24 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    if (scope === "month") {
+      const monthJobRows = await getMonthJobCachedRows(Number(year), Number(month));
+      if (monthJobRows?.data.length) {
+        const monthResult = toClientRows(monthJobRows.data as ExportCalendarEvent[], tzOffset, true);
+        CACHE.set(cacheKey, makeCacheRecord(monthResult, "forexfactory-playwright-month"));
+        return NextResponse.json(monthResult, {
+          headers: {
+            "Cache-Control": "no-store",
+            "x-calendar-cache": "MISS",
+            "x-calendar-source": "forexfactory-playwright-month",
+          },
+        });
+      }
+
+      // Fire and forget: full-month scrape job refreshes cache in background.
+      triggerMonthScrapeJob(Number(year), Number(month));
+    }
+
     const exportedRows = await readExportFeed();
     const scopedRows = filterExportByScope(exportedRows, scope, year, month, day);
 
@@ -287,7 +311,7 @@ export async function GET(request: NextRequest) {
           "Cache-Control": "no-store",
           "x-calendar-cache": "MISS",
           "x-calendar-source": "forexfactory-export",
-          ...(scope === "month" ? { "x-calendar-fallback-reason": "source-limits-current-week" } : {}),
+          ...(scope === "month" ? { "x-calendar-fallback-reason": "source-limits-current-week-month-job-pending" } : {}),
         },
       });
     }

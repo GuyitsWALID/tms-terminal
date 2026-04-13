@@ -25,9 +25,9 @@ export async function fetchEconomicCalendarWithMeta(options?: EconomicCalendarFe
   url.searchParams.set("tz_offset", "3");
 
   if (date) {
-    url.searchParams.set("year", String(date.getUTCFullYear()));
-    url.searchParams.set("month", String(date.getUTCMonth() + 1));
-    url.searchParams.set("day", String(date.getUTCDate()));
+    url.searchParams.set("year", String(date.getFullYear()));
+    url.searchParams.set("month", String(date.getMonth() + 1));
+    url.searchParams.set("day", String(date.getDate()));
   }
 
   const res = await fetch(url.toString(), { cache: "no-store" });

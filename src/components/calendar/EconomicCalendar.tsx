@@ -32,10 +32,14 @@ const parseEventDate = (date: string | undefined) => {
 };
 
 export default function EconomicCalendar() {
+  const currentMonthAnchor = useMemo(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }, []);
   const [starredEvents, setStarredEvents] = useState<Set<string>>(new Set(["ec-02"]));
   const [events, setEvents] = useState<EconomicEvent[]>(calendarEvents);
   const [activeEventId, setActiveEventId] = useState<string>(calendarEvents[0]?.id ?? "");
-  const [viewMode, setViewMode] = useState<"week" | "month" | "day">("week");
+  const [viewMode, setViewMode] = useState<"week" | "month" | "day">("month");
   const [impactFilter, setImpactFilter] = useState<"all" | "high" | "medium" | "low">("all");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -45,10 +49,11 @@ export default function EconomicCalendar() {
   const [calendarCache, setCalendarCache] = useState<string>("unknown");
   const [fallbackReason, setFallbackReason] = useState<string>("");
 
-  const fetchAnchorDate = useMemo(() => new Date(focusDate.getFullYear(), focusDate.getMonth(), 1), [focusDate]);
+  const fetchAnchorDate = currentMonthAnchor;
 
   useEffect(() => {
     let isMounted = true;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
     const loadCalendar = async () => {
       setIsLoading(true);
@@ -64,6 +69,9 @@ export default function EconomicCalendar() {
         setCalendarCache(result.cache);
         setFallbackReason(result.fallbackReason);
 
+        const monthJobPending =
+          result.source === "forexfactory-export" && result.fallbackReason.includes("month-job-pending");
+
         if (Array.isArray(result.events) && result.events.length > 0) {
           setEvents(
             result.events.map((event) => ({
@@ -74,6 +82,13 @@ export default function EconomicCalendar() {
           );
           setActiveEventId((current) => current || result.events[0].id);
           setErrorMessage(null);
+
+          if (monthJobPending && isMounted) {
+            retryTimer = setTimeout(() => {
+              void loadCalendar();
+            }, 8000);
+          }
+
           return;
         }
 
@@ -90,6 +105,7 @@ export default function EconomicCalendar() {
     loadCalendar();
 
     return () => {
+      if (retryTimer) clearTimeout(retryTimer);
       isMounted = false;
     };
   }, [fetchAnchorDate]);
@@ -107,7 +123,7 @@ export default function EconomicCalendar() {
   const dateScopedEvents = useMemo(() => {
     const monthRows = events.filter((event) => {
       const eventDate = parseEventDate(event.eventDate);
-      return eventDate ? isSameMonth(eventDate, focusDate) : false;
+      return eventDate ? isSameMonth(eventDate, currentMonthAnchor) : false;
     });
     const availableRows = monthRows.length > 0 ? monthRows : events;
 
@@ -141,7 +157,7 @@ export default function EconomicCalendar() {
       const eventDate = parseEventDate(event.eventDate);
       return eventDate ? isWithinInterval(eventDate, { start: normalizedRange.from, end: rangeEnd }) : false;
     });
-  }, [events, focusDate, viewMode, normalizedRange]);
+  }, [events, focusDate, viewMode, normalizedRange, currentMonthAnchor]);
 
   const filteredEvents = useMemo(
     () => dateScopedEvents.filter((event) => impactFilter === "all" || event.impact === impactFilter),
@@ -260,7 +276,9 @@ export default function EconomicCalendar() {
                     onDayClick={(day, _modifiers, event) => {
                       if (event.detail === 2) handleDayDoubleClick(day);
                     }}
-                    defaultMonth={focusDate}
+                    defaultMonth={currentMonthAnchor}
+                    fromMonth={currentMonthAnchor}
+                    toMonth={currentMonthAnchor}
                     initialFocus
                   />
                 ) : (
@@ -271,6 +289,9 @@ export default function EconomicCalendar() {
                       if (!date) return;
                       setFocusDate(date);
                     }}
+                    defaultMonth={currentMonthAnchor}
+                    fromMonth={currentMonthAnchor}
+                    toMonth={currentMonthAnchor}
                     initialFocus
                   />
                 )}
