@@ -6,10 +6,19 @@ export interface EconomicEvent {
   eventDate?: string;
   currency: string;
   event: string;
+  detailId?: string;
   actual: string;
   forecast: string;
   previous: string;
   impact: ImpactLevel;
+  scrapedDetail?: {
+    source?: string;
+    usualEffect?: string;
+    frequency?: string;
+    nextRelease?: string;
+    ffNotes?: string;
+    whyTradersCare?: string;
+  };
   verifiedOpinion?: string;
   isStarred: boolean;
 }

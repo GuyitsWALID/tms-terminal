@@ -18,6 +18,15 @@ type CalendarApiEvent = {
   eventDate?: string;
   currency: string;
   event: string;
+  detailId?: string;
+  scrapedDetail?: {
+    source?: string;
+    usualEffect?: string;
+    frequency?: string;
+    nextRelease?: string;
+    ffNotes?: string;
+    whyTradersCare?: string;
+  };
   actual: string;
   forecast: string;
   previous: string;
@@ -28,6 +37,7 @@ type CalendarApiEvent = {
 type ExportCalendarEvent = CalendarApiEvent & { dateKey: string };
 
 const FOREX_FACTORY_EXPORT_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml";
+const CACHE_VERSION = "v3";
 const CACHE = new Map<string, CacheRecord<CalendarApiEvent[]>>();
 const EXPORT_CACHE = new Map<string, CacheRecord<ExportCalendarEvent[]>>();
 const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -252,8 +262,8 @@ export async function GET(request: NextRequest) {
 
   const cacheKey =
     scope === "month"
-      ? `${year}-${month}-${scope}-${tzOffset}`
-      : `${year}-${month}-${day}-${scope}-${tzOffset}`;
+      ? `${CACHE_VERSION}-${year}-${month}-${scope}-${tzOffset}`
+      : `${CACHE_VERSION}-${year}-${month}-${day}-${scope}-${tzOffset}`;
 
   const cached = CACHE.get(cacheKey);
   if (cached && isCacheFresh(cached)) {

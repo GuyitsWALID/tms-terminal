@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { normalizeText, safeId, type CacheRecord } from "@/lib/api/scraperUtils";
+import { hasDetailContent, scrapeForexFactoryDetails, type ForexFactoryDetail } from "@/lib/api/forexFactoryDetail";
 
 export type CalendarImpact = "high" | "medium" | "low";
 
@@ -11,6 +12,8 @@ export type MonthCalendarRow = {
   time: string;
   currency: string;
   event: string;
+  detailId?: string;
+  scrapedDetail?: ForexFactoryDetail;
   actual: string;
   forecast: string;
   previous: string;
@@ -139,6 +142,7 @@ const parseForexFactoryMonthPage = (html: string, year: number, month: number): 
     const impactText = `${row.find(".calendar__impact, [class*='calendar__impact']").attr("class") ?? ""} ${normalizeText(
       row.find(".calendar__impact, [class*='calendar__impact']").text()
     )}`;
+    const detailId = normalizeText(row.attr("data-event-id"));
 
     parsedRows.push({
       id: safeId(`${carryCurrency}-${eventName}-${carryDateKey}-${carryTime}`, index),
@@ -146,6 +150,7 @@ const parseForexFactoryMonthPage = (html: string, year: number, month: number): 
       time: carryTime || "All Day",
       currency: carryCurrency,
       event: eventName,
+      detailId: detailId || undefined,
       actual: normalizeText(row.find(".calendar__actual, td.calendar__actual, [class*='calendar__actual']").first().text()) || "-",
       forecast: normalizeText(row.find(".calendar__forecast, td.calendar__forecast, [class*='calendar__forecast']").first().text()) || "-",
       previous: normalizeText(row.find(".calendar__previous, td.calendar__previous, [class*='calendar__previous']").first().text()) || "-",
@@ -200,6 +205,7 @@ const parseForexFactoryDayPage = (html: string, year: number, month: number, day
     const impactText = `${row.find(".calendar__impact, [class*='calendar__impact']").attr("class") ?? ""} ${normalizeText(
       row.find(".calendar__impact, [class*='calendar__impact']").text()
     )}`;
+    const detailId = normalizeText(row.attr("data-event-id"));
 
     parsedRows.push({
       id: safeId(`${carryCurrency}-${eventName}-${dateKey}-${carryTime}`, index),
@@ -207,6 +213,7 @@ const parseForexFactoryDayPage = (html: string, year: number, month: number, day
       time: carryTime || "All Day",
       currency: carryCurrency,
       event: eventName,
+      detailId: detailId || undefined,
       actual: normalizeText(row.find(".calendar__actual, td.calendar__actual, [class*='calendar__actual']").first().text()) || "-",
       forecast: normalizeText(row.find(".calendar__forecast, td.calendar__forecast, [class*='calendar__forecast']").first().text()) || "-",
       previous: normalizeText(row.find(".calendar__previous, td.calendar__previous, [class*='calendar__previous']").first().text()) || "-",
@@ -230,6 +237,43 @@ const dedupeRows = (rows: MonthCalendarRow[]) => {
   }
 
   return deduped;
+};
+
+const mergeCachedDetails = (rows: MonthCalendarRow[], cachedRows: MonthCalendarRow[]) => {
+  const byDetailId = new Map<string, ForexFactoryDetail>();
+
+  for (const row of cachedRows) {
+    if (!row.detailId || !hasDetailContent(row.scrapedDetail)) continue;
+    byDetailId.set(row.detailId, row.scrapedDetail as ForexFactoryDetail);
+  }
+
+  return rows.map((row) => {
+    if (hasDetailContent(row.scrapedDetail)) return row;
+    if (!row.detailId) return row;
+
+    const cached = byDetailId.get(row.detailId);
+    if (!cached) return row;
+    return { ...row, scrapedDetail: cached };
+  });
+};
+
+const attachScrapedDetails = async (rows: MonthCalendarRow[]) => {
+  const detailIds = Array.from(new Set(rows.map((row) => row.detailId).filter((value): value is string => Boolean(value))));
+  if (detailIds.length === 0) return rows;
+
+  const detailMap = await scrapeForexFactoryDetails(detailIds, { maxConcurrency: 4 });
+
+  if (detailMap.size === 0) return rows;
+
+  return rows.map((row) => {
+    if (!row.detailId) return row;
+    const detail = detailMap.get(row.detailId);
+    if (!detail) return row;
+    return {
+      ...row,
+      scrapedDetail: detail,
+    };
+  });
 };
 
 const countUniqueDays = (rows: MonthCalendarRow[]) => new Set(rows.map((row) => row.dateKey)).size;
@@ -425,9 +469,15 @@ export const runMonthScrapeJob = async (year: number, month: number) => {
   });
 
   try {
-    const rows = await launchBrowserAndScrapeMonth(year, month);
+    const scrapedRows = await launchBrowserAndScrapeMonth(year, month);
+    const withDetails = await attachScrapedDetails(scrapedRows);
+
+    const existingCache = MONTH_CACHE.get(key);
+    const existingDisk = await readMonthCacheFromDisk(year, month);
+    const mergedRows = mergeCachedDetails(withDetails, existingCache?.data ?? existingDisk?.data ?? []);
+
     MONTH_CACHE.set(key, {
-      data: rows,
+      data: mergedRows,
       source: "forexfactory-playwright-month",
       createdAt: Date.now(),
       expiresAt: Date.now() + 60 * 60 * 1000,
@@ -441,7 +491,7 @@ export const runMonthScrapeJob = async (year: number, month: number) => {
       status: "completed",
       endedAt: Date.now(),
       lastSuccessAt: Date.now(),
-      rowCount: rows.length,
+      rowCount: mergedRows.length,
       lastError: undefined,
     });
   } catch (error: unknown) {

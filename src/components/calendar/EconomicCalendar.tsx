@@ -32,6 +32,7 @@ const parseEventDate = (date: string | undefined) => {
 };
 
 export default function EconomicCalendar() {
+  const [isHydrated, setIsHydrated] = useState(false);
   const currentMonthAnchor = useMemo(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -48,8 +49,15 @@ export default function EconomicCalendar() {
   const [calendarSource, setCalendarSource] = useState<string>("unknown");
   const [calendarCache, setCalendarCache] = useState<string>("unknown");
   const [fallbackReason, setFallbackReason] = useState<string>("");
+  const [detailModalEvent, setDetailModalEvent] = useState<EconomicEvent | null>(null);
+  const [detailModalLoading, setDetailModalLoading] = useState(false);
+  const [detailModalData, setDetailModalData] = useState<EconomicEvent["scrapedDetail"] | null>(null);
 
   const fetchAnchorDate = currentMonthAnchor;
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -176,6 +184,8 @@ export default function EconomicCalendar() {
   };
 
   const dateTriggerLabel = useMemo(() => {
+    if (!isHydrated) return "Loading date...";
+
     if (viewMode === "day") {
       if (!normalizedRange?.from) return "Pick a date range";
       if (!normalizedRange.to) return `Start: ${format(normalizedRange.from, "PPP")} (pick end date)`;
@@ -184,7 +194,7 @@ export default function EconomicCalendar() {
     }
 
     return format(focusDate, "PPP");
-  }, [viewMode, normalizedRange, focusDate]);
+  }, [viewMode, normalizedRange, focusDate, isHydrated]);
 
   const handleRangeSelect = (range: DateRange | undefined) => {
     setSelectedRange(range);
@@ -199,7 +209,30 @@ export default function EconomicCalendar() {
 
   const tableTitle = viewMode === "month" ? "This Month: Economic Calendar" : viewMode === "day" ? "Selected Range: Economic Calendar" : "This Week: Economic Calendar";
 
+  const openDetailModal = async (event: EconomicEvent) => {
+    setDetailModalEvent(event);
+    setDetailModalData(event.scrapedDetail ?? null);
+
+    if (!event.detailId) return;
+
+    setDetailModalLoading(true);
+    try {
+      const response = await fetch(`/api/calendar/detail?event_id=${encodeURIComponent(event.detailId)}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("detail fetch failed");
+      const detail = (await response.json()) as EconomicEvent["scrapedDetail"];
+      setDetailModalData(detail);
+    } catch {
+      setDetailModalData({
+        source: "Detail scrape unavailable right now.",
+        whyTradersCare: "The source detail panel is currently protected or unavailable.",
+      });
+    } finally {
+      setDetailModalLoading(false);
+    }
+  };
+
   return (
+    <>
     <div className="space-y-3">
       <div className="ff-panel p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -358,7 +391,17 @@ export default function EconomicCalendar() {
                       <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${IMPACT_COLORS[event.impact]}`}>{event.impact}</span>
                     </td>
                     <td className="px-3 py-2 text-center">
-                      <Folder size={14} className={`mx-auto ${IMPACT_FOLDER_COLORS[event.impact]}`} />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void openDetailModal(event);
+                        }}
+                        className="inline-flex items-center justify-center rounded p-1 hover:bg-[var(--surface-hover)]"
+                        title="Open event detail"
+                        aria-label={`Open detail for ${event.event}`}
+                      >
+                        <Folder size={14} className={IMPACT_FOLDER_COLORS[event.impact]} />
+                      </button>
                     </td>
                     <td className="px-3 py-2 text-center font-mono text-[var(--ink-primary)]">{event.actual}</td>
                     <td className="px-3 py-2 text-center font-mono text-[var(--ink-muted)]">{event.forecast}</td>
@@ -445,5 +488,51 @@ export default function EconomicCalendar() {
         </aside>
       </div>
     </div>
+
+      {detailModalEvent ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+          onClick={() => setDetailModalEvent(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded border border-[var(--line-strong)] bg-[var(--surface-2)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-3">
+              <h3 className="font-rajdhani text-2xl font-bold text-[var(--ink-primary)]">{detailModalEvent.event}</h3>
+              <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                {detailModalEvent.currency} | {detailModalEvent.time} | Impact: {detailModalEvent.impact.toUpperCase()}
+              </p>
+            </div>
+
+            <div className="space-y-4 p-4">
+              <section className="rounded border border-[var(--line-soft)] bg-[var(--surface-3)] p-3">
+                <h4 className="ff-panel-title text-sm text-[var(--ink-primary)]">Scraped Event Detail</h4>
+                {detailModalLoading ? <p className="mt-2 text-sm text-[var(--ink-muted)]">Loading detail...</p> : null}
+                {!detailModalLoading ? (
+                  <div className="mt-2 grid gap-2 text-sm">
+                    <p><span className="font-semibold text-[var(--ink-primary)]">Source:</span> {detailModalData?.source ?? "-"}</p>
+                    <p><span className="font-semibold text-[var(--ink-primary)]">Usual Effect:</span> {detailModalData?.usualEffect ?? "-"}</p>
+                    <p><span className="font-semibold text-[var(--ink-primary)]">Frequency:</span> {detailModalData?.frequency ?? "-"}</p>
+                    <p><span className="font-semibold text-[var(--ink-primary)]">Next Release:</span> {detailModalData?.nextRelease ?? "-"}</p>
+                    <p><span className="font-semibold text-[var(--ink-primary)]">FF Notes:</span> {detailModalData?.ffNotes ?? "-"}</p>
+                    <p><span className="font-semibold text-[var(--ink-primary)]">Why Traders Care:</span> {detailModalData?.whyTradersCare ?? "-"}</p>
+                  </div>
+                ) : null}
+              </section>
+
+              <section className="rounded border border-[var(--line-soft)] bg-[var(--surface-3)] p-3">
+                <h4 className="ff-panel-title text-sm text-[var(--ink-primary)]">Verified Perspective</h4>
+                <p className="mt-2 text-sm text-[var(--ink-muted)]">
+                  Reserved for verified analyst perspective. This section will be wired after login and verified-user roles are configured.
+                </p>
+              </section>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
