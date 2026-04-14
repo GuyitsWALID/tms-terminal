@@ -118,6 +118,47 @@ const parseFinancialJuiceNews = async (): Promise<NewsApiItem[]> => {
   return items;
 };
 
+const parseAlphaVantageNews = async (): Promise<NewsApiItem[]> => {
+  const apiKey = process.env.ALPHA_VANTAGE_KEY;
+  if (!apiKey || apiKey === "DEMO") return [];
+
+  const response = await fetchWithTimeout(
+    `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&topics=forex,financial_markets&sort=LATEST&limit=25&apikey=${apiKey}`,
+    12000
+  );
+
+  if (!response.ok) return [];
+
+  const payload = (await response.json()) as { feed?: Array<Record<string, unknown>> };
+  const feed = Array.isArray(payload.feed) ? payload.feed : [];
+
+  return feed
+    .map((item, index) => {
+      const headline = normalizeText(String(item.title ?? ""));
+      if (!headline || headline.length < 12) return null;
+
+      const category = normalizeText(String(item.category_within_source ?? "")) || "Macro";
+      const source = normalizeText(String(item.source ?? "Alpha Vantage")) || "Alpha Vantage";
+      const rawTime = normalizeText(String(item.time_published ?? ""));
+      const timestamp = rawTime ? rawTime : `${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+
+      const { sentiment, score } = analyzeSentiment(headline);
+      const impact = inferImpactFromText(`${headline} ${category}`);
+
+      return {
+        id: safeId(`${headline}-${timestamp}-${source}`, index),
+        timestamp,
+        headline,
+        impact,
+        sentiment,
+        sentimentScore: score,
+        source,
+        category,
+      } satisfies NewsApiItem;
+    })
+    .filter((item): item is NewsApiItem => Boolean(item));
+};
+
 const dedupeNews = (items: NewsApiItem[]) => {
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -141,70 +182,65 @@ export async function GET() {
   }
 
   try {
-    const forexFactoryItems = await parseForexFactoryNews();
-    if (forexFactoryItems.length > 0) {
-      const merged = dedupeNews(forexFactoryItems).slice(0, 40);
-      const record = makeCacheRecord(merged, "forexfactory");
+    const [ffResult, fjResult, alphaResult] = await Promise.allSettled([
+      parseForexFactoryNews(),
+      parseFinancialJuiceNews(),
+      parseAlphaVantageNews(),
+    ]);
+
+    const ffItems = ffResult.status === "fulfilled" ? ffResult.value : [];
+    const fjItems = fjResult.status === "fulfilled" ? fjResult.value : [];
+    const alphaItems = alphaResult.status === "fulfilled" ? alphaResult.value : [];
+
+    const mergedItems = dedupeNews([...ffItems, ...fjItems, ...alphaItems]).slice(0, 40);
+
+    if (mergedItems.length > 0) {
+      const sourceLabel = [
+        ffItems.length > 0 ? "forexfactory" : null,
+        fjItems.length > 0 ? "financialjuice" : null,
+        alphaItems.length > 0 ? "alphavantage" : null,
+      ]
+        .filter(Boolean)
+        .join(",");
+
+      const record = makeCacheRecord(mergedItems, sourceLabel || "multi-source");
       NEWS_CACHE.set(NEWS_CACHE_KEY, record);
 
-      return NextResponse.json(merged, {
+      return NextResponse.json(mergedItems, {
         headers: {
           "Cache-Control": "no-store",
           "x-news-cache": "MISS",
-          "x-news-source": "forexfactory",
+          "x-news-source": sourceLabel || "multi-source",
         },
       });
     }
 
-    throw new Error("ForexFactory parser returned no rows");
-  } catch (forexError: unknown) {
-    const ffMessage = forexError instanceof Error ? forexError.message : "forexfactory failed";
-    console.error("News scraper warning:", ffMessage);
+    throw new Error("All news sources returned no rows");
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "unknown news error";
+    console.error("News aggregation warning:", message);
 
-    try {
-      const fallbackItems = await parseFinancialJuiceNews();
-      if (fallbackItems.length > 0) {
-        const merged = dedupeNews(fallbackItems).slice(0, 40);
-        const record = makeCacheRecord(merged, "financialjuice");
-        NEWS_CACHE.set(NEWS_CACHE_KEY, record);
-
-        return NextResponse.json(merged, {
-          headers: {
-            "Cache-Control": "no-store",
-            "x-news-cache": "MISS",
-            "x-news-source": "financialjuice",
-            "x-news-fallback-reason": "forexfactory-failed",
-          },
-        });
-      }
-
-      throw new Error("FinancialJuice parser returned no rows");
-    } catch (fallbackError: unknown) {
-      const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "financialjuice failed";
-      console.error("News fallback warning:", fallbackMessage);
-
-      if (cached) {
-        return NextResponse.json(cached.data, {
-          headers: {
-            "Cache-Control": "no-store",
-            "x-news-cache": "STALE",
-            "x-news-source": cached.source,
-            "x-news-fallback-reason": "stale-cache",
-          },
-        });
-      }
-
-      const fallback = fallbackNewsItems();
-      NEWS_CACHE.set(NEWS_CACHE_KEY, makeCacheRecord(fallback, "local-fallback"));
-      return NextResponse.json(fallback, {
+    if (cached) {
+      return NextResponse.json(cached.data, {
         headers: {
           "Cache-Control": "no-store",
-          "x-news-cache": "MISS",
-          "x-news-source": "local-fallback",
-          "x-news-fallback-reason": "all-sources-failed",
+          "x-news-cache": "STALE",
+          "x-news-source": cached.source,
+          "x-news-fallback-reason": "stale-cache",
         },
       });
     }
+
+    const fallback = fallbackNewsItems();
+    NEWS_CACHE.set(NEWS_CACHE_KEY, makeCacheRecord(fallback, "local-fallback"));
+    return NextResponse.json(fallback, {
+      headers: {
+        "Cache-Control": "no-store",
+        "x-news-cache": "MISS",
+        "x-news-source": "local-fallback",
+        "x-news-fallback-reason": "all-sources-failed",
+      },
+    });
   } finally {
     for (const [key, value] of NEWS_CACHE.entries()) {
       if (Date.now() - value.createdAt > SCRAPER_TTL_MS * 6) NEWS_CACHE.delete(key);

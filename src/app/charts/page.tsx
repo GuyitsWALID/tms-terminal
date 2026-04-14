@@ -1,17 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ChevronDown, Settings } from "lucide-react";
 import TickerTape from "@/components/charts/TickerTape";
 import TradingChart from "@/components/charts/TradingChart";
 import { calendarEvents, featuredNews } from "@/lib/terminalData";
+import { useLiveTickers } from "@/hooks/useLiveTickers";
 
 export default function ChartsPage() {
   const [activeSymbol, setActiveSymbol] = useState("EUR/USD");
+  const { tickers } = useLiveTickers(1000);
 
   const compactSymbol = activeSymbol.replace("/", "");
   const topStories = featuredNews.slice(0, 6);
   const upcoming = calendarEvents.slice(0, 7);
+  const activeTicker = useMemo(() => tickers.find((item) => item.symbol === compactSymbol), [tickers, compactSymbol]);
 
   return (
     <div className="space-y-3">
@@ -32,7 +35,7 @@ export default function ChartsPage() {
               </div>
               <div className="flex items-end gap-4">
                 <h2 className="font-rajdhani text-5xl font-bold leading-none text-[var(--ink-primary)]">{activeSymbol}</h2>
-                <span className="font-mono text-4xl leading-none text-[var(--ink-primary)]">1.17225</span>
+                <span className="font-mono text-4xl leading-none text-[var(--ink-primary)]">{activeTicker?.price ?? "1.17225"}</span>
               </div>
               <p className="mt-2 text-xs text-[var(--ink-muted)]">As of 12:00am Apr 11 | Spread 0.8 | Session: London/NY overlap</p>
             </div>

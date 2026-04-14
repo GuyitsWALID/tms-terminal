@@ -5,6 +5,22 @@
 import type { EconomicEvent } from "@/types";
 import type { NewsItem } from "@/types/api";
 
+export type LiveTickerSymbol = "EURUSD" | "GBPUSD" | "USDJPY" | "AUDUSD" | "USDCAD" | "XAUUSD";
+
+export type LiveTicker = {
+  symbol: LiveTickerSymbol;
+  price: string;
+  change: string;
+  isUp: boolean;
+};
+
+export type LiveTickerResponse = {
+  tickers: LiveTicker[];
+  source: string;
+  cache: string;
+  fallbackReason: string;
+};
+
 export type EconomicCalendarResponse = {
   events: EconomicEvent[];
   source: string;
@@ -51,4 +67,22 @@ export async function fetchNewsFeed() {
   const res = await fetch("/api/news", { cache: "no-store" });
   if (!res.ok) throw new Error("News fetch failed");
   return (await res.json()) as NewsItem[];
+}
+
+export async function fetchLiveTickersWithMeta(): Promise<LiveTickerResponse> {
+  const res = await fetch("/api/tickers", { cache: "no-store" });
+  if (!res.ok) throw new Error("Ticker fetch failed");
+  const tickers = (await res.json()) as LiveTicker[];
+
+  return {
+    tickers,
+    source: res.headers.get("x-ticker-source") ?? "unknown",
+    cache: res.headers.get("x-ticker-cache") ?? "unknown",
+    fallbackReason: res.headers.get("x-ticker-fallback-reason") ?? "",
+  };
+}
+
+export async function fetchLiveTickers() {
+  const result = await fetchLiveTickersWithMeta();
+  return result.tickers;
 }

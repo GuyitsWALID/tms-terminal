@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Folder } from "lucide-react";
 import {
@@ -8,12 +8,14 @@ import {
   forumsMostReplied,
   hotStory,
   majorPairs,
+  type PairCard,
   marketSentiment,
   sessions,
   calendarEvents,
 } from "@/lib/terminalData";
 import { fetchEconomicCalendar } from "@/lib/api/dataService";
 import type { EconomicEvent } from "@/types";
+import { useLiveTickers } from "@/hooks/useLiveTickers";
 
 const impactClass = {
   high: "ff-impact-high",
@@ -29,6 +31,25 @@ const impactFolderColor = {
 
 export default function Home() {
   const [liveCalendarEvents, setLiveCalendarEvents] = useState<EconomicEvent[]>(calendarEvents);
+  const { tickers } = useLiveTickers(1000);
+
+  const liveMajors = useMemo<PairCard[]>(() => {
+    const bySymbol = new Map<string, (typeof tickers)[number]>(tickers.map((ticker) => [ticker.symbol, ticker]));
+
+    return majorPairs.map((pair) => {
+      const compact = pair.symbol.replace("/", "");
+      const ticker = bySymbol.get(compact);
+
+      if (!ticker) return pair;
+
+      return {
+        ...pair,
+        bid: ticker.price,
+        change6h: ticker.change,
+        direction: ticker.isUp ? "up" : "down",
+      };
+    });
+  }, [tickers]);
 
   useEffect(() => {
     let isMounted = true;
@@ -59,7 +80,7 @@ export default function Home() {
           Majors
         </div>
         <div className="ff-scroll grid grid-cols-2 divide-x divide-y divide-[var(--line-soft)] overflow-x-auto md:grid-cols-4 xl:grid-cols-8 xl:divide-y-0">
-          {majorPairs.map((pair) => (
+          {liveMajors.map((pair) => (
             <div key={pair.symbol} className="min-w-[160px] bg-[var(--surface-2)] px-3 py-3">
               <p className="font-rajdhani text-lg font-bold leading-none text-[var(--ink-primary)]">{pair.symbol}</p>
               <p className="mt-2 font-mono text-lg text-[var(--ink-primary)]">{pair.bid}</p>
