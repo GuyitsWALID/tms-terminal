@@ -35,13 +35,13 @@ export default function AcademyPage() {
   return (
     <div className="space-y-3">
       <div className="ff-panel p-4">
-        <h1 className="font-rajdhani text-3xl font-bold uppercase leading-none">Academy XP Arena</h1>
+        <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Academy XP Arena</h1>
         <p className="mt-1 text-sm text-[var(--ink-muted)]">Gamified macro training with AI-generated fundamentals and progression rewards.</p>
       </div>
 
       <section className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="ff-panel p-4">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="ff-panel-title text-xs text-[var(--ink-muted)]">Topic</p>
               <p className="font-semibold text-[var(--ink-primary)]">{question.topic}</p>

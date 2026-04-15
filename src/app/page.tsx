@@ -86,11 +86,11 @@ export default function Home() {
         <div className="border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-[var(--ink-primary)]">
           Majors
         </div>
-        <div className="ff-scroll grid grid-cols-2 divide-x divide-y divide-[var(--line-soft)] overflow-x-auto md:grid-cols-4 xl:grid-cols-8 xl:divide-y-0">
+        <div className="ff-scroll grid grid-cols-2 divide-x divide-y divide-[var(--line-soft)] overflow-x-auto sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-8 xl:divide-y-0">
           {liveMajors.map((pair) => (
-            <div key={pair.symbol} className="min-w-[160px] bg-[var(--surface-2)] px-3 py-3">
-              <p className="font-rajdhani text-lg font-bold leading-none text-[var(--ink-primary)]">{pair.symbol}</p>
-              <p className="mt-2 font-mono text-lg text-[var(--ink-primary)]">{pair.bid}</p>
+            <div key={pair.symbol} className="min-w-[140px] bg-[var(--surface-2)] px-2.5 py-3 sm:min-w-[160px] sm:px-3">
+              <p className="font-rajdhani text-base font-bold leading-none text-[var(--ink-primary)] sm:text-lg">{pair.symbol}</p>
+              <p className="mt-2 font-mono text-base text-[var(--ink-primary)] sm:text-lg">{pair.bid}</p>
               <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--ink-muted)]">
                 <span>Spread {pair.spread}</span>
                 <span className={pair.direction === "up" ? "text-[#34d58c]" : "text-[#ff7c7c]"}>{pair.change6h}</span>
@@ -134,8 +134,8 @@ export default function Home() {
 
       <section className="ff-panel overflow-hidden">
         <div className="flex items-center justify-between border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-2">
-          <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">Today: Apr 12</h2>
-          <div className="flex gap-2 text-[11px] text-[var(--ink-muted)]">
+            <h2 className="ff-panel-title text-xs sm:text-sm text-[var(--ink-primary)]">Today: Apr 12</h2>
+          <div className="hidden gap-2 text-[11px] text-[var(--ink-muted)] sm:flex">
             <span>Search Events</span>
             <span>Filter</span>
           </div>
@@ -164,7 +164,7 @@ export default function Home() {
                     <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${impactClass[event.impact]}`}>{event.impact}</span>
                   </td>
                   <td className="px-3 py-2 text-center">
-                    <Folder size={14} className={`mx-auto ${impactFolderColor[event.impact]}`} />
+                    <Folder size={14} className={`mx-auto fill-current ${impactFolderColor[event.impact]}`} />
                   </td>
                   <td className="px-3 py-2 text-center font-mono text-[var(--ink-primary)]">{event.actual}</td>
                   <td className="px-3 py-2 text-center font-mono text-[var(--ink-muted)]">{event.forecast}</td>
@@ -228,7 +228,7 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="flex justify-end">
+      <div className="flex justify-stretch sm:justify-end">
         <Link href="/calendar" className="inline-flex items-center gap-2 rounded-md border border-[var(--line-strong)] bg-[var(--surface-1)] px-3 py-2 text-xs font-bold uppercase tracking-wider text-[var(--ink-primary)] hover:bg-[var(--surface-hover)]">
           Open Full Calendar
           <ChevronRight size={14} />

@@ -50,7 +50,7 @@ export default function NewsFeed() {
       <div className="ff-panel p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="font-rajdhani text-3xl font-bold uppercase leading-none">Signal News Terminal</h1>
+            <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Signal News Terminal</h1>
             <p className="mt-1 text-sm text-[var(--ink-muted)]">Curated headlines inspired by Financial Juice with sentiment scoring.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -90,7 +90,7 @@ export default function NewsFeed() {
                     activeNews?.id === item.id && "bg-[var(--surface-hover)]"
                   )}
                 >
-                  <div className="mb-1 flex items-center gap-2 text-[10px] uppercase text-[var(--ink-muted)]">
+                  <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] uppercase text-[var(--ink-muted)]">
                     <span>{item.timestamp}</span>
                     <span>|</span>
                     <span>{item.source}</span>
@@ -98,7 +98,7 @@ export default function NewsFeed() {
                     <span>{item.category}</span>
                     <span
                       className={cn(
-                        "ml-auto rounded px-1.5 py-0.5 font-bold",
+                        "rounded px-1.5 py-0.5 font-bold sm:ml-auto",
                         item.impact === "high"
                           ? "bg-[#ff4b55] text-white"
                           : item.impact === "medium"

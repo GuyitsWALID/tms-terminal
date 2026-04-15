@@ -11,7 +11,7 @@ export default function ForumPage() {
   return (
     <div className="space-y-3">
       <div className="ff-panel p-4">
-        <h1 className="font-rajdhani text-3xl font-bold uppercase leading-none">Community Forum</h1>
+        <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Community Forum</h1>
         <p className="mt-1 text-sm text-[var(--ink-muted)]">Trader conversations, journals, and event-driven strategy discussions.</p>
       </div>
 
@@ -53,7 +53,7 @@ export default function ForumPage() {
               <h3 className="ff-panel-title text-sm">Verified Channels</h3>
             </div>
             <p className="text-xs text-[var(--ink-muted)]">Verified traders have dedicated channels for pre-event playbooks and post-release debriefs.</p>
-            <button className="mt-3 inline-flex items-center gap-2 rounded border border-[var(--line-strong)] bg-[var(--surface-1)] px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-[var(--ink-primary)]">
+            <button className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded border border-[var(--line-strong)] bg-[var(--surface-1)] px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-[var(--ink-primary)] sm:w-auto sm:justify-start">
               <MessageCircleMore size={13} />
               Open Verified Chat
             </button>

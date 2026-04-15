@@ -223,6 +223,27 @@ export default function EconomicCalendar() {
 
   const tableTitle = viewMode === "month" ? "This Month: Economic Calendar" : viewMode === "day" ? "Selected Range: Economic Calendar" : "This Week: Economic Calendar";
 
+  const detailRows = useMemo(() => {
+    if (!detailModalData) return [] as Array<{ title: string; value: string }>;
+
+    if (Array.isArray(detailModalData.items) && detailModalData.items.length > 0) {
+      return detailModalData.items.filter((item) => item.title && item.value);
+    }
+
+    const fallbackRows = [
+      { title: "Source", value: detailModalData.source },
+      { title: "Usual Effect", value: detailModalData.usualEffect },
+      { title: "Frequency", value: detailModalData.frequency },
+      { title: "Next Release", value: detailModalData.nextRelease },
+      { title: "FF Notes", value: detailModalData.ffNotes },
+      { title: "Why Traders Care", value: detailModalData.whyTradersCare },
+    ];
+
+    return fallbackRows
+      .filter((item): item is { title: string; value: string } => Boolean(item.value && item.value.trim()))
+      .map((item) => ({ title: item.title, value: item.value }));
+  }, [detailModalData]);
+
   const openDetailModal = async (event: EconomicEvent) => {
     setDetailModalEvent(event);
     setDetailModalData(event.scrapedDetail ?? null);
@@ -251,7 +272,7 @@ export default function EconomicCalendar() {
       <div className="ff-panel p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="font-rajdhani text-3xl font-bold uppercase leading-none">Economic Calendar</h1>
+            <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Economic Calendar</h1>
             <p className="mt-1 text-sm text-[var(--ink-muted)]">Live releases, verified opinions, and pre-event alerts.</p>
             {isLoading ? <p className="mt-1 text-xs text-[var(--ink-muted)]">Syncing live calendar...</p> : null}
             {errorMessage ? <p className="mt-1 text-xs text-[#ff9d7a]">{errorMessage}</p> : null}
@@ -272,7 +293,7 @@ export default function EconomicCalendar() {
               ) : null}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
             <div className="inline-flex overflow-hidden rounded border border-[var(--line-soft)]">
               <button
                 onClick={() => setViewMode("week")}
@@ -307,7 +328,7 @@ export default function EconomicCalendar() {
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-8 w-[260px] justify-start gap-1.5 px-2.5 text-left text-[13px] font-normal text-[var(--ink-primary)]"
+                  className="h-8 w-full min-w-0 justify-start gap-1.5 px-2.5 text-left text-[13px] font-normal text-[var(--ink-primary)] sm:w-[260px]"
                 >
                   <CalendarIcon size={14} className="opacity-75" />
                   <span className="truncate">{dateTriggerLabel}</span>
@@ -366,15 +387,15 @@ export default function EconomicCalendar() {
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_350px]">
         <div className="ff-panel overflow-hidden">
           <div className="flex items-center justify-between border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-1.5">
-            <h2 className="ff-panel-title text-xs text-[var(--ink-primary)]">{tableTitle}</h2>
-            <button className="rounded border border-[var(--line-strong)] bg-[var(--surface-1)] px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-primary)]">
+            <h2 className="ff-panel-title text-[11px] sm:text-xs text-[var(--ink-primary)]">{tableTitle}</h2>
+            <button className="hidden rounded border border-[var(--line-strong)] bg-[var(--surface-1)] px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--ink-primary)] sm:block">
               <Bell size={12} className="mr-1 inline" />
               Alert All Starred
             </button>
           </div>
 
           <div className="ff-scroll overflow-x-auto bg-[var(--surface-2)]">
-            <table className="ff-table min-w-full text-left text-sm">
+            <table className="ff-table min-w-[760px] text-left text-sm sm:min-w-full">
               <thead className="text-xs uppercase text-[var(--ink-muted)]">
                 <tr>
                   <th className="px-3 py-2">Time</th>
@@ -421,7 +442,7 @@ export default function EconomicCalendar() {
                         title="Open event detail"
                         aria-label={`Open detail for ${event.event}`}
                       >
-                        <Folder size={14} className={IMPACT_FOLDER_COLORS[event.impact]} />
+                        <Folder size={14} className={`${IMPACT_FOLDER_COLORS[event.impact]} fill-current`} />
                       </button>
                     </td>
                     <td className="px-3 py-2 text-center font-mono text-[var(--ink-primary)]">{event.actual}</td>
@@ -522,7 +543,7 @@ export default function EconomicCalendar() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-3">
-              <h3 className="font-rajdhani text-2xl font-bold text-[var(--ink-primary)]">{detailModalEvent.event}</h3>
+              <h3 className="font-rajdhani text-xl font-bold text-[var(--ink-primary)] sm:text-2xl">{detailModalEvent.event}</h3>
               <p className="mt-1 text-xs text-[var(--ink-muted)]">
                 {detailModalEvent.currency} | {detailModalEvent.time} | Impact: {detailModalEvent.impact.toUpperCase()}
               </p>
@@ -534,12 +555,13 @@ export default function EconomicCalendar() {
                 {detailModalLoading ? <p className="mt-2 text-sm text-[var(--ink-muted)]">Loading detail...</p> : null}
                 {!detailModalLoading ? (
                   <div className="mt-2 grid gap-2 text-sm">
-                    <p><span className="font-semibold text-[var(--ink-primary)]">Source:</span> {detailModalData?.source ?? "-"}</p>
-                    <p><span className="font-semibold text-[var(--ink-primary)]">Usual Effect:</span> {detailModalData?.usualEffect ?? "-"}</p>
-                    <p><span className="font-semibold text-[var(--ink-primary)]">Frequency:</span> {detailModalData?.frequency ?? "-"}</p>
-                    <p><span className="font-semibold text-[var(--ink-primary)]">Next Release:</span> {detailModalData?.nextRelease ?? "-"}</p>
-                    <p><span className="font-semibold text-[var(--ink-primary)]">FF Notes:</span> {detailModalData?.ffNotes ?? "-"}</p>
-                    <p><span className="font-semibold text-[var(--ink-primary)]">Why Traders Care:</span> {detailModalData?.whyTradersCare ?? "-"}</p>
+                    {detailRows.length === 0 ? <p className="text-[var(--ink-muted)]">No structured detail fields available for this event.</p> : null}
+                    {detailRows.map((row) => (
+                      <div key={`${row.title}-${row.value.slice(0, 24)}`} className="rounded border border-[var(--line-soft)] bg-[var(--surface-2)] p-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)]">{row.title}</p>
+                        <p className="mt-1 text-sm text-[var(--ink-muted)]">{row.value}</p>
+                      </div>
+                    ))}
                   </div>
                 ) : null}
               </section>

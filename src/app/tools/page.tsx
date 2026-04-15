@@ -44,7 +44,7 @@ export default function ToolsPage() {
               <Wrench size={12} />
               TMS Tools
             </div>
-            <h1 className="font-rajdhani text-3xl font-bold uppercase leading-none">Free Tools Hub</h1>
+            <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Free Tools Hub</h1>
             <p className="mt-2 max-w-3xl text-sm text-[var(--ink-muted)]">
               Access free trading tools from one place. First module: live Orderflow streams by category, so traders and TMS students can
               practice without paying for expensive monthly platforms.
@@ -93,7 +93,7 @@ export default function ToolsPage() {
                           <iframe
                             title={stream.title}
                             src={toYoutubeEmbedUrl(stream.liveUrl)}
-                            className="h-[360px] w-full md:h-[460px] xl:h-[560px]"
+                            className="h-[220px] w-full sm:h-[300px] md:h-[460px] xl:h-[560px]"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                             referrerPolicy="strict-origin-when-cross-origin"
                             allowFullScreen

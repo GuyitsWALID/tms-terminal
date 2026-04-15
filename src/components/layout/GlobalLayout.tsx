@@ -121,17 +121,17 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
         <div className="min-w-0">
           <header className="ff-topbar sticky top-0 z-50">
             <div className="mx-auto flex h-16 w-full max-w-[1460px] items-center justify-between gap-4 px-3 md:px-6">
-          <div className="flex min-w-0 items-center gap-4 xl:gap-5">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4 xl:gap-5">
             <Link href="/" className="flex shrink-0 items-center gap-2 border-r border-[var(--line-soft)] pr-3 xl:pr-4">
               <Image
                 src="/TMSLOGO.png"
                 alt="TMS Logo"
                 width={36}
                 height={36}
-                className="h-9 w-9 rounded-md object-cover"
+                className="h-8 w-8 rounded-md object-cover sm:h-9 sm:w-9"
                 priority
               />
-              <div>
+              <div className="hidden sm:block">
                 <p className="font-rajdhani text-xl font-bold uppercase leading-none tracking-wide">TMS Terminal</p>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">The Market Syndicate</p>
               </div>
@@ -171,7 +171,7 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
             </nav>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <div className="relative hidden 2xl:flex">
               <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-muted)]" />
               <input
@@ -196,13 +196,13 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
 
             <button
               onClick={toggleTheme}
-              className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-2 text-[var(--ink-primary)]"
+              className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--ink-primary)] sm:p-2"
               aria-label="Toggle light and dark mode"
             >
               {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
             </button>
 
-            <button className="relative rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-2 text-[var(--ink-primary)]">
+            <button className="relative rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--ink-primary)] sm:p-2">
               <Bell size={14} />
               <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[#ff4b55]" />
             </button>
@@ -215,7 +215,7 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
             <div className="relative" ref={profileMenuRef}>
               <button
                 onClick={() => setIsProfileMenuOpen((open) => !open)}
-                className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-2 text-[var(--ink-primary)]"
+                className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--ink-primary)] sm:p-2"
                 aria-label="Open user profile menu"
                 aria-expanded={isProfileMenuOpen}
                 aria-haspopup="menu"
@@ -251,39 +251,41 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
               ) : null}
             </div>
 
-            <button className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-2 lg:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+            <button className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 sm:p-2 lg:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
               {isMobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
             </button>
           </div>
             </div>
 
-            <div className="border-t border-[var(--line-soft)] bg-[var(--surface-1)]">
-              <div className="ticker-marquee mx-auto max-w-[1460px] px-1 md:px-4">
-                <div className="ticker-track whitespace-nowrap">
-                  {tickers.length > 0
-                    ? Array.from({ length: 4 }).flatMap((_, loop) =>
-                        tickers.map((item, idx) => (
-                          <div key={`${item.symbol}-${loop}-${idx}`} className="flex min-w-fit items-center gap-2 border-r border-[var(--line-soft)] px-4 py-2 text-xs">
-                            <span className="font-semibold text-[var(--ink-primary)]">{item.symbol}</span>
-                            <span className="font-mono text-[var(--ink-primary)]">{item.price}</span>
-                            <span className={cn("font-semibold", item.isUp ? "text-[#31d488]" : "text-[#ff7878]")}>{item.change}</span>
-                          </div>
-                        ))
-                      )
-                    : [
-                        <div key="ticker-unavailable" className="flex min-w-fit items-center gap-2 px-4 py-2 text-xs text-[var(--ink-muted)]">
-                          Live ticker unavailable
-                        </div>,
-                      ]}
+            {!isMobileMenuOpen ? (
+              <div className="border-t border-[var(--line-soft)] bg-[var(--surface-1)]">
+                <div className="ticker-marquee mx-auto max-w-[1460px] px-1 md:px-4">
+                  <div className="ticker-track whitespace-nowrap">
+                    {tickers.length > 0
+                      ? Array.from({ length: 4 }).flatMap((_, loop) =>
+                          tickers.map((item, idx) => (
+                            <div key={`${item.symbol}-${loop}-${idx}`} className="flex min-w-fit items-center gap-2 border-r border-[var(--line-soft)] px-3 py-2 text-[11px] sm:px-4 sm:text-xs">
+                              <span className="font-semibold text-[var(--ink-primary)]">{item.symbol}</span>
+                              <span className="font-mono text-[var(--ink-primary)]">{item.price}</span>
+                              <span className={cn("font-semibold", item.isUp ? "text-[#31d488]" : "text-[#ff7878]")}>{item.change}</span>
+                            </div>
+                          ))
+                        )
+                      : [
+                          <div key="ticker-unavailable" className="flex min-w-fit items-center gap-2 px-4 py-2 text-xs text-[var(--ink-muted)]">
+                            Live ticker unavailable
+                          </div>,
+                        ]}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : null}
           </header>
 
           {isMobileMenuOpen && (
-            <div className="fixed inset-0 z-40 bg-[var(--bg-main)] p-6 pt-20 lg:hidden">
+            <div className="fixed inset-0 z-40 bg-[var(--bg-main)] p-4 pt-20 sm:p-6 sm:pt-20 lg:hidden">
               <nav className="space-y-2">
-                {menuItems.map((item) => (
+                {[{ id: "home", name: "Home", icon: Home, path: "/" }, { id: "tools", name: "Tools", icon: Wrench, path: "/tools" }, ...menuItems].map((item) => (
                   <Link
                     key={item.id}
                     href={item.path}

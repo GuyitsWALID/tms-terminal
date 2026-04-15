@@ -35,6 +35,7 @@ const MONTH_CACHE = new Map<string, CacheRecord<MonthCalendarRow[]>>();
 const MONTH_JOB_STATE = new Map<string, JobState>();
 const ACTIVE_JOBS = new Set<string>();
 const MONTH_JOB_CACHE_DIR = path.join(process.cwd(), ".next", "cache", "calendar-month-jobs");
+const MONTH_CACHE_VERSION = "v2";
 
 const monthAbbr = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 const monthMap = new Map([
@@ -54,8 +55,8 @@ const monthMap = new Map([
 
 const parseImpact = (raw: string): CalendarImpact => {
   const lower = raw.toLowerCase();
-  if (/(high|red|icon--ff-impact-red)/.test(lower)) return "high";
-  if (/(medium|orange|icon--ff-impact-ora)/.test(lower)) return "medium";
+  if (/(high|red|icon--ff-impact-red|impact[-_ ]?high)/.test(lower)) return "high";
+  if (/(medium|orange|icon--ff-impact-ora|impact[-_ ]?medium)/.test(lower)) return "medium";
   return "low";
 };
 
@@ -67,8 +68,30 @@ const extractDetailId = ($row: cheerio.Cheerio<AnyNode>) => {
     $row.find("a[href*='/calendar/details/']").attr("href") ??
     $row.find("[data-href*='/calendar/details/']").attr("data-href") ??
     "";
-  const parsed = normalizeText(href).match(/\/calendar\/details\/\d+-([^/?#]+)/i);
+  const normalizedHref = normalizeText(href);
+  const parsed = normalizedHref.match(/\/calendar\/details\/([^/?#]+)/i);
   return parsed?.[1] ?? "";
+};
+
+const readImpactFromRow = ($: cheerio.CheerioAPI, $row: cheerio.Cheerio<AnyNode>): CalendarImpact => {
+  const classTokens = $row
+    .find("[class*='impact'], [title*='Impact'], [aria-label*='Impact']")
+    .map((_, el) => {
+      const node = $(el);
+      return [node.attr("class"), node.attr("title"), node.attr("aria-label")].filter(Boolean).join(" ");
+    })
+    .get()
+    .join(" ");
+
+  const iconTitles = $row
+    .find("img[title], span[title], i[title]")
+    .map((_, el) => normalizeText($(el).attr("title")))
+    .get()
+    .join(" ");
+
+  const rowHtml = normalizeText($row.html() ?? "");
+  const rowText = normalizeText($row.text());
+  return parseImpact(`${classTokens} ${iconTitles} ${rowHtml} ${rowText}`);
 };
 
 const toTwoDigits = (value: string | number) => String(Number(value)).padStart(2, "0");
@@ -152,9 +175,7 @@ const parseForexFactoryMonthPage = (html: string, year: number, month: number): 
     const [eventMonth, , eventYear] = dateParts;
     if (eventYear !== year || eventMonth !== month) return;
 
-    const impactText = `${row.find(".calendar__impact, [class*='calendar__impact']").attr("class") ?? ""} ${normalizeText(
-      row.find(".calendar__impact, [class*='calendar__impact']").text()
-    )}`;
+    const impact = readImpactFromRow($, row);
     const detailId = extractDetailId(row);
 
     parsedRows.push({
@@ -167,7 +188,7 @@ const parseForexFactoryMonthPage = (html: string, year: number, month: number): 
       actual: normalizeText(row.find(".calendar__actual, td.calendar__actual, [class*='calendar__actual']").first().text()) || "-",
       forecast: normalizeText(row.find(".calendar__forecast, td.calendar__forecast, [class*='calendar__forecast']").first().text()) || "-",
       previous: normalizeText(row.find(".calendar__previous, td.calendar__previous, [class*='calendar__previous']").first().text()) || "-",
-      impact: parseImpact(impactText),
+      impact,
       isStarred: false,
     });
   });
@@ -215,9 +236,7 @@ const parseForexFactoryDayPage = (html: string, year: number, month: number, day
 
     if (!eventName || !carryCurrency || carryCurrency === "N/A") return;
 
-    const impactText = `${row.find(".calendar__impact, [class*='calendar__impact']").attr("class") ?? ""} ${normalizeText(
-      row.find(".calendar__impact, [class*='calendar__impact']").text()
-    )}`;
+    const impact = readImpactFromRow($, row);
     const detailId = extractDetailId(row);
 
     parsedRows.push({
@@ -230,7 +249,7 @@ const parseForexFactoryDayPage = (html: string, year: number, month: number, day
       actual: normalizeText(row.find(".calendar__actual, td.calendar__actual, [class*='calendar__actual']").first().text()) || "-",
       forecast: normalizeText(row.find(".calendar__forecast, td.calendar__forecast, [class*='calendar__forecast']").first().text()) || "-",
       previous: normalizeText(row.find(".calendar__previous, td.calendar__previous, [class*='calendar__previous']").first().text()) || "-",
-      impact: parseImpact(impactText),
+      impact,
       isStarred: false,
     });
   });
@@ -272,10 +291,18 @@ const mergeCachedDetails = (rows: MonthCalendarRow[], cachedRows: MonthCalendarR
 
 const countUniqueDays = (rows: MonthCalendarRow[]) => new Set(rows.map((row) => row.dateKey)).size;
 
+const hasImpactVariety = (rows: MonthCalendarRow[]) => {
+  const highCount = rows.filter((row) => row.impact === "high").length;
+  const mediumCount = rows.filter((row) => row.impact === "medium").length;
+  return highCount > 0 || mediumCount > 0;
+};
+
 const hasSufficientCoverage = (rows: MonthCalendarRow[], year: number, month: number) => {
   const totalDaysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const uniqueDays = countUniqueDays(rows);
-  return uniqueDays >= Math.min(20, totalDaysInMonth);
+  if (uniqueDays < Math.min(20, totalDaysInMonth)) return false;
+  if (!hasImpactVariety(rows)) return false;
+  return true;
 };
 
 const scrapeSingleDayWithFreshBrowser = async (year: number, month: number, day: number): Promise<MonthCalendarRow[]> => {
@@ -394,7 +421,7 @@ const launchBrowserAndScrapeMonth = async (year: number, month: number) => {
   }
 };
 
-export const getMonthJobCacheKey = (year: number, month: number) => `${year}-${toTwoDigits(month)}`;
+export const getMonthJobCacheKey = (year: number, month: number) => `${MONTH_CACHE_VERSION}-${year}-${toTwoDigits(month)}`;
 
 const getMonthCacheFilePath = (year: number, month: number) => path.join(MONTH_JOB_CACHE_DIR, `${getMonthJobCacheKey(year, month)}.json`);
 

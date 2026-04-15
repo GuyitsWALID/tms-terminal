@@ -18,6 +18,10 @@ export interface EconomicEvent {
     nextRelease?: string;
     ffNotes?: string;
     whyTradersCare?: string;
+    items?: Array<{
+      title: string;
+      value: string;
+    }>;
   };
   verifiedOpinion?: string;
   isStarred: boolean;

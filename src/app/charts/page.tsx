@@ -19,7 +19,7 @@ export default function ChartsPage() {
   return (
     <div className="space-y-3">
       <div className="ff-panel p-4">
-        <h1 className="font-rajdhani text-3xl font-bold uppercase leading-none">Market</h1>
+        <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Market</h1>
         <p className="mt-1 text-sm text-[var(--ink-muted)]">Forex market view with TradingView chart, price performance, and event context.</p>
       </div>
 
@@ -27,20 +27,20 @@ export default function ChartsPage() {
 
       <section className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_430px]">
         <div className="ff-panel overflow-hidden">
-          <div className="grid gap-0 border-b border-[var(--line-strong)] md:grid-cols-[minmax(0,1fr)_440px]">
+          <div className="grid gap-0 border-b border-[var(--line-strong)] lg:grid-cols-[minmax(0,1fr)_440px]">
             <div className="bg-[var(--surface-2)] p-4">
               <div className="mb-2 flex items-center gap-2 text-xs text-[var(--ink-muted)]">
                 <span className="font-bold uppercase">Pair</span>
                 <ChevronDown size={12} />
               </div>
-              <div className="flex items-end gap-4">
-                <h2 className="font-rajdhani text-5xl font-bold leading-none text-[var(--ink-primary)]">{activeSymbol}</h2>
-                <span className="font-mono text-4xl leading-none text-[var(--ink-primary)]">{activeTicker?.price ?? "--"}</span>
+              <div className="flex flex-wrap items-end gap-2 sm:gap-4">
+                <h2 className="font-rajdhani text-3xl font-bold leading-none text-[var(--ink-primary)] sm:text-5xl">{activeSymbol}</h2>
+                <span className="font-mono text-2xl leading-none text-[var(--ink-primary)] sm:text-4xl">{activeTicker?.price ?? "--"}</span>
               </div>
               <p className="mt-2 text-xs text-[var(--ink-muted)]">As of 12:00am Apr 11 | Spread 0.8 | Session: London/NY overlap</p>
             </div>
 
-            <div className="grid grid-cols-3 divide-x divide-[var(--line-soft)] bg-[var(--surface-1)] text-xs">
+            <div className="grid grid-cols-1 divide-y divide-[var(--line-soft)] bg-[var(--surface-1)] text-xs sm:grid-cols-3 sm:divide-x sm:divide-y-0">
               {[
                 { label: "Last 1 hr", pip: "+2", chg: "+0.02%" },
                 { label: "Last 6 hr", pip: "-6", chg: "-0.04%" },
@@ -55,10 +55,10 @@ export default function ChartsPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-3 py-2 text-xs">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-3 py-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="font-bold uppercase text-[var(--ink-primary)]">Chart For {activeSymbol}</span>
-              <div className="flex gap-1">
+              <div className="flex flex-wrap gap-1">
                 {["1m", "5m", "15m", "1H", "4H", "D"].map((tf) => (
                   <button key={tf} className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-1.5 py-0.5 text-[10px] text-[var(--ink-primary)]">
                     {tf}

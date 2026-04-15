@@ -7,7 +7,7 @@ export default function AnalysisPage() {
   return (
     <div className="space-y-3">
       <div className="ff-panel p-4">
-        <h1 className="font-rajdhani text-3xl font-bold uppercase leading-none">Verified Analysis Desk</h1>
+        <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Verified Analysis Desk</h1>
         <p className="mt-1 text-sm text-[var(--ink-muted)]">Institutional-style commentary from verified traders before key economic events.</p>
       </div>
 

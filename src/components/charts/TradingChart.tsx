@@ -73,7 +73,7 @@ export default function TradingChart({ symbol }: ChartWidgetProps) {
   }, [symbol, widgetTheme]);
 
   return (
-    <div className="h-[520px] w-full overflow-hidden rounded border border-[var(--line-strong)] bg-[var(--surface-1)]">
+    <div className="h-[360px] w-full overflow-hidden rounded border border-[var(--line-strong)] bg-[var(--surface-1)] sm:h-[420px] lg:h-[520px]">
       <div ref={chartContainerRef} className="h-full w-full tradingview-widget-container" />
     </div>
   );
