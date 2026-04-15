@@ -49,7 +49,7 @@ export function useLiveTickers(intervalMs = 1000): HookResult {
         setTickers([]);
         setSource("none");
         setCache("none");
-        setFallbackReason("yfinance-failed");
+        setFallbackReason("yahoo-failed");
       } finally {
         if (mounted) {
           setIsLoading(false);

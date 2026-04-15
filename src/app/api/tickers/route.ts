@@ -1,7 +1,4 @@
 import { NextResponse } from "next/server";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import path from "node:path";
 
 type UiTickerSymbol = "EURUSD" | "GBPUSD" | "USDJPY" | "AUDUSD" | "USDCAD" | "XAUUSD";
 
@@ -19,7 +16,6 @@ type CacheRecord = {
   expiresAt: number;
 };
 
-const execFileAsync = promisify(execFile);
 const TICKER_CACHE = new Map<string, CacheRecord>();
 const CACHE_KEY = "live-tickers";
 const SOFT_TTL_MS = 1000;
@@ -54,96 +50,94 @@ const formatPrice = (symbol: UiTickerSymbol, price: number) => {
 
 const formatChange = (percent: number) => `${percent >= 0 ? "+" : ""}${percent.toFixed(2)}%`;
 
-type PythonCommand = {
-  executable: string;
-  prefixArgs?: string[];
+type YahooChartResponse = {
+  chart?: {
+    result?: Array<{
+      meta?: {
+        regularMarketPrice?: number;
+        previousClose?: number;
+        chartPreviousClose?: number;
+      };
+      indicators?: {
+        quote?: Array<{
+          close?: Array<number | null>;
+        }>;
+      };
+    }>;
+    error?: {
+      description?: string;
+    } | null;
+  };
 };
 
-const getPythonCandidates = (): PythonCommand[] => {
-  if (process.env.PYTHON_EXECUTABLE) {
-    return [{ executable: process.env.PYTHON_EXECUTABLE }];
+const fetchYahooSymbol = async (providerSymbol: string) => {
+  const endpoint = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(providerSymbol)}?interval=1d&range=5d`;
+  const response = await fetch(endpoint, {
+    cache: "no-store",
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Yahoo chart failed for ${providerSymbol} (${response.status})`);
   }
 
-  if (process.platform === "win32") {
-    return [
-      { executable: "python" },
-      { executable: "py", prefixArgs: ["-3"] },
-    ];
+  const payload = (await response.json()) as YahooChartResponse;
+  const result = payload.chart?.result?.[0];
+  if (!result) {
+    const apiError = payload.chart?.error?.description ?? "missing chart result";
+    throw new Error(`Yahoo chart invalid for ${providerSymbol}: ${apiError}`);
   }
 
-  return [{ executable: "python3" }, { executable: "python" }];
+  const closes = (result.indicators?.quote?.[0]?.close ?? []).filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+  const latestClose = closes.length > 0 ? closes[closes.length - 1] : null;
+  const previousCloseSeries = closes.length > 1 ? closes[closes.length - 2] : null;
+  const marketPrice = parseNumberish(result.meta?.regularMarketPrice);
+  const previousClose =
+    parseNumberish(result.meta?.previousClose) ?? parseNumberish(result.meta?.chartPreviousClose) ?? previousCloseSeries;
+
+  const price = marketPrice ?? latestClose;
+  if (price === null) {
+    throw new Error(`Yahoo chart missing price for ${providerSymbol}`);
+  }
+
+  let changePct = 0;
+  if (typeof previousClose === "number" && previousClose !== 0) {
+    changePct = ((price - previousClose) / previousClose) * 100;
+  }
+
+  return { price, changePct };
 };
 
-const runYFinanceQuoteScript = async () => {
-  const scriptPath = process.env.YFINANCE_SCRIPT_PATH || path.join(process.cwd(), "src", "lib", "python", "yfinance_quotes.py");
-  const symbols = UI_SYMBOLS.map((symbol) => SYMBOL_MAP[symbol]);
+const fetchYahooQuotes = async (): Promise<LiveTicker[]> => {
+  const rows = await Promise.all(
+    UI_SYMBOLS.map(async (symbol) => {
+      const providerSymbol = SYMBOL_MAP[symbol];
+      const quote = await fetchYahooSymbol(providerSymbol);
 
-  const candidates = getPythonCandidates();
-  let lastError: string | null = null;
+      return {
+        symbol,
+        price: formatPrice(symbol, quote.price),
+        change: formatChange(quote.changePct),
+        isUp: quote.changePct >= 0,
+      } satisfies LiveTicker;
+    })
+  );
 
-  for (const candidate of candidates) {
-    try {
-      const args = [...(candidate.prefixArgs ?? []), scriptPath, JSON.stringify(symbols)];
-      const { stdout } = await execFileAsync(candidate.executable, args, {
-        timeout: 12000,
-        maxBuffer: 1024 * 1024,
-      });
-
-      const parsed = JSON.parse(stdout) as Array<Record<string, unknown>>;
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        throw new Error("yfinance returned no rows");
-      }
-
-      return parsed;
-    } catch (error: unknown) {
-      lastError = error instanceof Error ? error.message : String(error);
-    }
+  if (rows.length === 0) {
+    throw new Error("Yahoo normalization produced no UI rows");
   }
 
-  const attempted = candidates.map((c) => c.executable).join(", ");
-  throw new Error(`Unable to execute yfinance script. Tried: ${attempted}. Last error: ${lastError ?? "unknown error"}`);
-};
-
-const fetchYFinanceQuotes = async (): Promise<LiveTicker[]> => {
-  const rows = await runYFinanceQuoteScript();
-  const byProviderSymbol = new Map<string, Record<string, unknown>>();
-
-  for (const row of rows) {
-    const providerSymbol = String(row.symbol ?? "").trim();
-    if (!providerSymbol) continue;
-    byProviderSymbol.set(providerSymbol, row);
-  }
-
-  const liveRows = UI_SYMBOLS.map((symbol) => {
-    const providerSymbol = SYMBOL_MAP[symbol];
-    const quote = byProviderSymbol.get(providerSymbol);
-    if (!quote) return null;
-
-    const price = parseNumberish(quote.price);
-    const changePct = parseNumberish(quote.change_pct) ?? 0;
-
-    if (price === null) return null;
-
-    return {
-      symbol,
-      price: formatPrice(symbol, price),
-      change: formatChange(changePct),
-      isUp: changePct >= 0,
-    } satisfies LiveTicker;
-  }).filter((item): item is LiveTicker => Boolean(item));
-
-  if (liveRows.length === 0) {
-    throw new Error("yfinance normalization produced no UI rows");
-  }
-
-  return liveRows;
+  return rows;
 };
 
 const refreshTickers = async (): Promise<CacheRecord> => {
-  const rows = await fetchYFinanceQuotes();
+  const rows = await fetchYahooQuotes();
   return {
     data: rows,
-    source: "yfinance",
+    source: "yahoo-chart-http",
     createdAt: Date.now(),
     expiresAt: Date.now() + SOFT_TTL_MS,
   };
@@ -179,7 +173,7 @@ export async function GET() {
       },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "yfinance quote refresh failed";
+    const message = error instanceof Error ? error.message : "Yahoo quote refresh failed";
     return NextResponse.json(
       {
         error: message,
@@ -190,7 +184,7 @@ export async function GET() {
           "Cache-Control": "no-store",
           "x-ticker-cache": "MISS",
           "x-ticker-source": "none",
-          "x-ticker-fallback-reason": "yfinance-failed",
+          "x-ticker-fallback-reason": "yahoo-failed",
         },
       }
     );
