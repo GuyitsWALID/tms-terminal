@@ -1,8 +1,9 @@
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { normalizeText, safeId, type CacheRecord } from "@/lib/api/scraperUtils";
-import { hasDetailContent, scrapeForexFactoryDetails, type ForexFactoryDetail } from "@/lib/api/forexFactoryDetail";
+import { hasDetailContent, type ForexFactoryDetail } from "@/lib/api/forexFactoryDetail";
 
 export type CalendarImpact = "high" | "medium" | "low";
 
@@ -56,6 +57,18 @@ const parseImpact = (raw: string): CalendarImpact => {
   if (/(high|red|icon--ff-impact-red)/.test(lower)) return "high";
   if (/(medium|orange|icon--ff-impact-ora)/.test(lower)) return "medium";
   return "low";
+};
+
+const extractDetailId = ($row: cheerio.Cheerio<AnyNode>) => {
+  const fromAttr = normalizeText($row.attr("data-event-id"));
+  if (fromAttr) return fromAttr;
+
+  const href =
+    $row.find("a[href*='/calendar/details/']").attr("href") ??
+    $row.find("[data-href*='/calendar/details/']").attr("data-href") ??
+    "";
+  const parsed = normalizeText(href).match(/\/calendar\/details\/\d+-([^/?#]+)/i);
+  return parsed?.[1] ?? "";
 };
 
 const toTwoDigits = (value: string | number) => String(Number(value)).padStart(2, "0");
@@ -142,7 +155,7 @@ const parseForexFactoryMonthPage = (html: string, year: number, month: number): 
     const impactText = `${row.find(".calendar__impact, [class*='calendar__impact']").attr("class") ?? ""} ${normalizeText(
       row.find(".calendar__impact, [class*='calendar__impact']").text()
     )}`;
-    const detailId = normalizeText(row.attr("data-event-id"));
+    const detailId = extractDetailId(row);
 
     parsedRows.push({
       id: safeId(`${carryCurrency}-${eventName}-${carryDateKey}-${carryTime}`, index),
@@ -205,7 +218,7 @@ const parseForexFactoryDayPage = (html: string, year: number, month: number, day
     const impactText = `${row.find(".calendar__impact, [class*='calendar__impact']").attr("class") ?? ""} ${normalizeText(
       row.find(".calendar__impact, [class*='calendar__impact']").text()
     )}`;
-    const detailId = normalizeText(row.attr("data-event-id"));
+    const detailId = extractDetailId(row);
 
     parsedRows.push({
       id: safeId(`${carryCurrency}-${eventName}-${dateKey}-${carryTime}`, index),
@@ -254,25 +267,6 @@ const mergeCachedDetails = (rows: MonthCalendarRow[], cachedRows: MonthCalendarR
     const cached = byDetailId.get(row.detailId);
     if (!cached) return row;
     return { ...row, scrapedDetail: cached };
-  });
-};
-
-const attachScrapedDetails = async (rows: MonthCalendarRow[]) => {
-  const detailIds = Array.from(new Set(rows.map((row) => row.detailId).filter((value): value is string => Boolean(value))));
-  if (detailIds.length === 0) return rows;
-
-  const detailMap = await scrapeForexFactoryDetails(detailIds, { maxConcurrency: 4 });
-
-  if (detailMap.size === 0) return rows;
-
-  return rows.map((row) => {
-    if (!row.detailId) return row;
-    const detail = detailMap.get(row.detailId);
-    if (!detail) return row;
-    return {
-      ...row,
-      scrapedDetail: detail,
-    };
   });
 };
 
@@ -470,11 +464,10 @@ export const runMonthScrapeJob = async (year: number, month: number) => {
 
   try {
     const scrapedRows = await launchBrowserAndScrapeMonth(year, month);
-    const withDetails = await attachScrapedDetails(scrapedRows);
 
     const existingCache = MONTH_CACHE.get(key);
     const existingDisk = await readMonthCacheFromDisk(year, month);
-    const mergedRows = mergeCachedDetails(withDetails, existingCache?.data ?? existingDisk?.data ?? []);
+    const mergedRows = mergeCachedDetails(scrapedRows, existingCache?.data ?? existingDisk?.data ?? []);
 
     MONTH_CACHE.set(key, {
       data: mergedRows,

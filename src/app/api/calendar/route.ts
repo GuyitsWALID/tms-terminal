@@ -293,6 +293,16 @@ export async function GET(request: NextRequest) {
 
       // Fire and forget: full-month scrape job refreshes cache in background.
       triggerMonthScrapeJob(Number(year), Number(month));
+
+      return NextResponse.json([], {
+        status: 202,
+        headers: {
+          "Cache-Control": "no-store",
+          "x-calendar-cache": "MISS",
+          "x-calendar-source": "forexfactory-playwright-month",
+          "x-calendar-fallback-reason": "month-job-pending",
+        },
+      });
     }
 
     const exportedRows = await readExportFeed();
@@ -301,19 +311,6 @@ export async function GET(request: NextRequest) {
     const includeDateInTime = scope !== "day";
     const result = toClientRows(scopedRows, tzOffset, includeDateInTime);
 
-    if (scope === "month" && result.length === 0) {
-      const fallbackRows = toClientRows(exportedRows, tzOffset, true);
-      CACHE.set(cacheKey, makeCacheRecord(fallbackRows, "forexfactory-export"));
-      return NextResponse.json(fallbackRows, {
-        headers: {
-          "Cache-Control": "no-store",
-          "x-calendar-cache": "MISS",
-          "x-calendar-source": "forexfactory-export",
-          "x-calendar-fallback-reason": "requested-month-empty-showing-current-week",
-        },
-      });
-    }
-
     if (result.length > 0) {
       CACHE.set(cacheKey, makeCacheRecord(result, "forexfactory-export"));
       return NextResponse.json(result, {
@@ -321,7 +318,6 @@ export async function GET(request: NextRequest) {
           "Cache-Control": "no-store",
           "x-calendar-cache": "MISS",
           "x-calendar-source": "forexfactory-export",
-          ...(scope === "month" ? { "x-calendar-fallback-reason": "source-limits-current-week-month-job-pending" } : {}),
         },
       });
     }
@@ -336,6 +332,24 @@ export async function GET(request: NextRequest) {
   } catch (exportError: unknown) {
     const exportMessage = exportError instanceof Error ? exportError.message : "export feed failed";
     console.error("Calendar export warning:", exportMessage);
+
+    if (scope === "month") {
+      return NextResponse.json(
+        {
+          error: "Month scrape failed",
+          detail: exportMessage,
+        },
+        {
+          status: 503,
+          headers: {
+            "Cache-Control": "no-store",
+            "x-calendar-cache": "MISS",
+            "x-calendar-source": "forexfactory-playwright-month",
+            "x-calendar-fallback-reason": "month-job-failed",
+          },
+        }
+      );
+    }
 
     if (cached) {
       return NextResponse.json(cached.data, {

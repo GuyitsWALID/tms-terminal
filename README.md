@@ -18,18 +18,32 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Live Economic Calendar Setup
 
-Create a `.env.local` file in the project root and add your RapidAPI key:
+The calendar endpoint is served from `GET /api/calendar` using the app's internal scraper pipeline.
+
+## Live Ticker Setup (yfinance)
+
+Tickers are served from `GET /api/tickers` and sourced only from Python `yfinance`.
+No mock ticker values are returned when upstream data fails.
+
+1. Install Python 3.10+.
+2. Install Python dependencies from the project root:
 
 ```bash
-RAPIDAPI_KEY=your_rapidapi_key_here
+pip install -r requirements.txt
 ```
 
-The app now uses `GET /api/calendar` as a live proxy to:
+3. (Optional) Create `.env.local` to override Python runner settings:
 
-- Host: `forex-factory-scraper1.p.rapidapi.com`
-- Endpoint: `/get_calendar_details`
+```bash
+# Optional: absolute path to Python executable.
+# Example on Windows:
+# PYTHON_EXECUTABLE=C:\\Python311\\python.exe
+PYTHON_EXECUTABLE=
 
-If `RAPIDAPI_KEY` is missing or the provider fails, UI components automatically fall back to local mock calendar data.
+# Optional: absolute path to ticker script.
+# Default: src/lib/python/yfinance_quotes.py
+YFINANCE_SCRIPT_PATH=
+```
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

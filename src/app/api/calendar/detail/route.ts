@@ -7,6 +7,8 @@ import {
 } from "@/lib/api/forexFactoryDetail";
 import { getMonthJobCachedRows } from "@/lib/api/calendarMonthJob";
 
+export const runtime = "nodejs";
+
 type EventDetailPayload = ForexFactoryDetail;
 
 type CacheRecord = {

@@ -35,7 +35,7 @@ export default function ChartsPage() {
               </div>
               <div className="flex items-end gap-4">
                 <h2 className="font-rajdhani text-5xl font-bold leading-none text-[var(--ink-primary)]">{activeSymbol}</h2>
-                <span className="font-mono text-4xl leading-none text-[var(--ink-primary)]">{activeTicker?.price ?? "1.17225"}</span>
+                <span className="font-mono text-4xl leading-none text-[var(--ink-primary)]">{activeTicker?.price ?? "--"}</span>
               </div>
               <p className="mt-2 text-xs text-[var(--ink-muted)]">As of 12:00am Apr 11 | Spread 0.8 | Session: London/NY overlap</p>
             </div>

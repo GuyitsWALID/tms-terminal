@@ -40,7 +40,14 @@ export default function Home() {
       const compact = pair.symbol.replace("/", "");
       const ticker = bySymbol.get(compact);
 
-      if (!ticker) return pair;
+      if (!ticker) {
+        return {
+          ...pair,
+          bid: "--",
+          change6h: "--",
+          direction: "up",
+        };
+      }
 
       return {
         ...pair,

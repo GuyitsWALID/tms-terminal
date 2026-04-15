@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { tickerTape } from "@/lib/terminalData";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import path from "node:path";
 
 type UiTickerSymbol = "EURUSD" | "GBPUSD" | "USDJPY" | "AUDUSD" | "USDCAD" | "XAUUSD";
 
@@ -17,14 +19,14 @@ type CacheRecord = {
   expiresAt: number;
 };
 
+const execFileAsync = promisify(execFile);
 const TICKER_CACHE = new Map<string, CacheRecord>();
 const CACHE_KEY = "live-tickers";
-const SOFT_TTL_MS = 10_000;
-const HARD_TTL_MS = 60_000;
+const SOFT_TTL_MS = 1000;
 
 let inFlightRefresh: Promise<CacheRecord> | null = null;
-let primaryCooldownUntil = 0;
-let fallbackCooldownUntil = 0;
+
+const UI_SYMBOLS: UiTickerSymbol[] = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD"];
 
 const SYMBOL_MAP: Record<UiTickerSymbol, string> = {
   EURUSD: "EURUSD=X",
@@ -34,21 +36,6 @@ const SYMBOL_MAP: Record<UiTickerSymbol, string> = {
   USDCAD: "USDCAD=X",
   XAUUSD: "GC=F",
 };
-
-const UI_SYMBOLS = Object.keys(SYMBOL_MAP) as UiTickerSymbol[];
-
-const LOCAL_FALLBACK: LiveTicker[] = tickerTape
-  .map((item) => {
-    const symbol = item.symbol as UiTickerSymbol;
-    if (!UI_SYMBOLS.includes(symbol)) return null;
-    return {
-      symbol,
-      price: item.price,
-      change: item.change,
-      isUp: item.isUp,
-    } satisfies LiveTicker;
-  })
-  .filter((item): item is LiveTicker => Boolean(item));
 
 const parseNumberish = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -67,237 +54,99 @@ const formatPrice = (symbol: UiTickerSymbol, price: number) => {
 
 const formatChange = (percent: number) => `${percent >= 0 ? "+" : ""}${percent.toFixed(2)}%`;
 
-const parseSignedPercent = (value: string) => {
-  const parsed = parseNumberish(value);
-  return parsed ?? 0;
+type PythonCommand = {
+  executable: string;
+  prefixArgs?: string[];
 };
 
-const getPreviousTickerBySymbol = () => {
-  const cached = TICKER_CACHE.get(CACHE_KEY);
-  if (!cached?.data?.length) {
-    return new Map<UiTickerSymbol, { price: number; changePct: number }>();
+const getPythonCandidates = (): PythonCommand[] => {
+  if (process.env.PYTHON_EXECUTABLE) {
+    return [{ executable: process.env.PYTHON_EXECUTABLE }];
   }
 
-  return new Map(
-    cached.data
-      .map((row) => {
-        const price = parseNumberish(row.price);
-        if (price === null) return null;
-        return [row.symbol, { price, changePct: parseSignedPercent(row.change) }] as const;
-      })
-      .filter((item): item is readonly [UiTickerSymbol, { price: number; changePct: number }] => Boolean(item))
-  );
+  if (process.platform === "win32") {
+    return [
+      { executable: "python" },
+      { executable: "py", prefixArgs: ["-3"] },
+    ];
+  }
+
+  return [{ executable: "python3" }, { executable: "python" }];
 };
 
-const getLocalFallbackBySymbol = () =>
-  new Map(
-    LOCAL_FALLBACK.map((row) => [
-      row.symbol,
-      {
-        price: parseNumberish(row.price) ?? 0,
-        changePct: parseSignedPercent(row.change),
-      },
-    ])
-  );
+const runYFinanceQuoteScript = async () => {
+  const scriptPath = process.env.YFINANCE_SCRIPT_PATH || path.join(process.cwd(), "src", "lib", "python", "yfinance_quotes.py");
+  const symbols = UI_SYMBOLS.map((symbol) => SYMBOL_MAP[symbol]);
 
-const normalizeYahooPayload = (payload: unknown): Map<string, { price: number; changePct: number }> => {
-  const result = new Map<string, { price: number; changePct: number }>();
+  const candidates = getPythonCandidates();
+  let lastError: string | null = null;
 
-  const asArray = (() => {
-    if (Array.isArray(payload)) return payload;
-    if (payload && typeof payload === "object") {
-      const obj = payload as Record<string, unknown>;
-      if (Array.isArray(obj.body)) return obj.body;
-      if (Array.isArray(obj.result)) return obj.result;
-      if (obj.quoteResponse && typeof obj.quoteResponse === "object") {
-        const quoteResponse = obj.quoteResponse as Record<string, unknown>;
-        if (Array.isArray(quoteResponse.result)) return quoteResponse.result;
+  for (const candidate of candidates) {
+    try {
+      const args = [...(candidate.prefixArgs ?? []), scriptPath, JSON.stringify(symbols)];
+      const { stdout } = await execFileAsync(candidate.executable, args, {
+        timeout: 12000,
+        maxBuffer: 1024 * 1024,
+      });
+
+      const parsed = JSON.parse(stdout) as Array<Record<string, unknown>>;
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error("yfinance returned no rows");
       }
-      if (obj.data && Array.isArray(obj.data)) return obj.data;
+
+      return parsed;
+    } catch (error: unknown) {
+      lastError = error instanceof Error ? error.message : String(error);
     }
-    return [] as unknown[];
-  })();
-
-  for (const row of asArray) {
-    if (!row || typeof row !== "object") continue;
-    const quote = row as Record<string, unknown>;
-    const providerSymbol = String(quote.symbol ?? "").trim();
-    if (!providerSymbol) continue;
-
-    const price =
-      parseNumberish(quote.regularMarketPrice) ??
-      parseNumberish(quote.lastPrice) ??
-      parseNumberish(quote.price) ??
-      parseNumberish(quote.close);
-
-    const changePct =
-      parseNumberish(quote.regularMarketChangePercent) ??
-      parseNumberish(quote.changePercent) ??
-      parseNumberish(quote.percentChange) ??
-      (() => {
-        const change = parseNumberish(quote.regularMarketChange) ?? parseNumberish(quote.change);
-        const prevClose = parseNumberish(quote.regularMarketPreviousClose) ?? parseNumberish(quote.previousClose);
-        if (change !== null && prevClose && prevClose !== 0) {
-          return (change / prevClose) * 100;
-        }
-        return 0;
-      })();
-
-    if (price === null) continue;
-    result.set(providerSymbol, { price, changePct });
   }
 
-  return result;
+  const attempted = candidates.map((c) => c.executable).join(", ");
+  throw new Error(`Unable to execute yfinance script. Tried: ${attempted}. Last error: ${lastError ?? "unknown error"}`);
 };
 
-const fetchRapidYahooQuotes = async (): Promise<LiveTicker[]> => {
-  if (Date.now() < primaryCooldownUntil) {
-    throw new Error("Primary provider cooldown active");
+const fetchYFinanceQuotes = async (): Promise<LiveTicker[]> => {
+  const rows = await runYFinanceQuoteScript();
+  const byProviderSymbol = new Map<string, Record<string, unknown>>();
+
+  for (const row of rows) {
+    const providerSymbol = String(row.symbol ?? "").trim();
+    if (!providerSymbol) continue;
+    byProviderSymbol.set(providerSymbol, row);
   }
 
-  const apiKey = process.env.RAPIDAPI_KEY;
-  if (!apiKey) throw new Error("Missing RAPIDAPI_KEY");
-
-  const host = process.env.RAPIDAPI_YAHOO_RT_HOST ?? "yahoo-finance-real-time1.p.rapidapi.com";
-  const endpoint = process.env.RAPIDAPI_YAHOO_RT_QUOTES_ENDPOINT ?? "/market/get-quotes";
-  const symbols = UI_SYMBOLS.map((symbol) => SYMBOL_MAP[symbol]).join(",");
-  const url = `https://${host}${endpoint}?symbols=${encodeURIComponent(symbols)}&region=US`;
-
-  const response = await fetch(url, {
-    headers: {
-      "x-rapidapi-host": host,
-      "x-rapidapi-key": apiKey,
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    if (response.status === 403) primaryCooldownUntil = Date.now() + 5 * 60_000;
-    if (response.status === 429) primaryCooldownUntil = Date.now() + 60_000;
-    throw new Error(`RapidAPI quotes failed (${response.status})`);
-  }
-
-  const payload = (await response.json()) as unknown;
-  const normalized = normalizeYahooPayload(payload);
-
-  const rows = UI_SYMBOLS.map((symbol) => {
+  const liveRows = UI_SYMBOLS.map((symbol) => {
     const providerSymbol = SYMBOL_MAP[symbol];
-    const quote = normalized.get(providerSymbol);
+    const quote = byProviderSymbol.get(providerSymbol);
     if (!quote) return null;
+
+    const price = parseNumberish(quote.price);
+    const changePct = parseNumberish(quote.change_pct) ?? 0;
+
+    if (price === null) return null;
 
     return {
       symbol,
-      price: formatPrice(symbol, quote.price),
-      change: formatChange(quote.changePct),
-      isUp: quote.changePct >= 0,
+      price: formatPrice(symbol, price),
+      change: formatChange(changePct),
+      isUp: changePct >= 0,
     } satisfies LiveTicker;
   }).filter((item): item is LiveTicker => Boolean(item));
 
-  if (rows.length === 0) throw new Error("RapidAPI normalized no quote rows");
-  return rows;
-};
-
-const fetchAlphaVantageQuotes = async (): Promise<LiveTicker[]> => {
-  if (Date.now() < fallbackCooldownUntil) {
-    throw new Error("Fallback provider cooldown active");
+  if (liveRows.length === 0) {
+    throw new Error("yfinance normalization produced no UI rows");
   }
 
-  const apiKey = process.env.ALPHA_VANTAGE_KEY ?? "DEMO";
-  const previousBySymbol = getPreviousTickerBySymbol();
-  const localBySymbol = getLocalFallbackBySymbol();
-
-  const rows: Array<LiveTicker | null> = await Promise.all(
-    UI_SYMBOLS.map(async (symbol) => {
-      const from = symbol.slice(0, 3);
-      const to = symbol.slice(3);
-      const fxPair = symbol === "XAUUSD" ? { from: "XAU", to: "USD" } : { from, to };
-
-      const response = await fetch(
-        `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${fxPair.from}&to_currency=${fxPair.to}&apikey=${apiKey}`,
-        { cache: "no-store" }
-      );
-
-      if (!response.ok) {
-        if (response.status === 429) fallbackCooldownUntil = Date.now() + 60_000;
-        return null;
-      }
-
-      const payload = (await response.json()) as Record<string, unknown>;
-      if (typeof payload.Note === "string" || typeof payload.Information === "string") {
-        fallbackCooldownUntil = Date.now() + 60_000;
-        return null;
-      }
-      const realtime = payload["Realtime Currency Exchange Rate"] as Record<string, unknown> | undefined;
-      const price = parseNumberish(realtime?.["5. Exchange Rate"]);
-
-      if (price === null) return null;
-
-      const previous = previousBySymbol.get(symbol) ?? localBySymbol.get(symbol);
-      const changePct = previous && previous.price > 0 ? ((price - previous.price) / previous.price) * 100 : previous?.changePct ?? 0;
-
-      const row: LiveTicker = {
-        symbol,
-        price: formatPrice(symbol, price),
-        change: formatChange(changePct),
-        isUp: changePct >= 0,
-      };
-
-      return row;
-    })
-  );
-
-  const resolved = rows.filter((item): item is LiveTicker => Boolean(item));
-  if (resolved.length === 0) throw new Error("Alpha Vantage returned no quote rows");
-  return resolved;
-};
-
-const getFallbackFromCache = () => {
-  const cached = TICKER_CACHE.get(CACHE_KEY);
-  if (cached && cached.createdAt + HARD_TTL_MS > Date.now()) return cached;
-  return null;
+  return liveRows;
 };
 
 const refreshTickers = async (): Promise<CacheRecord> => {
-  try {
-    const primaryRows = await fetchRapidYahooQuotes();
-    return {
-      data: primaryRows,
-      source: "rapidapi-yahoo-real-time1",
-      createdAt: Date.now(),
-      expiresAt: Date.now() + SOFT_TTL_MS,
-    };
-  } catch (primaryError: unknown) {
-    const primaryMessage = primaryError instanceof Error ? primaryError.message : "primary failed";
-    console.error("Ticker primary warning:", primaryMessage);
-
-    try {
-      const fallbackRows = await fetchAlphaVantageQuotes();
-      return {
-        data: fallbackRows,
-        source: "alpha-vantage",
-        createdAt: Date.now(),
-        expiresAt: Date.now() + SOFT_TTL_MS,
-      };
-    } catch (fallbackError: unknown) {
-      const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "fallback failed";
-      console.error("Ticker fallback warning:", fallbackMessage);
-
-      const stale = getFallbackFromCache();
-      if (stale) {
-        return {
-          ...stale,
-          source: `${stale.source}:stale-cache`,
-        };
-      }
-
-      return {
-        data: LOCAL_FALLBACK,
-        source: "local-fallback",
-        createdAt: Date.now(),
-        expiresAt: Date.now() + SOFT_TTL_MS,
-      };
-    }
-  }
+  const rows = await fetchYFinanceQuotes();
+  return {
+    data: rows,
+    source: "yfinance",
+    createdAt: Date.now(),
+    expiresAt: Date.now() + SOFT_TTL_MS,
+  };
 };
 
 export async function GET() {
@@ -318,23 +167,32 @@ export async function GET() {
     });
   }
 
-  const refreshed = await inFlightRefresh;
-  TICKER_CACHE.set(CACHE_KEY, refreshed);
+  try {
+    const refreshed = await inFlightRefresh;
+    TICKER_CACHE.set(CACHE_KEY, refreshed);
 
-  const fallbackReason = refreshed.source.includes("stale-cache")
-    ? "stale-cache"
-    : refreshed.source === "local-fallback"
-      ? "all-sources-failed"
-      : refreshed.source === "alpha-vantage"
-        ? "rapidapi-failed"
-        : "";
-
-  return NextResponse.json(refreshed.data, {
-    headers: {
-      "Cache-Control": "no-store",
-      "x-ticker-cache": fallbackReason ? "STALE" : "MISS",
-      "x-ticker-source": refreshed.source,
-      ...(fallbackReason ? { "x-ticker-fallback-reason": fallbackReason } : {}),
-    },
-  });
+    return NextResponse.json(refreshed.data, {
+      headers: {
+        "Cache-Control": "no-store",
+        "x-ticker-cache": "MISS",
+        "x-ticker-source": refreshed.source,
+      },
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "yfinance quote refresh failed";
+    return NextResponse.json(
+      {
+        error: message,
+      },
+      {
+        status: 503,
+        headers: {
+          "Cache-Control": "no-store",
+          "x-ticker-cache": "MISS",
+          "x-ticker-source": "none",
+          "x-ticker-fallback-reason": "yfinance-failed",
+        },
+      }
+    );
+  }
 }

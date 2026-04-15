@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchLiveTickersWithMeta, type LiveTicker } from "@/lib/api/dataService";
-import { tickerTape } from "@/lib/terminalData";
 
 type HookResult = {
   tickers: LiveTicker[];
@@ -12,16 +11,9 @@ type HookResult = {
   isLoading: boolean;
 };
 
-const FALLBACK_TICKERS: LiveTicker[] = tickerTape.map((item) => ({
-  symbol: item.symbol as LiveTicker["symbol"],
-  price: item.price,
-  change: item.change,
-  isUp: item.isUp,
-}));
-
 export function useLiveTickers(intervalMs = 1000): HookResult {
-  const [tickers, setTickers] = useState<LiveTicker[]>(FALLBACK_TICKERS);
-  const [source, setSource] = useState("local-fallback");
+  const [tickers, setTickers] = useState<LiveTicker[]>([]);
+  const [source, setSource] = useState("none");
   const [cache, setCache] = useState("none");
   const [fallbackReason, setFallbackReason] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -46,12 +38,18 @@ export function useLiveTickers(intervalMs = 1000): HookResult {
         if (!mounted) return;
         if (Array.isArray(result.tickers) && result.tickers.length > 0) {
           setTickers(result.tickers);
+        } else {
+          setTickers([]);
         }
         setSource(result.source);
         setCache(result.cache);
         setFallbackReason(result.fallbackReason);
       } catch {
         if (!mounted) return;
+        setTickers([]);
+        setSource("none");
+        setCache("none");
+        setFallbackReason("yfinance-failed");
       } finally {
         if (mounted) {
           setIsLoading(false);

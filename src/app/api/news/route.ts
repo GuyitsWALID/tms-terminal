@@ -118,47 +118,6 @@ const parseFinancialJuiceNews = async (): Promise<NewsApiItem[]> => {
   return items;
 };
 
-const parseAlphaVantageNews = async (): Promise<NewsApiItem[]> => {
-  const apiKey = process.env.ALPHA_VANTAGE_KEY;
-  if (!apiKey || apiKey === "DEMO") return [];
-
-  const response = await fetchWithTimeout(
-    `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&topics=forex,financial_markets&sort=LATEST&limit=25&apikey=${apiKey}`,
-    12000
-  );
-
-  if (!response.ok) return [];
-
-  const payload = (await response.json()) as { feed?: Array<Record<string, unknown>> };
-  const feed = Array.isArray(payload.feed) ? payload.feed : [];
-
-  return feed
-    .map((item, index) => {
-      const headline = normalizeText(String(item.title ?? ""));
-      if (!headline || headline.length < 12) return null;
-
-      const category = normalizeText(String(item.category_within_source ?? "")) || "Macro";
-      const source = normalizeText(String(item.source ?? "Alpha Vantage")) || "Alpha Vantage";
-      const rawTime = normalizeText(String(item.time_published ?? ""));
-      const timestamp = rawTime ? rawTime : `${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-
-      const { sentiment, score } = analyzeSentiment(headline);
-      const impact = inferImpactFromText(`${headline} ${category}`);
-
-      return {
-        id: safeId(`${headline}-${timestamp}-${source}`, index),
-        timestamp,
-        headline,
-        impact,
-        sentiment,
-        sentimentScore: score,
-        source,
-        category,
-      } satisfies NewsApiItem;
-    })
-    .filter((item): item is NewsApiItem => Boolean(item));
-};
-
 const dedupeNews = (items: NewsApiItem[]) => {
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -182,23 +141,20 @@ export async function GET() {
   }
 
   try {
-    const [ffResult, fjResult, alphaResult] = await Promise.allSettled([
+    const [ffResult, fjResult] = await Promise.allSettled([
       parseForexFactoryNews(),
       parseFinancialJuiceNews(),
-      parseAlphaVantageNews(),
     ]);
 
     const ffItems = ffResult.status === "fulfilled" ? ffResult.value : [];
     const fjItems = fjResult.status === "fulfilled" ? fjResult.value : [];
-    const alphaItems = alphaResult.status === "fulfilled" ? alphaResult.value : [];
 
-    const mergedItems = dedupeNews([...ffItems, ...fjItems, ...alphaItems]).slice(0, 40);
+    const mergedItems = dedupeNews([...ffItems, ...fjItems]).slice(0, 40);
 
     if (mergedItems.length > 0) {
       const sourceLabel = [
         ffItems.length > 0 ? "forexfactory" : null,
         fjItems.length > 0 ? "financialjuice" : null,
-        alphaItems.length > 0 ? "alphavantage" : null,
       ]
         .filter(Boolean)
         .join(",");

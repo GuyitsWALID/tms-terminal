@@ -5,7 +5,7 @@ import { Bell, Calendar as CalendarIcon, ChevronDown, Folder, ShieldCheck, Star,
 import { endOfWeek, format, isSameMonth, isWithinInterval, startOfWeek } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
-import { calendarEvents, marketSentiment, sessions } from "@/lib/terminalData";
+import { marketSentiment, sessions } from "@/lib/terminalData";
 import { fetchEconomicCalendarWithMeta } from "@/lib/api/dataService";
 import type { EconomicEvent } from "@/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -38,8 +38,8 @@ export default function EconomicCalendar() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   }, []);
   const [starredEvents, setStarredEvents] = useState<Set<string>>(new Set(["ec-02"]));
-  const [events, setEvents] = useState<EconomicEvent[]>(calendarEvents);
-  const [activeEventId, setActiveEventId] = useState<string>(calendarEvents[0]?.id ?? "");
+  const [events, setEvents] = useState<EconomicEvent[]>([]);
+  const [activeEventId, setActiveEventId] = useState<string>("");
   const [viewMode, setViewMode] = useState<"week" | "month" | "day">("month");
   const [impactFilter, setImpactFilter] = useState<"all" | "high" | "medium" | "low">("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -78,7 +78,17 @@ export default function EconomicCalendar() {
         setFallbackReason(result.fallbackReason);
 
         const monthJobPending =
-          result.source === "forexfactory-export" && result.fallbackReason.includes("month-job-pending");
+          result.source === "forexfactory-playwright-month" && result.fallbackReason.includes("month-job-pending");
+
+        if (monthJobPending && (!Array.isArray(result.events) || result.events.length === 0)) {
+          setErrorMessage("Building full current-month calendar. Please wait a few seconds...");
+          if (isMounted) {
+            retryTimer = setTimeout(() => {
+              void loadCalendar();
+            }, 5000);
+          }
+          return;
+        }
 
         if (Array.isArray(result.events) && result.events.length > 0) {
           setEvents(
@@ -100,11 +110,15 @@ export default function EconomicCalendar() {
           return;
         }
 
-        setErrorMessage("No events returned for this month from source. Showing latest available feed.");
+        setEvents([]);
+        setActiveEventId("");
+        setErrorMessage("No events returned for the current month yet.");
       } catch (error: unknown) {
         if (!isMounted) return;
         const message = error instanceof Error ? error.message : "Unknown calendar error";
-        setErrorMessage(`${message}. Showing fallback data.`);
+        setEvents([]);
+        setActiveEventId("");
+        setErrorMessage(message);
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -173,7 +187,7 @@ export default function EconomicCalendar() {
   );
 
   const activeEvent = useMemo(() => {
-    return filteredEvents.find((event) => event.id === activeEventId) ?? filteredEvents[0] ?? dateScopedEvents[0] ?? events[0] ?? calendarEvents[0];
+    return filteredEvents.find((event) => event.id === activeEventId) ?? filteredEvents[0] ?? dateScopedEvents[0] ?? events[0] ?? null;
   }, [filteredEvents, dateScopedEvents, events, activeEventId]);
 
   const toggleStar = (id: string) => {
@@ -375,6 +389,13 @@ export default function EconomicCalendar() {
                 </tr>
               </thead>
               <tbody>
+                {filteredEvents.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-3 py-6 text-center text-sm text-[var(--ink-muted)]">
+                      {isLoading ? "Loading month events..." : "No events available for the selected view yet."}
+                    </td>
+                  </tr>
+                ) : null}
                 {filteredEvents.map((event) => (
                   <tr
                     key={event.id}
