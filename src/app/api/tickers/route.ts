@@ -40,12 +40,20 @@ const SYMBOL_MAP: Record<string, string> = {
   UKOIL: "BZ=F",
   NATGAS: "NG=F",
   CORN: "ZC=F",
+  SPXUSD: "^GSPC",
+  NSXUSD: "^NDX",
+  DJI: "^DJI",
+  US2000: "^RUT",
+  AAPL: "AAPL",
+  MSFT: "MSFT",
+  NVDA: "NVDA",
+  TSLA: "TSLA",
 };
 
 const MARKET_SYMBOLS: Record<"forex" | "crypto" | "commodities", UiTickerSymbol[]> = {
   forex: ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD"],
   crypto: ["BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ADAUSD", "DOGEUSD"],
-  commodities: ["XAUUSD", "XAGUSD", "USOIL", "UKOIL", "NATGAS", "CORN"],
+  commodities: ["SPXUSD", "NSXUSD", "DJI", "US2000", "AAPL", "MSFT", "NVDA", "TSLA"],
 };
 
 const parseNumberish = (value: unknown): number | null => {
@@ -66,6 +74,8 @@ const formatPrice = (symbol: UiTickerSymbol, price: number) => {
   if (symbol === "XRPUSD" || symbol === "ADAUSD" || symbol === "DOGEUSD") return price.toFixed(4);
   if (symbol === "USOIL" || symbol === "UKOIL" || symbol === "NATGAS") return price.toFixed(3);
   if (symbol === "CORN") return price.toFixed(2);
+  if (["SPXUSD", "NSXUSD", "DJI", "US2000"].includes(symbol)) return price.toFixed(2);
+  if (["AAPL", "MSFT", "NVDA", "TSLA"].includes(symbol)) return price.toFixed(2);
   if (symbol.endsWith("JPY")) return price.toFixed(3);
   return price.toFixed(5);
 };

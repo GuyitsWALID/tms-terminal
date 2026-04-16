@@ -34,13 +34,15 @@ const CRYPTO_SYMBOLS: MarketChartSymbol[] = [
   { display: "DOGE/USD", compact: "DOGEUSD", tradingView: "BINANCE:DOGEUSDT" },
 ];
 
-const COMMODITY_SYMBOLS: MarketChartSymbol[] = [
-  { display: "Gold", compact: "XAUUSD", tradingView: "TVC:GOLD" },
-  { display: "Silver", compact: "XAGUSD", tradingView: "COMEX:SI1!" },
-  { display: "WTI Oil", compact: "USOIL", tradingView: "NYMEX:CL1!" },
-  { display: "Brent Oil", compact: "UKOIL", tradingView: "TVC:UKOIL" },
-  { display: "Natural Gas", compact: "NATGAS", tradingView: "NYMEX:NG1!" },
-  { display: "Corn", compact: "CORN", tradingView: "CBOT:ZC1!" },
+const STOCKS_FUTURES_INDICES_SYMBOLS: MarketChartSymbol[] = [
+  { display: "US 500", compact: "SPXUSD", tradingView: "FOREXCOM:SPXUSD" },
+  { display: "US 100", compact: "NSXUSD", tradingView: "FOREXCOM:NSXUSD" },
+  { display: "US 30", compact: "DJI", tradingView: "FOREXCOM:DJI" },
+  { display: "US 2000", compact: "US2000", tradingView: "FOREXCOM:US2000" },
+  { display: "AAPL", compact: "AAPL", tradingView: "NASDAQ:AAPL" },
+  { display: "MSFT", compact: "MSFT", tradingView: "NASDAQ:MSFT" },
+  { display: "NVDA", compact: "NVDA", tradingView: "NASDAQ:NVDA" },
+  { display: "TSLA", compact: "TSLA", tradingView: "NASDAQ:TSLA" },
 ];
 
 export const MARKET_DEFINITIONS: Record<MarketKey, MarketDefinition> = {
@@ -60,10 +62,10 @@ export const MARKET_DEFINITIONS: Record<MarketKey, MarketDefinition> = {
   },
   commodities: {
     id: "commodities",
-    label: "Commodities",
-    description: "Metals, energy, and commodity benchmark instruments.",
-    tickerSymbols: COMMODITY_SYMBOLS.map((symbol) => symbol.compact),
-    chartSymbols: COMMODITY_SYMBOLS,
+    label: "Stocks/Futures/Indices",
+    description: "US index benchmarks, key futures, and leading stocks.",
+    tickerSymbols: STOCKS_FUTURES_INDICES_SYMBOLS.map((symbol) => symbol.compact),
+    chartSymbols: STOCKS_FUTURES_INDICES_SYMBOLS,
   },
 };
 
@@ -90,11 +92,11 @@ export const getChartSymbolByCompact = (market: MarketKey, compact: string): Mar
 export const MARKET_KEYWORDS: Record<MarketKey, string[]> = {
   forex: ["forex", "fx", "usd", "eur", "gbp", "jpy", "boe", "ecb", "boj", "cad", "aud", "nzd", "chf"],
   crypto: ["crypto", "bitcoin", "btc", "ethereum", "eth", "sol", "xrp", "doge", "ada", "token", "blockchain", "defi"],
-  commodities: ["commodities", "commodity", "gold", "silver", "oil", "wti", "brent", "crude", "natural gas", "gas", "copper", "corn", "wheat"],
+  commodities: ["stocks", "stock", "futures", "indices", "index", "equity", "nasdaq", "s&p", "spx", "dow", "russell", "earnings", "fed", "rates"],
 };
 
 export const MARKET_CALENDAR_CURRENCIES: Record<MarketKey, string[]> = {
   forex: ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"],
   crypto: ["USD"],
-  commodities: ["USD", "CAD", "AUD", "NZD"],
+  commodities: ["USD"],
 };
