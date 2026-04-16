@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, Rajdhani, Geist } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ export default function RootLayout({
         <GlobalLayout>
           {children}
         </GlobalLayout>
+        <Analytics />
       </body>
     </html>
   );

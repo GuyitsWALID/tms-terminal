@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.15",
+    "@vercel/analytics": "^2.0.1",
     "autoprefixer": "^10.4.27",
     "axios": "^1.15.0",
     "cheerio": "^1.2.0",

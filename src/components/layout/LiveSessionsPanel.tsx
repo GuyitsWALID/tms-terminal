@@ -88,6 +88,9 @@ export default function LiveSessionsPanel({
   className,
 }: LiveSessionsPanelProps) {
   const [now, setNow] = useState(() => new Date());
+  const [usersOnline, setUsersOnline] = useState<number | null>(null);
+  const [usersSource, setUsersSource] = useState<"provider" | "fallback">("fallback");
+  const [usersSetupState, setUsersSetupState] = useState<"ok" | "unconfigured" | "provider-error">("unconfigured");
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -95,6 +98,50 @@ export default function LiveSessionsPanel({
     }, 60_000);
 
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const loadUsersOnline = async () => {
+      try {
+        const response = await fetch("/api/analytics/users-online", { cache: "no-store" });
+        if (!mounted) return;
+
+        if (!response.ok) {
+          setUsersOnline(null);
+          setUsersSource("fallback");
+        } else {
+          const data = (await response.json()) as { usersOnline: number | null; source?: string };
+          if (typeof data.usersOnline === "number" && Number.isFinite(data.usersOnline)) {
+            setUsersOnline(Math.max(0, Math.round(data.usersOnline)));
+            setUsersSource("provider");
+            setUsersSetupState("ok");
+          } else {
+            setUsersOnline(null);
+            setUsersSource("fallback");
+            setUsersSetupState(data.source === "provider-error" ? "provider-error" : "unconfigured");
+          }
+        }
+      } catch {
+        if (!mounted) return;
+        setUsersOnline(null);
+        setUsersSource("fallback");
+        setUsersSetupState("provider-error");
+      } finally {
+        if (mounted) {
+          timer = setTimeout(loadUsersOnline, 15_000);
+        }
+      }
+    };
+
+    void loadUsersOnline();
+
+    return () => {
+      mounted = false;
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
   const currentMinutes = toUtcMinutes(now);
@@ -115,12 +162,14 @@ export default function LiveSessionsPanel({
 
   const activeCount = useMemo(() => sessions.filter((session) => session.active).length, [sessions]);
 
-  const traderCount = useMemo(() => {
+  const estimatedTraderCount = useMemo(() => {
     const base = MARKET_BASE_TRADERS[market];
     const dailyWave = Math.sin((currentMinutes / 1440) * Math.PI * 2) * 0.06;
     const sessionFactor = 0.72 + activeWeight * 0.23;
     return Math.round(base * sessionFactor * (1 + dailyWave));
   }, [market, activeWeight, currentMinutes]);
+
+  const displayedUsersOnline = usersOnline ?? estimatedTraderCount;
 
   return (
     <div className={cn("rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-3", className)}>
@@ -132,10 +181,17 @@ export default function LiveSessionsPanel({
       {showTraders ? (
         <div className="mb-3 rounded border border-[var(--line-soft)] bg-[var(--surface-2)] p-2.5">
           <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--ink-muted)]">Active Traders</p>
-          <p className="mt-1 font-rajdhani text-3xl font-bold leading-none text-[var(--ink-primary)]">{traderCount.toLocaleString()}</p>
+          <p className="mt-1 font-rajdhani text-3xl font-bold leading-none text-[var(--ink-primary)]">{displayedUsersOnline.toLocaleString()}</p>
           <p className="mt-1 text-[11px] text-[var(--ink-muted)]">
-            {activeCount} session{activeCount === 1 ? "" : "s"} open | TradingView session analytics
+            {activeCount} session{activeCount === 1 ? "" : "s"} open | {usersSource === "provider" ? "Vercel Analytics online users" : "session-based live estimate"}
           </p>
+          {usersSetupState !== "ok" ? (
+            <p className="mt-1 text-[10px] text-[#ffb38f]">
+              {usersSetupState === "unconfigured"
+                ? "Set VERCEL_ANALYTICS_USERS_ONLINE_URL and VERCEL_ACCESS_TOKEN to enable true live users."
+                : "Vercel users endpoint unreachable. Showing fallback estimate."}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -162,7 +218,7 @@ export default function LiveSessionsPanel({
             }
 
             return (
-              <>
+              <div key={session.name}>
                 <div
                   key={`${session.name}-a`}
                   className={cn("absolute bottom-0 top-0 rounded-sm opacity-35", isActive && "opacity-70")}
@@ -181,7 +237,7 @@ export default function LiveSessionsPanel({
                   }}
                   title={`${session.name} (${formatRange(session.startUtcHour, session.endUtcHour)})`}
                 />
-              </>
+              </div>
             );
           })}
 
