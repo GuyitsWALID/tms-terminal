@@ -13,17 +13,9 @@ import {
 } from "@/lib/terminalData";
 import { fetchEconomicCalendarWithMeta } from "@/lib/api/dataService";
 import type { EconomicEvent } from "@/types";
-import { useLiveTickers } from "@/hooks/useLiveTickers";
 import { getMarketDefinition } from "@/lib/market";
 import { useMarket } from "@/components/layout/MarketContext";
-
-type HomePairCard = {
-  symbol: string;
-  bid: string;
-  spread: string;
-  change6h: string;
-  direction: "up" | "down";
-};
+import TradingViewSymbolInfoCard from "@/components/charts/TradingViewSymbolInfoCard";
 
 const impactClass = {
   high: "ff-impact-high",
@@ -41,59 +33,10 @@ export default function Home() {
   const { market } = useMarket();
   const marketConfig = getMarketDefinition(market);
   const [liveCalendarEvents, setLiveCalendarEvents] = useState<EconomicEvent[]>(calendarEvents);
-  const { tickers } = useLiveTickers(1000, market);
-
-  const spreadMap = useMemo<Record<string, string>>(
-    () => ({
-      EURUSD: "0.8",
-      GBPUSD: "1.1",
-      USDJPY: "0.9",
-      USDCHF: "1.0",
-      AUDUSD: "0.9",
-      NZDUSD: "1.2",
-      USDCAD: "1.0",
-      XAUUSD: "12.0",
-      BTCUSD: "18.0",
-      ETHUSD: "1.8",
-      SOLUSD: "0.35",
-      XRPUSD: "0.002",
-      ADAUSD: "0.001",
-      DOGEUSD: "0.001",
-      XAGUSD: "0.02",
-      USOIL: "0.03",
-      UKOIL: "0.03",
-      NATGAS: "0.01",
-      CORN: "0.15",
-    }),
-    []
-  );
-
-  const liveMajors = useMemo<HomePairCard[]>(() => {
-    const bySymbol = new Map<string, (typeof tickers)[number]>(tickers.map((ticker) => [ticker.symbol, ticker]));
-
-    return marketConfig.chartSymbols.slice(0, 8).map((pair) => {
-      const compact = pair.compact;
-      const ticker = bySymbol.get(compact);
-
-      if (!ticker) {
-        return {
-          symbol: pair.display,
-          bid: "--",
-          spread: spreadMap[compact] ?? "--",
-          change6h: "--",
-          direction: "up",
-        };
-      }
-
-      return {
-        symbol: pair.display,
-        bid: ticker.price,
-        spread: spreadMap[compact] ?? "--",
-        change6h: ticker.change,
-        direction: ticker.isUp ? "up" : "down",
-      };
-    });
-  }, [tickers, marketConfig, spreadMap]);
+  const [widgetTheme, setWidgetTheme] = useState<"dark" | "light">(() => {
+    if (typeof window === "undefined") return "dark";
+    return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+  });
 
   const marketNews = useMemo(() => featuredNews.filter((item) => !item.market || item.market === market), [market]);
 
@@ -109,10 +52,10 @@ export default function Home() {
 
     if (market === "commodities") {
       return {
-        title: "Commodities Pulse: Gold Stable While Oil Reacts To Inventory Headlines",
-        source: "Commodities Wire",
+        title: "US Indices Pulse: Equity Benchmarks React To Rates And Earnings Flow",
+        source: "Indices Wire",
         age: "14 min ago",
-        body: "Metals remain range-bound while energy reacts sharply to inventory and geopolitical supply narrative updates.",
+        body: "US index and large-cap stock flows are tracking rate expectations and earnings guidance shifts into the next session.",
       };
     }
 
@@ -125,6 +68,16 @@ export default function Home() {
   }, [market]);
 
   const scopedSentiment = useMemo(() => marketSentiment.filter((row) => row.market === market), [market]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => {
+      setWidgetTheme(root.getAttribute("data-theme") === "light" ? "light" : "dark");
+    });
+
+    observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -154,17 +107,20 @@ export default function Home() {
         <div className="border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-[var(--ink-primary)]">
           {marketConfig.label} Majors
         </div>
-        <div className="ff-scroll grid grid-cols-2 divide-x divide-y divide-[var(--line-soft)] overflow-x-auto sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-8 xl:divide-y-0">
-          {liveMajors.map((pair) => (
-            <div key={pair.symbol} className="min-w-[140px] bg-[var(--surface-2)] px-2.5 py-3 sm:min-w-[160px] sm:px-3">
-              <p className="font-rajdhani text-base font-bold leading-none text-[var(--ink-primary)] sm:text-lg">{pair.symbol}</p>
-              <p className="mt-2 font-mono text-base text-[var(--ink-primary)] sm:text-lg">{pair.bid}</p>
-              <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--ink-muted)]">
-                <span>Spread {pair.spread}</span>
-                <span className={pair.direction === "up" ? "text-[#34d58c]" : "text-[#ff7c7c]"}>{pair.change6h}</span>
+        <div className="ff-scroll overflow-x-auto bg-[var(--surface-2)] p-3">
+          <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">Scroll to view all majors</div>
+          <div className="flex min-w-max gap-3">
+            {marketConfig.chartSymbols.map((pair) => (
+              <div key={pair.compact} className="w-[340px] shrink-0 rounded border border-[var(--line-soft)] bg-[var(--surface-3)] p-2">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink-muted)]">{pair.display}</p>
+                <TradingViewSymbolInfoCard
+                  symbol={pair.tradingView}
+                  title={`${pair.display} performance`}
+                  theme={widgetTheme}
+                />
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 

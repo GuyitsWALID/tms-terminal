@@ -62,8 +62,8 @@ export const MARKET_DEFINITIONS: Record<MarketKey, MarketDefinition> = {
   },
   commodities: {
     id: "commodities",
-    label: "Stocks/Futures/Indices",
-    description: "US index benchmarks, key futures, and leading stocks.",
+    label: "Stocks, Futures, Indices",
+    description: "US index benchmarks, front-month futures, and leading stocks.",
     tickerSymbols: STOCKS_FUTURES_INDICES_SYMBOLS.map((symbol) => symbol.compact),
     chartSymbols: STOCKS_FUTURES_INDICES_SYMBOLS,
   },

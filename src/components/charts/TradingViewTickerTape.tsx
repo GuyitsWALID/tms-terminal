@@ -61,7 +61,6 @@ const MARKET_TICKER_THEME = {
 
 export default function TradingViewTickerTape({ className }: TradingViewTickerTapeProps) {
   const { market } = useMarket();
-  const [, setScriptReady] = useState(false);
   const [widgetTheme, setWidgetTheme] = useState<"dark" | "light">(() => {
     if (typeof window === "undefined") return "dark";
     const stored = window.localStorage.getItem("tms-theme");
@@ -74,7 +73,6 @@ export default function TradingViewTickerTape({ className }: TradingViewTickerTa
   useEffect(() => {
     const existing = document.getElementById(SCRIPT_ID);
     if (existing) {
-      setScriptReady(true);
       return;
     }
 
@@ -83,8 +81,6 @@ export default function TradingViewTickerTape({ className }: TradingViewTickerTa
     script.src = SCRIPT_SRC;
     script.type = "module";
     script.async = true;
-    script.onload = () => setScriptReady(true);
-    script.onerror = () => setScriptReady(false);
     document.head.appendChild(script);
   }, []);
 
