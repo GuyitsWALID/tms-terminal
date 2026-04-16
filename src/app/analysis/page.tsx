@@ -79,7 +79,7 @@ export default function AnalysisPage() {
             }
             bodyClassName="p-0"
           >
-            <div className="h-[430px] sm:h-[520px] lg:h-[560px]">
+            <div className="h-[350px] sm:h-[520px] lg:h-[560px]">
               {!heatmapFailed ? (
                 market === "forex" ? (
                   <TradingViewWidget
@@ -110,7 +110,7 @@ export default function AnalysisPage() {
 
           {market !== "crypto" ? (
             <TradingViewPanel title="Market Screener" bodyClassName="p-0">
-              <div className="h-[420px] sm:h-[520px] lg:h-[560px]">
+              <div className="h-[350px] sm:h-[520px] lg:h-[560px]">
                 {!screenerFailed ? (
                   <TradingViewWidget
                     scriptName="embed-widget-screener.js"
@@ -128,7 +128,7 @@ export default function AnalysisPage() {
         </div>
 
         <TradingViewPanel title="Technical Analysis" bodyClassName="p-0">
-          <div className="h-[430px] sm:h-[520px] lg:h-[560px]">
+          <div className="h-[350px] sm:h-[520px] lg:h-[560px]">
             {!technicalFailed ? (
               <TradingViewWidget
                 scriptName="embed-widget-technical-analysis.js"

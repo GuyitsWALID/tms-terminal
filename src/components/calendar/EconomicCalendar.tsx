@@ -5,13 +5,14 @@ import { ArrowRight, BadgeCheck, Bell, Calendar as CalendarIcon, ChevronDown, Fo
 import { endOfWeek, format, isSameMonth, isWithinInterval, startOfWeek } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
-import { marketSentiment, sessions } from "@/lib/terminalData";
+import { marketSentiment } from "@/lib/terminalData";
 import { fetchEconomicCalendarWithMeta } from "@/lib/api/dataService";
 import type { EconomicEvent } from "@/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "../ui/calendar";
 import { Button } from "@/components/ui/button";
 import { useMarket } from "@/components/layout/MarketContext";
+import LiveSessionsPanel from "@/components/layout/LiveSessionsPanel";
 
 const IMPACT_COLORS = {
   high: "ff-impact-high",
@@ -595,20 +596,7 @@ export default function EconomicCalendar() {
             </div>
           </div>
 
-          <div className="ff-panel p-3">
-            <h3 className="ff-panel-title text-sm">Sessions</h3>
-            <div className="mt-2 space-y-2 text-xs">
-              {sessions.map((session) => (
-                <div key={session.name} className="rounded border border-[var(--line-soft)] bg-[var(--surface-3)] px-2 py-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-[var(--ink-primary)]">{session.name}</span>
-                    <span className={session.active ? "text-[#2fd488]" : "text-[var(--ink-muted)]"}>{session.active ? "ACTIVE" : "CLOSED"}</span>
-                  </div>
-                  <p className="text-[var(--ink-muted)]">{session.range}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          <LiveSessionsPanel market={market} compact showTraders={false} className="ff-panel" />
         </aside>
       </div>
     </div>

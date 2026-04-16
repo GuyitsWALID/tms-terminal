@@ -78,7 +78,7 @@ export default function ChartsPage() {
           </div>
 
           <TradingViewPanel title="Market Screener" bodyClassName="p-0">
-            <div className="h-[420px] sm:h-[520px] lg:h-[560px]">
+            <div className="h-[360px] sm:h-[520px] lg:h-[560px]">
               {!screenerFailed ? (
                 <TradingViewWidget
                   scriptName="embed-widget-screener.js"
@@ -99,12 +99,12 @@ export default function ChartsPage() {
             <div className="border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-3 py-2 text-xs font-bold uppercase text-[var(--ink-primary)]">
               Symbol Selector
             </div>
-            <div className="grid grid-cols-2 gap-2 p-3">
+            <div className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-2 sm:p-3">
               {marketConfig.chartSymbols.map((pair) => (
                 <button
                   key={pair.compact}
                   onClick={() => setActiveSymbol(pair.display)}
-                  className={`rounded border px-2 py-2 text-xs font-semibold ${
+                  className={`rounded border px-2 py-2 text-left text-xs font-semibold ${
                     activeSymbol === pair.display
                       ? "border-[var(--brand)] bg-[var(--surface-hover)] text-[var(--ink-primary)]"
                       : "border-[var(--line-soft)] bg-[var(--surface-1)] text-[var(--ink-muted)]"
@@ -117,7 +117,7 @@ export default function ChartsPage() {
           </div>
 
           <TradingViewPanel title={`Technical Analysis / ${activeSymbol}`} bodyClassName="p-0">
-            <div className="h-[380px] sm:h-[440px]">
+            <div className="h-[340px] sm:h-[440px]">
               {!technicalFailed ? (
                 <TradingViewWidget
                   scriptName="embed-widget-technical-analysis.js"
@@ -133,7 +133,7 @@ export default function ChartsPage() {
           </TradingViewPanel>
 
           <TradingViewPanel title="Market Data" bodyClassName="p-0">
-            <div className="h-[420px] sm:h-[500px]">
+            <div className="h-[340px] sm:h-[500px]">
               {!marketDataFailed ? (
                 <TradingViewWidget
                   scriptName="embed-widget-market-quotes.js"

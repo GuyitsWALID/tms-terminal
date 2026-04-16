@@ -20,7 +20,7 @@ export default function CalendarPage() {
   return (
     <div className="space-y-3">
       <TradingViewPanel title="Economic Calendar / Live" bodyClassName="p-0">
-        <div className="h-[70vh] min-h-[420px] sm:min-h-[560px]">
+        <div className="h-[62vh] min-h-[320px] sm:min-h-[560px]">
           {!widgetFailed ? (
             <TradingViewWidget
               scriptName="embed-widget-events.js"

@@ -52,7 +52,6 @@ export default function TradingViewWidget({
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    let silentFailureTimer: ReturnType<typeof setTimeout> | undefined;
 
     const renderKey = `${scriptName}::${configText}`;
     if (renderKeyRef.current === renderKey && host.querySelector("iframe")) {
@@ -79,7 +78,7 @@ export default function TradingViewWidget({
     host.appendChild(script);
 
     // Some widgets fail silently with no script error; detect empty renders to trigger fallback.
-    silentFailureTimer = setTimeout(() => {
+    const silentFailureTimer = setTimeout(() => {
       const hasIframe = Boolean(host.querySelector("iframe"));
       if (!hasIframe) {
         onError?.();
@@ -87,7 +86,7 @@ export default function TradingViewWidget({
     }, 3500);
 
     return () => {
-      if (silentFailureTimer) clearTimeout(silentFailureTimer);
+      clearTimeout(silentFailureTimer);
       host.innerHTML = "";
     };
   }, [scriptName, configText, onError]);

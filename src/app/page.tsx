@@ -80,16 +80,16 @@ export default function Home() {
   return (
     <div className="space-y-3">
       <section className="ff-panel overflow-hidden">
-        <div className="flex items-center justify-between border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-3 py-2 sm:px-4">
           <h1 className="ff-panel-title text-xs sm:text-sm text-[var(--ink-primary)]">{marketConfig.label} Majors</h1>
-          <Link href="/charts" className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-primary)]">
+          <Link href="/charts" className="text-[10px] font-semibold uppercase tracking-wider text-[var(--ink-primary)] sm:text-[11px]">
             Open Market View
           </Link>
         </div>
-        <div className="ff-scroll overflow-x-auto bg-[var(--surface-2)] p-3">
+        <div className="ff-scroll overflow-x-auto bg-[var(--surface-2)] p-2 sm:p-3">
           <div className="flex min-w-max gap-3">
             {marketConfig.chartSymbols.map((pair) => (
-              <div key={pair.compact} className="w-[300px] shrink-0 rounded border border-[var(--line-soft)] bg-[var(--surface-3)] p-2 sm:w-[340px]">
+              <div key={pair.compact} className="w-[260px] shrink-0 rounded border border-[var(--line-soft)] bg-[var(--surface-3)] p-2 sm:w-[320px] lg:w-[340px]">
                 <p className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink-muted)]">{pair.display}</p>
                 <TradingViewSymbolInfoCard symbol={pair.tradingView} title={`${pair.display} performance`} theme={widgetTheme} />
               </div>
@@ -100,7 +100,7 @@ export default function Home() {
 
       <section className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         <TradingViewPanel title="News / Top Stories" bodyClassName="p-0">
-          <div className="h-[420px] sm:h-[500px]">
+          <div className="h-[340px] sm:h-[500px]">
             {!newsWidgetFailed ? (
               <TradingViewWidget
                 scriptName="embed-widget-timeline.js"
@@ -116,7 +116,7 @@ export default function Home() {
         </TradingViewPanel>
 
         <TradingViewPanel title="Economic Calendar" bodyClassName="p-0">
-          <div className="h-[420px] sm:h-[500px]">
+          <div className="h-[340px] sm:h-[500px]">
             {!calendarWidgetFailed ? (
               <TradingViewWidget
                 scriptName="embed-widget-events.js"
@@ -134,7 +134,7 @@ export default function Home() {
 
       <section className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <TradingViewPanel title="Market Data" bodyClassName="p-0">
-          <div className="h-[420px] sm:h-[500px] lg:h-[560px]">
+          <div className="h-[360px] sm:h-[500px] lg:h-[560px]">
             {!marketDataWidgetFailed ? (
               <TradingViewWidget
                 scriptName="embed-widget-market-quotes.js"
@@ -150,7 +150,7 @@ export default function Home() {
         </TradingViewPanel>
 
         <TradingViewPanel title="Technical Analysis" bodyClassName="p-0">
-          <div className="h-[420px] sm:h-[500px] lg:h-[560px]">
+          <div className="h-[360px] sm:h-[500px] lg:h-[560px]">
             {!technicalWidgetFailed ? (
               <TradingViewWidget
                 scriptName="embed-widget-technical-analysis.js"

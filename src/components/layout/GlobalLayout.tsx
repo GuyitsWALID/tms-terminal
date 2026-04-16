@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  BadgeAlert,
   Bell,
   Calendar,
   ChevronDown,
@@ -26,10 +25,10 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { sessions } from "@/lib/terminalData";
 import { MARKET_ORDER, getMarketDefinition } from "@/lib/market";
 import { MarketProvider, useMarket } from "@/components/layout/MarketContext";
 import TradingViewTickerTape from "@/components/charts/TradingViewTickerTape";
+import LiveSessionsPanel from "@/components/layout/LiveSessionsPanel";
 
 const menuItems = [
   { id: "calendar", name: "Calendar", icon: Calendar, path: "/calendar" },
@@ -48,7 +47,6 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   const [now, setNow] = useState("--:--:--");
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const { market, setMarket } = useMarket();
-  const marketConfig = getMarketDefinition(market);
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("tms-theme");
@@ -327,36 +325,13 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
 
           <div className="mx-auto grid w-full max-w-[1460px] grid-cols-1 gap-4 px-3 py-4 md:px-6 xl:grid-cols-[260px_minmax(0,1fr)]">
             <aside className="ff-panel ff-grid-entrance hidden p-3 xl:block">
-              <div className="mb-3 rounded-md border border-[var(--line-strong)] bg-[var(--surface-1)] p-3">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">Traders Online</p>
-                <p className="mt-1 font-rajdhani text-4xl font-bold leading-none">18,508</p>
-                <p className="text-xs text-[var(--ink-muted)]">Community sentiment active</p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--ink-muted)]">{marketConfig.label} world active</p>
-              </div>
-
-              <div className="mb-3 space-y-2">
-                <p className="ff-panel-title text-xs text-[var(--ink-muted)]">Sessions</p>
-                {sessions.map((session) => (
-                  <div key={session.name} className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-3 py-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-[var(--ink-primary)]">{session.name}</span>
-                      <span
-                        className={cn(
-                          "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
-                          session.active ? "bg-[#2ecf87] text-[#062114]" : "bg-[var(--surface-2)] text-[var(--ink-muted)]"
-                        )}
-                      >
-                        {session.active ? "Live" : "Closed"}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-[var(--ink-muted)]">{session.range}</p>
-                  </div>
-                ))}
+              <div className="mb-3">
+                <LiveSessionsPanel market={market} showTraders />
               </div>
 
               <div className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-3">
                 <div className="mb-2 flex items-center gap-2 text-[var(--ink-primary)]">
-                  <BadgeAlert size={14} />
+                  <Bell size={14} />
                   <p className="ff-panel-title text-xs">Event Alerts</p>
                 </div>
                 <p className="text-xs text-[var(--ink-muted)]">Receive notifications 5 minutes before starred events, with verified trader summaries.</p>
