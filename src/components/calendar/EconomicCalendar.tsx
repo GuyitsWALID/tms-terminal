@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { BadgeCheck, Bell, Calendar as CalendarIcon, ChevronDown, Folder, ShieldCheck, Star, TrendingUp } from "lucide-react";
+import { ArrowRight, BadgeCheck, Bell, Calendar as CalendarIcon, ChevronDown, Folder, ShieldCheck, Star, TrendingUp } from "lucide-react";
 import { endOfWeek, format, isSameMonth, isWithinInterval, startOfWeek } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,26 @@ const parseEventDate = (date: string | undefined) => {
   return new Date(year, month - 1, day);
 };
 
+const parseEventTimestamp = (event: EconomicEvent) => {
+  const eventDate = parseEventDate(event.eventDate);
+  if (!eventDate) return null;
+
+  const timeMatch = event.time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!timeMatch) {
+    return new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate(), 23, 59, 59, 999);
+  }
+
+  const [, hourRaw, minuteRaw, periodRaw] = timeMatch;
+  const period = periodRaw.toUpperCase();
+  let hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+
+  if (period === "PM" && hour < 12) hour += 12;
+  if (period === "AM" && hour === 12) hour = 0;
+
+  return new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate(), hour, minute, 0, 0);
+};
+
 export default function EconomicCalendar() {
   const { market } = useMarket();
   const [isHydrated, setIsHydrated] = useState(false);
@@ -54,11 +74,22 @@ export default function EconomicCalendar() {
   const [detailModalEvent, setDetailModalEvent] = useState<EconomicEvent | null>(null);
   const [detailModalLoading, setDetailModalLoading] = useState(false);
   const [detailModalData, setDetailModalData] = useState<EconomicEvent["scrapedDetail"] | null>(null);
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
   const fetchAnchorDate = currentMonthAnchor;
 
   useEffect(() => {
     setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 60_000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -189,6 +220,30 @@ export default function EconomicCalendar() {
     [dateScopedEvents, impactFilter]
   );
 
+  const eventState = useMemo(() => {
+    const passedIds = new Set<string>();
+    const upcoming: Array<{ id: string; timestamp: number }> = [];
+
+    filteredEvents.forEach((event) => {
+      const timestamp = parseEventTimestamp(event);
+      if (!timestamp) return;
+
+      const value = timestamp.getTime();
+      if (value < nowMs) {
+        passedIds.add(event.id);
+      } else {
+        upcoming.push({ id: event.id, timestamp: value });
+      }
+    });
+
+    upcoming.sort((a, b) => a.timestamp - b.timestamp);
+
+    return {
+      passedIds,
+      activeId: upcoming[0]?.id ?? "",
+    };
+  }, [filteredEvents, nowMs]);
+
   const activeEvent = useMemo(() => {
     return filteredEvents.find((event) => event.id === activeEventId) ?? filteredEvents[0] ?? dateScopedEvents[0] ?? events[0] ?? null;
   }, [filteredEvents, dateScopedEvents, events, activeEventId]);
@@ -222,6 +277,14 @@ export default function EconomicCalendar() {
     const singleDay = new Date(day.getFullYear(), day.getMonth(), day.getDate());
     setSelectedRange({ from: singleDay, to: singleDay });
     setFocusDate(singleDay);
+  };
+
+  const applyTodayFilter = () => {
+    const today = new Date();
+    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    setViewMode("day");
+    setFocusDate(day);
+    setSelectedRange({ from: day, to: day });
   };
 
   const tableTitle = viewMode === "month" ? "This Month: Economic Calendar" : viewMode === "day" ? "Selected Range: Economic Calendar" : "This Week: Economic Calendar";
@@ -329,6 +392,13 @@ export default function EconomicCalendar() {
               </button>
             </div>
 
+            <button
+              onClick={applyTodayFilter}
+              className="rounded border border-[#1d9bf044] bg-[#1d9bf018] px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-[#1d9bf0] hover:bg-[#1d9bf02b]"
+            >
+              Today
+            </button>
+
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -428,12 +498,18 @@ export default function EconomicCalendar() {
                     onClick={() => setActiveEventId(event.id)}
                     className={cn(
                       "cursor-pointer hover:bg-[var(--surface-hover)]",
-                      activeEvent?.id === event.id && "bg-[var(--surface-hover)]"
+                      activeEvent?.id === event.id && "bg-[var(--surface-hover)]",
+                      eventState.passedIds.has(event.id) && "bg-[var(--surface-1)]/70 text-[var(--ink-muted)] opacity-60"
                     )}
                   >
                     <td className="px-3 py-2 font-semibold">{event.time}</td>
                     <td className="px-3 py-2 font-semibold text-[var(--ink-primary)]">{event.currency}</td>
-                    <td className="px-3 py-2 text-[var(--ink-primary)]">{event.event}</td>
+                    <td className="px-3 py-2 text-[var(--ink-primary)]">
+                      <span className="inline-flex items-center gap-1.5">
+                        {eventState.activeId === event.id ? <ArrowRight size={12} className="text-[#1d9bf0]" /> : null}
+                        <span>{event.event}</span>
+                      </span>
+                    </td>
                     <td className="px-3 py-2 text-center">
                       <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${IMPACT_COLORS[event.impact]}`}>{event.impact}</span>
                     </td>
