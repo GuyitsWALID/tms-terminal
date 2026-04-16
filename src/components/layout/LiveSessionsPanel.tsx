@@ -91,6 +91,7 @@ export default function LiveSessionsPanel({
   const [usersOnline, setUsersOnline] = useState<number | null>(null);
   const [usersSource, setUsersSource] = useState<"provider" | "fallback">("fallback");
   const [usersSetupState, setUsersSetupState] = useState<"ok" | "unconfigured" | "provider-error">("unconfigured");
+  const [deployedOnVercel, setDeployedOnVercel] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -113,7 +114,12 @@ export default function LiveSessionsPanel({
           setUsersOnline(null);
           setUsersSource("fallback");
         } else {
-          const data = (await response.json()) as { usersOnline: number | null; source?: string };
+          const data = (await response.json()) as {
+            usersOnline: number | null;
+            source?: string;
+            deployedOnVercel?: boolean;
+          };
+          setDeployedOnVercel(Boolean(data.deployedOnVercel));
           if (typeof data.usersOnline === "number" && Number.isFinite(data.usersOnline)) {
             setUsersOnline(Math.max(0, Math.round(data.usersOnline)));
             setUsersSource("provider");
@@ -129,6 +135,7 @@ export default function LiveSessionsPanel({
         setUsersOnline(null);
         setUsersSource("fallback");
         setUsersSetupState("provider-error");
+        setDeployedOnVercel(false);
       } finally {
         if (mounted) {
           timer = setTimeout(loadUsersOnline, 15_000);
@@ -188,7 +195,9 @@ export default function LiveSessionsPanel({
           {usersSetupState !== "ok" ? (
             <p className="mt-1 text-[10px] text-[#ffb38f]">
               {usersSetupState === "unconfigured"
-                ? "Set VERCEL_ANALYTICS_USERS_ONLINE_URL and VERCEL_ACCESS_TOKEN to enable true live users."
+                ? deployedOnVercel
+                  ? "Vercel Analytics tracking is enabled. Configure VERCEL_ANALYTICS_USERS_ONLINE_URL and VERCEL_ACCESS_TOKEN to show true live users here."
+                  : "Local/dev mode: analytics tracking integration is present. Set VERCEL_ANALYTICS_USERS_ONLINE_URL and VERCEL_ACCESS_TOKEN to show true live users."
                 : "Vercel users endpoint unreachable. Showing fallback estimate."}
             </p>
           ) : null}

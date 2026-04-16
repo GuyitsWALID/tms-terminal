@@ -43,6 +43,7 @@ const parseUsersOnline = (payload: ProviderPayload): number | null => {
 
 export async function GET() {
   const endpoint = process.env.VERCEL_ANALYTICS_USERS_ONLINE_URL;
+  const deployedOnVercel = Boolean(process.env.VERCEL);
 
   if (!endpoint) {
     return NextResponse.json(
@@ -50,6 +51,7 @@ export async function GET() {
         usersOnline: null,
         source: "unconfigured",
         requiredEnv: ["VERCEL_ANALYTICS_USERS_ONLINE_URL", "VERCEL_ACCESS_TOKEN"],
+        deployedOnVercel,
       },
       { headers: { "Cache-Control": "no-store" } }
     );
@@ -68,6 +70,7 @@ export async function GET() {
           usersOnline: null,
           source: "provider-error",
           statusCode: response.status,
+          deployedOnVercel,
         },
         { headers: { "Cache-Control": "no-store" }, status: 200 }
       );
@@ -77,12 +80,12 @@ export async function GET() {
     const usersOnline = parseUsersOnline(payload);
 
     return NextResponse.json(
-      { usersOnline, source: usersOnline === null ? "provider-unmapped" : "provider" },
+      { usersOnline, source: usersOnline === null ? "provider-unmapped" : "provider", deployedOnVercel },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch {
     return NextResponse.json(
-      { usersOnline: null, source: "provider-error" },
+      { usersOnline: null, source: "provider-error", deployedOnVercel },
       { headers: { "Cache-Control": "no-store" }, status: 200 }
     );
   }
