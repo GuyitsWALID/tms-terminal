@@ -4,8 +4,9 @@
 
 import type { EconomicEvent } from "@/types";
 import type { NewsItem } from "@/types/api";
+import type { MarketKey } from "@/types";
 
-export type LiveTickerSymbol = "EURUSD" | "GBPUSD" | "USDJPY" | "AUDUSD" | "USDCAD" | "XAUUSD";
+export type LiveTickerSymbol = string;
 
 export type LiveTicker = {
   symbol: LiveTickerSymbol;
@@ -31,14 +32,23 @@ export type EconomicCalendarResponse = {
 export type EconomicCalendarFetchOptions = {
   date?: Date;
   scope?: "week" | "day" | "month";
+  market?: MarketKey;
+};
+
+export type NewsFeedResponse = {
+  news: NewsItem[];
+  source: string;
+  cache: string;
+  fallbackReason: string;
 };
 
 export async function fetchEconomicCalendarWithMeta(options?: EconomicCalendarFetchOptions): Promise<EconomicCalendarResponse> {
-  const { date, scope = "week" } = options ?? {};
+  const { date, scope = "week", market = "forex" } = options ?? {};
   const url = new URL("/api/calendar", window.location.origin);
 
   url.searchParams.set("scope", scope);
   url.searchParams.set("tz_offset", "3");
+  url.searchParams.set("market", market);
 
   if (date) {
     url.searchParams.set("year", String(date.getFullYear()));
@@ -63,14 +73,32 @@ export async function fetchEconomicCalendar(date?: Date) {
   return result.events;
 }
 
-export async function fetchNewsFeed() {
-  const res = await fetch("/api/news", { cache: "no-store" });
+export async function fetchNewsFeedWithMeta(market: MarketKey = "forex"): Promise<NewsFeedResponse> {
+  const url = new URL("/api/news", window.location.origin);
+  url.searchParams.set("market", market);
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) throw new Error("News fetch failed");
-  return (await res.json()) as NewsItem[];
+  const news = (await res.json()) as NewsItem[];
+
+  return {
+    news,
+    source: res.headers.get("x-news-source") ?? "unknown",
+    cache: res.headers.get("x-news-cache") ?? "unknown",
+    fallbackReason: res.headers.get("x-news-fallback-reason") ?? "",
+  };
 }
 
-export async function fetchLiveTickersWithMeta(): Promise<LiveTickerResponse> {
-  const res = await fetch("/api/tickers", { cache: "no-store" });
+export async function fetchNewsFeed(market: MarketKey = "forex") {
+  const result = await fetchNewsFeedWithMeta(market);
+  return result.news;
+}
+
+export async function fetchLiveTickersWithMeta(market: MarketKey = "forex"): Promise<LiveTickerResponse> {
+  const url = new URL("/api/tickers", window.location.origin);
+  url.searchParams.set("market", market);
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) throw new Error("Ticker fetch failed");
   const tickers = (await res.json()) as LiveTicker[];
 
@@ -82,7 +110,7 @@ export async function fetchLiveTickersWithMeta(): Promise<LiveTickerResponse> {
   };
 }
 
-export async function fetchLiveTickers() {
-  const result = await fetchLiveTickersWithMeta();
+export async function fetchLiveTickers(market: MarketKey = "forex") {
+  const result = await fetchLiveTickersWithMeta(market);
   return result.tickers;
 }

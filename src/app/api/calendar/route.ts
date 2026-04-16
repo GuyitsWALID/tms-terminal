@@ -11,6 +11,8 @@ import {
   type CacheRecord,
 } from "@/lib/api/scraperUtils";
 import { getMonthJobCachedRows, triggerMonthScrapeJob } from "@/lib/api/calendarMonthJob";
+import { MARKET_CALENDAR_CURRENCIES, MARKET_KEYWORDS, normalizeMarket } from "@/lib/market";
+import type { MarketKey } from "@/types";
 
 type CalendarApiEvent = {
   id: string;
@@ -244,6 +246,24 @@ const filterExportByScope = (
   return rows.filter((item) => item.dateKey === targetDate);
 };
 
+const filterCalendarByMarket = (rows: CalendarApiEvent[], market: MarketKey) => {
+  if (market === "forex") return { rows, usedGenericFallback: false };
+
+  const allowedCurrencies = MARKET_CALENDAR_CURRENCIES[market];
+  const keywords = MARKET_KEYWORDS[market];
+
+  const scoped = rows.filter((event) => {
+    const currencyMatch = allowedCurrencies.includes(event.currency.toUpperCase());
+    const keywordHaystack = `${event.event} ${event.currency}`.toLowerCase();
+    const keywordMatch = keywords.some((keyword) => keywordHaystack.includes(keyword));
+    return currencyMatch || keywordMatch;
+  });
+
+  if (scoped.length > 0) return { rows: scoped, usedGenericFallback: false };
+
+  return { rows, usedGenericFallback: true };
+};
+
 export async function GET(request: NextRequest) {
   const now = new Date();
   const search = request.nextUrl.searchParams;
@@ -254,6 +274,7 @@ export async function GET(request: NextRequest) {
   const rawScope = search.get("scope") ?? "week";
   const scope: "day" | "week" | "month" = rawScope === "day" || rawScope === "month" ? rawScope : "week";
   const tzOffset = Number(search.get("tz_offset") ?? "3");
+  const market = normalizeMarket(search.get("market"));
 
   // Month scope is always pinned to the real current month.
   const year = scope === "month" ? String(now.getUTCFullYear()) : requestedYear;
@@ -262,8 +283,8 @@ export async function GET(request: NextRequest) {
 
   const cacheKey =
     scope === "month"
-      ? `${CACHE_VERSION}-${year}-${month}-${scope}-${tzOffset}`
-      : `${CACHE_VERSION}-${year}-${month}-${day}-${scope}-${tzOffset}`;
+      ? `${CACHE_VERSION}-${year}-${month}-${scope}-${tzOffset}-${market}`
+      : `${CACHE_VERSION}-${year}-${month}-${day}-${scope}-${tzOffset}-${market}`;
 
   const cached = CACHE.get(cacheKey);
   if (cached && isCacheFresh(cached)) {
@@ -281,12 +302,15 @@ export async function GET(request: NextRequest) {
       const monthJobRows = await getMonthJobCachedRows(Number(year), Number(month));
       if (monthJobRows?.data.length) {
         const monthResult = toClientRows(monthJobRows.data as ExportCalendarEvent[], tzOffset, true);
-        CACHE.set(cacheKey, makeCacheRecord(monthResult, "forexfactory-playwright-month"));
-        return NextResponse.json(monthResult, {
+        const { rows: marketRows, usedGenericFallback } = filterCalendarByMarket(monthResult, market);
+        CACHE.set(cacheKey, makeCacheRecord(marketRows, "forexfactory-playwright-month"));
+        return NextResponse.json(marketRows, {
           headers: {
             "Cache-Control": "no-store",
             "x-calendar-cache": "MISS",
             "x-calendar-source": "forexfactory-playwright-month",
+            "x-calendar-market": market,
+            ...(usedGenericFallback ? { "x-calendar-fallback-reason": "market-generic-fallback" } : {}),
           },
         });
       }
@@ -301,6 +325,7 @@ export async function GET(request: NextRequest) {
           "x-calendar-cache": "MISS",
           "x-calendar-source": "forexfactory-playwright-month",
           "x-calendar-fallback-reason": "month-job-pending",
+          "x-calendar-market": market,
         },
       });
     }
@@ -310,14 +335,17 @@ export async function GET(request: NextRequest) {
 
     const includeDateInTime = scope !== "day";
     const result = toClientRows(scopedRows, tzOffset, includeDateInTime);
+    const { rows: marketRows, usedGenericFallback } = filterCalendarByMarket(result, market);
 
-    if (result.length > 0) {
-      CACHE.set(cacheKey, makeCacheRecord(result, "forexfactory-export"));
-      return NextResponse.json(result, {
+    if (marketRows.length > 0) {
+      CACHE.set(cacheKey, makeCacheRecord(marketRows, "forexfactory-export"));
+      return NextResponse.json(marketRows, {
         headers: {
           "Cache-Control": "no-store",
           "x-calendar-cache": "MISS",
           "x-calendar-source": "forexfactory-export",
+          "x-calendar-market": market,
+          ...(usedGenericFallback ? { "x-calendar-fallback-reason": "market-generic-fallback" } : {}),
         },
       });
     }
@@ -327,6 +355,7 @@ export async function GET(request: NextRequest) {
         "Cache-Control": "no-store",
         "x-calendar-cache": "MISS",
         "x-calendar-source": "forexfactory-export",
+        "x-calendar-market": market,
       },
     });
   } catch (exportError: unknown) {
@@ -346,6 +375,7 @@ export async function GET(request: NextRequest) {
             "x-calendar-cache": "MISS",
             "x-calendar-source": "forexfactory-playwright-month",
             "x-calendar-fallback-reason": "month-job-failed",
+            "x-calendar-market": market,
           },
         }
       );
@@ -358,6 +388,7 @@ export async function GET(request: NextRequest) {
           "x-calendar-cache": "STALE",
           "x-calendar-source": cached.source,
           "x-calendar-fallback-reason": "stale-cache",
+          "x-calendar-market": market,
         },
       });
     }
@@ -371,6 +402,7 @@ export async function GET(request: NextRequest) {
         "x-calendar-cache": "MISS",
         "x-calendar-source": "local-fallback",
         "x-calendar-fallback-reason": "forexfactory-export-unavailable",
+        "x-calendar-market": market,
       },
     });
   } finally {

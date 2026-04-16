@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 import { featuredNews } from "@/lib/terminalData";
+import { MARKET_KEYWORDS, normalizeMarket } from "@/lib/market";
+import type { MarketKey } from "@/types";
 import {
   SCRAPER_TTL_MS,
   analyzeSentiment,
@@ -24,11 +26,12 @@ type NewsApiItem = {
   category: string;
 };
 
-const NEWS_CACHE_KEY = "news-feed";
 const NEWS_CACHE = new Map<string, CacheRecord<NewsApiItem[]>>();
 
-const fallbackNewsItems = (): NewsApiItem[] =>
-  featuredNews.map((item) => ({
+const fallbackNewsItems = (market: MarketKey): NewsApiItem[] =>
+  featuredNews
+    .filter((item) => !item.market || item.market === market)
+    .map((item) => ({
     id: item.id,
     timestamp: item.timestamp,
     headline: item.headline,
@@ -128,14 +131,34 @@ const dedupeNews = (items: NewsApiItem[]) => {
   });
 };
 
-export async function GET() {
-  const cached = NEWS_CACHE.get(NEWS_CACHE_KEY);
+const filterNewsByMarket = (items: NewsApiItem[], market: MarketKey) => {
+  if (market === "forex") return { rows: items, usedGenericFallback: false };
+
+  const keywords = MARKET_KEYWORDS[market];
+  const scoped = items.filter((item) => {
+    const haystack = `${item.headline} ${item.category}`.toLowerCase();
+    return keywords.some((keyword) => haystack.includes(keyword));
+  });
+
+  if (scoped.length > 0) {
+    return { rows: scoped, usedGenericFallback: false };
+  }
+
+  return { rows: items, usedGenericFallback: true };
+};
+
+export async function GET(request: Request) {
+  const market = normalizeMarket(new URL(request.url).searchParams.get("market"));
+  const cacheKey = `news-feed-${market}`;
+
+  const cached = NEWS_CACHE.get(cacheKey);
   if (cached && isCacheFresh(cached)) {
     return NextResponse.json(cached.data, {
       headers: {
         "Cache-Control": "no-store",
         "x-news-cache": "HIT",
         "x-news-source": cached.source,
+        "x-news-market": market,
       },
     });
   }
@@ -159,14 +182,18 @@ export async function GET() {
         .filter(Boolean)
         .join(",");
 
-      const record = makeCacheRecord(mergedItems, sourceLabel || "multi-source");
-      NEWS_CACHE.set(NEWS_CACHE_KEY, record);
+      const { rows: scopedItems, usedGenericFallback } = filterNewsByMarket(mergedItems, market);
 
-      return NextResponse.json(mergedItems, {
+      const record = makeCacheRecord(scopedItems, sourceLabel || "multi-source");
+      NEWS_CACHE.set(cacheKey, record);
+
+      return NextResponse.json(scopedItems, {
         headers: {
           "Cache-Control": "no-store",
           "x-news-cache": "MISS",
           "x-news-source": sourceLabel || "multi-source",
+          "x-news-market": market,
+          ...(usedGenericFallback ? { "x-news-fallback-reason": "market-generic-fallback" } : {}),
         },
       });
     }
@@ -183,18 +210,20 @@ export async function GET() {
           "x-news-cache": "STALE",
           "x-news-source": cached.source,
           "x-news-fallback-reason": "stale-cache",
+          "x-news-market": market,
         },
       });
     }
 
-    const fallback = fallbackNewsItems();
-    NEWS_CACHE.set(NEWS_CACHE_KEY, makeCacheRecord(fallback, "local-fallback"));
+    const fallback = fallbackNewsItems(market);
+    NEWS_CACHE.set(cacheKey, makeCacheRecord(fallback, "local-fallback"));
     return NextResponse.json(fallback, {
       headers: {
         "Cache-Control": "no-store",
         "x-news-cache": "MISS",
         "x-news-source": "local-fallback",
         "x-news-fallback-reason": "all-sources-failed",
+        "x-news-market": market,
       },
     });
   } finally {

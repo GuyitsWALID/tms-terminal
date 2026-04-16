@@ -6,21 +6,34 @@ import TickerTape from "@/components/charts/TickerTape";
 import TradingChart from "@/components/charts/TradingChart";
 import { calendarEvents, featuredNews } from "@/lib/terminalData";
 import { useLiveTickers } from "@/hooks/useLiveTickers";
+import { useMarket } from "@/components/layout/MarketContext";
+import { getDefaultChartSymbol, getMarketDefinition } from "@/lib/market";
 
 export default function ChartsPage() {
-  const [activeSymbol, setActiveSymbol] = useState("EUR/USD");
-  const { tickers } = useLiveTickers(1000);
+  const { market } = useMarket();
+  const marketConfig = getMarketDefinition(market);
+  const defaultMarketSymbol = getDefaultChartSymbol(market);
+  const [activeSymbol, setActiveSymbol] = useState(defaultMarketSymbol.display);
+  const { tickers } = useLiveTickers(1000, market);
 
-  const compactSymbol = activeSymbol.replace("/", "");
-  const topStories = featuredNews.slice(0, 6);
+  const activeSymbolConfig = useMemo(() => {
+    return marketConfig.chartSymbols.find((symbol) => symbol.display === activeSymbol) ?? marketConfig.chartSymbols[0];
+  }, [activeSymbol, marketConfig]);
+
+  const compactSymbol = activeSymbolConfig.compact;
+  const topStories = featuredNews.filter((item) => !item.market || item.market === market).slice(0, 6);
   const upcoming = calendarEvents.slice(0, 7);
   const activeTicker = useMemo(() => tickers.find((item) => item.symbol === compactSymbol), [tickers, compactSymbol]);
+
+  React.useEffect(() => {
+    setActiveSymbol(getDefaultChartSymbol(market).display);
+  }, [market]);
 
   return (
     <div className="space-y-3">
       <div className="ff-panel p-4">
-        <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Market</h1>
-        <p className="mt-1 text-sm text-[var(--ink-muted)]">Forex market view with TradingView chart, price performance, and event context.</p>
+        <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">{marketConfig.label} Market</h1>
+        <p className="mt-1 text-sm text-[var(--ink-muted)]">{marketConfig.description}</p>
       </div>
 
       <TickerTape />
@@ -72,7 +85,7 @@ export default function ChartsPage() {
             </button>
           </div>
 
-          <TradingChart symbol={compactSymbol} />
+          <TradingChart symbol={activeSymbolConfig.tradingView} market={market} />
 
           <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-2">
             <div className="overflow-hidden rounded border border-[var(--line-soft)] bg-[var(--surface-2)]">
@@ -132,20 +145,20 @@ export default function ChartsPage() {
         <aside className="space-y-3">
           <div className="ff-panel overflow-hidden">
             <div className="border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-3 py-2 text-xs font-bold uppercase text-[var(--ink-primary)]">
-              Market Pair Selector
+              {marketConfig.label} Selector
             </div>
             <div className="grid grid-cols-2 gap-2 p-3">
-              {["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "NZD/USD", "USD/CAD", "XAU/USD"].map((pair) => (
+              {marketConfig.chartSymbols.map((pair) => (
                 <button
-                  key={pair}
-                  onClick={() => setActiveSymbol(pair)}
+                  key={pair.compact}
+                  onClick={() => setActiveSymbol(pair.display)}
                   className={`rounded border px-2 py-2 text-xs font-semibold ${
-                    activeSymbol === pair
+                    activeSymbol === pair.display
                       ? "border-[var(--brand)] bg-[var(--surface-hover)] text-[var(--ink-primary)]"
                       : "border-[var(--line-soft)] bg-[var(--surface-1)] text-[var(--ink-muted)]"
                   }`}
                 >
-                  {pair}
+                  {pair.display}
                 </button>
               ))}
             </div>

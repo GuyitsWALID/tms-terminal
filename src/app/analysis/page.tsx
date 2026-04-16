@@ -1,19 +1,25 @@
 "use client";
 
+import { useMemo } from "react";
 import { BarChart3, ShieldCheck, Sparkles } from "lucide-react";
 import { analystPosts, marketSentiment } from "@/lib/terminalData";
+import { useMarket } from "@/components/layout/MarketContext";
 
 export default function AnalysisPage() {
+  const { market } = useMarket();
+  const visiblePosts = useMemo(() => analystPosts.filter((post) => post.market === market), [market]);
+  const visibleSentiment = useMemo(() => marketSentiment.filter((row) => row.market === market), [market]);
+
   return (
     <div className="space-y-3">
       <div className="ff-panel p-4">
         <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Verified Analysis Desk</h1>
-        <p className="mt-1 text-sm text-[var(--ink-muted)]">Institutional-style commentary from verified traders before key economic events.</p>
+        <p className="mt-1 text-sm text-[var(--ink-muted)]">Institutional-style {market.toUpperCase()} commentary from verified traders before key economic events.</p>
       </div>
 
       <section className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-3">
-          {analystPosts.map((post) => (
+          {visiblePosts.map((post) => (
             <article key={post.id} className="ff-panel p-4">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-rajdhani text-2xl font-bold uppercase text-[var(--ink-primary)]">{post.title}</h2>
@@ -51,6 +57,9 @@ export default function AnalysisPage() {
               </div>
             </article>
           ))}
+          {visiblePosts.length === 0 ? (
+            <article className="ff-panel p-4 text-sm text-[var(--ink-muted)]">No analyst posts available for this market yet. Switch market tabs or check back shortly.</article>
+          ) : null}
         </div>
 
         <aside className="space-y-3">
@@ -69,7 +78,7 @@ export default function AnalysisPage() {
               <h3 className="ff-panel-title text-sm">Crowd Positioning</h3>
             </div>
             <div className="space-y-2">
-              {marketSentiment.map((row) => (
+              {visibleSentiment.map((row) => (
                 <div key={row.pair} className="rounded border border-[var(--line-soft)] bg-[var(--surface-3)] p-2 text-xs">
                   <div className="mb-1 flex items-center justify-between">
                     <span className="font-semibold text-[var(--ink-primary)]">{row.pair}</span>
@@ -80,6 +89,7 @@ export default function AnalysisPage() {
                   </div>
                 </div>
               ))}
+              {visibleSentiment.length === 0 ? <p className="text-xs text-[var(--ink-muted)]">No sentiment rows available for this market.</p> : null}
             </div>
           </div>
 

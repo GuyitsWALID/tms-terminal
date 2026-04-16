@@ -8,6 +8,7 @@ import {
   BadgeAlert,
   Bell,
   Calendar,
+  ChevronDown,
   ChevronRight,
   GraduationCap,
   LineChart,
@@ -26,6 +27,8 @@ import {
 import { cn } from "@/lib/utils";
 import { sessions } from "@/lib/terminalData";
 import { useLiveTickers } from "@/hooks/useLiveTickers";
+import { MARKET_ORDER, getMarketDefinition } from "@/lib/market";
+import { MarketProvider, useMarket } from "@/components/layout/MarketContext";
 
 const menuItems = [
   { id: "calendar", name: "Calendar", icon: Calendar, path: "/calendar" },
@@ -36,15 +39,16 @@ const menuItems = [
   { id: "forum", name: "Forum", icon: ShieldCheck, path: "/forum" },
 ];
 
-export default function GlobalLayout({ children }: { children: React.ReactNode }) {
+function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [assetMode, setAssetMode] = useState("EURUSD");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [now, setNow] = useState("--:--:--");
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
-  const { tickers } = useLiveTickers(1000);
+  const { market, setMarket } = useMarket();
+  const marketConfig = getMarketDefinition(market);
+  const { tickers } = useLiveTickers(1000, market);
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("tms-theme");
@@ -153,13 +157,13 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
               <Wrench size={16} />
             </Link>
 
-            <nav className="mr-2 hidden min-w-0 items-center gap-2 2xl:mr-3 lg:flex">
+            <nav className="mr-1 hidden min-w-0 items-center gap-1.5 xl:mr-2 2xl:mr-3 lg:flex">
               {menuItems.map((item) => (
                 <Link
                   key={item.id}
                   href={item.path}
                   className={cn(
-                    "shrink-0 whitespace-nowrap rounded-md px-2.5 py-2 text-xs font-semibold uppercase tracking-wider transition-colors 2xl:px-3",
+                    "shrink-0 whitespace-nowrap rounded-md px-2 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors 2xl:px-2.5",
                     pathname === item.path
                       ? "bg-[var(--surface-hover)] text-[var(--ink-primary)]"
                       : "text-[var(--ink-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink-primary)]"
@@ -176,22 +180,23 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
               <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-muted)]" />
               <input
                 placeholder="Search events, pairs, analysts"
-                className="h-8 w-52 2xl:w-56 rounded-full border border-[var(--line-strong)] bg-[var(--surface-1)] pl-9 pr-4 text-xs text-[var(--ink-primary)] outline-none placeholder:text-[var(--ink-muted)] focus:border-[var(--brand)]"
+                className="h-8 w-44 2xl:w-48 rounded-full border border-[var(--line-strong)] bg-[var(--surface-1)] pl-9 pr-4 text-xs text-[var(--ink-primary)] outline-none placeholder:text-[var(--ink-muted)] focus:border-[var(--brand)]"
               />
             </div>
 
-            <div className="hidden items-center gap-2 rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-1 2xl:flex">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Mode</span>
+            <div className="relative hidden items-center rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-1 2xl:flex">
               <select
-                value={assetMode}
-                onChange={(e) => setAssetMode(e.target.value)}
-                className="bg-transparent text-xs font-semibold text-[var(--ink-primary)] outline-none"
+                value={market}
+                onChange={(e) => setMarket(e.target.value as typeof market)}
+                className="appearance-none bg-transparent pr-5 text-xs font-semibold text-[var(--ink-primary)] outline-none"
               >
-                <option className="bg-[var(--surface-1)]">EURUSD</option>
-                <option className="bg-[var(--surface-1)]">GBPUSD</option>
-                <option className="bg-[var(--surface-1)]">USDJPY</option>
-                <option className="bg-[var(--surface-1)]">XAUUSD</option>
+                {MARKET_ORDER.map((marketOption) => (
+                  <option key={marketOption} value={marketOption} className="bg-[var(--surface-1)]">
+                    {getMarketDefinition(marketOption).label}
+                  </option>
+                ))}
               </select>
+              <ChevronDown size={12} className="pointer-events-none absolute right-2 text-[var(--ink-muted)]" />
             </div>
 
             <button
@@ -309,6 +314,7 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
                 <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">Traders Online</p>
                 <p className="mt-1 font-rajdhani text-4xl font-bold leading-none">18,508</p>
                 <p className="text-xs text-[var(--ink-muted)]">Community sentiment active</p>
+                <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--ink-muted)]">{marketConfig.label} world active</p>
               </div>
 
               <div className="mb-3 space-y-2">
@@ -354,6 +360,14 @@ export default function GlobalLayout({ children }: { children: React.ReactNode }
         </aside>
       </div>
     </div>
+  );
+}
+
+export default function GlobalLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <MarketProvider>
+      <GlobalLayoutBody>{children}</GlobalLayoutBody>
+    </MarketProvider>
   );
 }
 

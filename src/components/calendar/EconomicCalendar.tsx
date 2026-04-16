@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Bell, Calendar as CalendarIcon, ChevronDown, Folder, ShieldCheck, Star, TrendingUp } from "lucide-react";
+import { BadgeCheck, Bell, Calendar as CalendarIcon, ChevronDown, Folder, ShieldCheck, Star, TrendingUp } from "lucide-react";
 import { endOfWeek, format, isSameMonth, isWithinInterval, startOfWeek } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ import type { EconomicEvent } from "@/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "../ui/calendar";
 import { Button } from "@/components/ui/button";
+import { useMarket } from "@/components/layout/MarketContext";
 
 const IMPACT_COLORS = {
   high: "ff-impact-high",
@@ -32,6 +33,7 @@ const parseEventDate = (date: string | undefined) => {
 };
 
 export default function EconomicCalendar() {
+  const { market } = useMarket();
   const [isHydrated, setIsHydrated] = useState(false);
   const currentMonthAnchor = useMemo(() => {
     const now = new Date();
@@ -69,6 +71,7 @@ export default function EconomicCalendar() {
         const result = await fetchEconomicCalendarWithMeta({
           date: fetchAnchorDate,
           scope: "month",
+          market,
         });
 
         if (!isMounted) return;
@@ -130,7 +133,7 @@ export default function EconomicCalendar() {
       if (retryTimer) clearTimeout(retryTimer);
       isMounted = false;
     };
-  }, [fetchAnchorDate]);
+  }, [fetchAnchorDate, market]);
 
   const normalizedRange = useMemo(() => {
     if (!selectedRange?.from) return null;
@@ -244,6 +247,8 @@ export default function EconomicCalendar() {
       .map((item) => ({ title: item.title, value: item.value }));
   }, [detailModalData]);
 
+  const scopedSentiment = useMemo(() => marketSentiment.filter((row) => row.market === market), [market]);
+
   const openDetailModal = async (event: EconomicEvent) => {
     setDetailModalEvent(event);
     setDetailModalData(event.scrapedDetail ?? null);
@@ -273,7 +278,7 @@ export default function EconomicCalendar() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Economic Calendar</h1>
-            <p className="mt-1 text-sm text-[var(--ink-muted)]">Live releases, verified opinions, and pre-event alerts.</p>
+            <p className="mt-1 text-sm text-[var(--ink-muted)]">{market.toUpperCase()} scope with live releases, verified opinions, and pre-event alerts.</p>
             {isLoading ? <p className="mt-1 text-xs text-[var(--ink-muted)]">Syncing live calendar...</p> : null}
             {errorMessage ? <p className="mt-1 text-xs text-[#ff9d7a]">{errorMessage}</p> : null}
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
@@ -495,7 +500,7 @@ export default function EconomicCalendar() {
               <h3 className="ff-panel-title text-sm">Retail Positioning</h3>
             </div>
             <div className="space-y-2">
-              {marketSentiment.map((row) => (
+              {scopedSentiment.map((row) => (
                 <div key={row.pair} className="rounded border border-[var(--line-soft)] bg-[var(--surface-3)] p-2 text-xs">
                   <div className="mb-1 flex items-center justify-between">
                     <span className="font-semibold text-[var(--ink-primary)]">{row.pair}</span>
@@ -510,6 +515,7 @@ export default function EconomicCalendar() {
                   </div>
                 </div>
               ))}
+              {scopedSentiment.length === 0 ? <p className="text-xs text-[var(--ink-muted)]">No positioning rows for this market.</p> : null}
             </div>
           </div>
 
@@ -533,7 +539,7 @@ export default function EconomicCalendar() {
 
       {detailModalEvent ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-transparent p-4"
           onClick={() => setDetailModalEvent(null)}
           role="dialog"
           aria-modal="true"
@@ -567,7 +573,13 @@ export default function EconomicCalendar() {
               </section>
 
               <section className="rounded border border-[var(--line-soft)] bg-[var(--surface-3)] p-3">
-                <h4 className="ff-panel-title text-sm text-[var(--ink-primary)]">Verified Perspective</h4>
+                <h4 className="ff-panel-title flex items-center gap-2 text-sm text-[var(--ink-primary)]">
+                  <span>Verified Perspective</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#1d9bf022] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1d9bf0]">
+                    <BadgeCheck size={12} className="text-[#1d9bf0]" />
+                    Verified
+                  </span>
+                </h4>
                 <p className="mt-2 text-sm text-[var(--ink-muted)]">
                   Reserved for verified analyst perspective. This section will be wired after login and verified-user roles are configured.
                 </p>

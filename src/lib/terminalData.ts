@@ -1,5 +1,6 @@
 import type { EconomicEvent } from "@/types";
 import type { NewsItem } from "@/types/api";
+import type { MarketKey } from "@/types";
 
 export type PairCard = {
   symbol: string;
@@ -23,11 +24,19 @@ export type AnalystPost = {
   author: string;
   desk: string;
   pair: string;
+  market: MarketKey;
   title: string;
   bias: "bullish" | "bearish" | "neutral";
   confidence: number;
   summary: string;
   published: string;
+};
+
+export type MarketSentimentRow = {
+  pair: string;
+  market: MarketKey;
+  long: number;
+  short: number;
 };
 
 export type AcademyQuestion = {
@@ -136,6 +145,7 @@ export const featuredNews: NewsItem[] = [
     sentimentScore: 0.42,
     source: "Financial Juice",
     category: "Monetary Policy",
+    market: "forex",
   },
   {
     id: "news-02",
@@ -146,6 +156,7 @@ export const featuredNews: NewsItem[] = [
     sentimentScore: -0.37,
     source: "Reuters Wire",
     category: "Commodities",
+    market: "commodities",
   },
   {
     id: "news-03",
@@ -156,6 +167,7 @@ export const featuredNews: NewsItem[] = [
     sentimentScore: 0.28,
     source: "Market Pulse",
     category: "Macro",
+    market: "forex",
   },
   {
     id: "news-04",
@@ -166,16 +178,18 @@ export const featuredNews: NewsItem[] = [
     sentimentScore: -0.31,
     source: "Financial Juice",
     category: "Rates",
+    market: "forex",
   },
   {
     id: "news-05",
     timestamp: "32 min ago",
-    headline: "Risk sentiment improves after upbeat guidance from major US chipmaker",
+    headline: "Bitcoin holds above key support as ETF inflows stabilize into US session",
     impact: "low",
     sentiment: "bullish",
-    sentimentScore: 0.22,
-    source: "Equity Desk",
-    category: "Equities",
+    sentimentScore: 0.26,
+    source: "Crypto Desk",
+    category: "Digital Assets",
+    market: "crypto",
   },
   {
     id: "news-06",
@@ -186,6 +200,7 @@ export const featuredNews: NewsItem[] = [
     sentimentScore: -0.1,
     source: "FX Wire",
     category: "FX Flows",
+    market: "forex",
   },
 ];
 
@@ -238,6 +253,7 @@ export const analystPosts: AnalystPost[] = [
     author: "Marcus Sterling",
     desk: "Macro FX Desk",
     pair: "EUR/USD",
+    market: "forex",
     title: "Dovish ECB risk into resistance",
     bias: "bearish",
     confidence: 84,
@@ -249,6 +265,7 @@ export const analystPosts: AnalystPost[] = [
     author: "Nadia Holt",
     desk: "US Rates",
     pair: "USD/JPY",
+    market: "forex",
     title: "Yield spread still supports upside",
     bias: "bullish",
     confidence: 78,
@@ -260,11 +277,24 @@ export const analystPosts: AnalystPost[] = [
     author: "Victor Chen",
     desk: "Cross-Asset",
     pair: "XAU/USD",
+    market: "commodities",
     title: "Gold vulnerable if real yields rise",
     bias: "bearish",
     confidence: 72,
     summary: "Break below 2318 opens room toward 2295. Watch US data for catalyst.",
     published: "Today 08:31",
+  },
+  {
+    id: "a-4",
+    author: "Ilyas Noor",
+    desk: "Digital Assets",
+    pair: "BTC/USD",
+    market: "crypto",
+    title: "BTC momentum tied to US session liquidity",
+    bias: "bullish",
+    confidence: 76,
+    summary: "If spot bids keep stepping in above the previous day low, continuation toward local highs remains likely.",
+    published: "Today 08:48",
   },
 ];
 
@@ -313,11 +343,14 @@ export const academyQuestions: AcademyQuestion[] = [
   },
 ];
 
-export const marketSentiment = [
-  { pair: "EUR/USD", long: 42, short: 58 },
-  { pair: "GBP/USD", long: 55, short: 45 },
-  { pair: "USD/JPY", long: 61, short: 39 },
-  { pair: "XAU/USD", long: 47, short: 53 },
+export const marketSentiment: MarketSentimentRow[] = [
+  { pair: "EUR/USD", market: "forex", long: 42, short: 58 },
+  { pair: "GBP/USD", market: "forex", long: 55, short: 45 },
+  { pair: "USD/JPY", market: "forex", long: 61, short: 39 },
+  { pair: "BTC/USD", market: "crypto", long: 57, short: 43 },
+  { pair: "ETH/USD", market: "crypto", long: 54, short: 46 },
+  { pair: "XAU/USD", market: "commodities", long: 47, short: 53 },
+  { pair: "USOIL", market: "commodities", long: 44, short: 56 },
 ];
 
 export const sessions = [

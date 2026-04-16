@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { normalizeMarket } from "@/lib/market";
 
-type UiTickerSymbol = "EURUSD" | "GBPUSD" | "USDJPY" | "AUDUSD" | "USDCAD" | "XAUUSD";
+type UiTickerSymbol = string;
 
 type LiveTicker = {
   symbol: UiTickerSymbol;
@@ -17,20 +18,34 @@ type CacheRecord = {
 };
 
 const TICKER_CACHE = new Map<string, CacheRecord>();
-const CACHE_KEY = "live-tickers";
 const SOFT_TTL_MS = 1000;
 
-let inFlightRefresh: Promise<CacheRecord> | null = null;
+const IN_FLIGHT_REFRESH = new Map<string, Promise<CacheRecord>>();
 
-const UI_SYMBOLS: UiTickerSymbol[] = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD"];
-
-const SYMBOL_MAP: Record<UiTickerSymbol, string> = {
+const SYMBOL_MAP: Record<string, string> = {
   EURUSD: "EURUSD=X",
   GBPUSD: "GBPUSD=X",
   USDJPY: "USDJPY=X",
   AUDUSD: "AUDUSD=X",
   USDCAD: "USDCAD=X",
   XAUUSD: "GC=F",
+  BTCUSD: "BTC-USD",
+  ETHUSD: "ETH-USD",
+  SOLUSD: "SOL-USD",
+  XRPUSD: "XRP-USD",
+  ADAUSD: "ADA-USD",
+  DOGEUSD: "DOGE-USD",
+  XAGUSD: "SI=F",
+  USOIL: "CL=F",
+  UKOIL: "BZ=F",
+  NATGAS: "NG=F",
+  CORN: "ZC=F",
+};
+
+const MARKET_SYMBOLS: Record<"forex" | "crypto" | "commodities", UiTickerSymbol[]> = {
+  forex: ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD"],
+  crypto: ["BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ADAUSD", "DOGEUSD"],
+  commodities: ["XAUUSD", "XAGUSD", "USOIL", "UKOIL", "NATGAS", "CORN"],
 };
 
 const parseNumberish = (value: unknown): number | null => {
@@ -44,6 +59,13 @@ const parseNumberish = (value: unknown): number | null => {
 
 const formatPrice = (symbol: UiTickerSymbol, price: number) => {
   if (symbol === "XAUUSD") return price.toFixed(2);
+  if (symbol === "XAGUSD") return price.toFixed(3);
+  if (symbol === "BTCUSD") return price.toFixed(2);
+  if (symbol === "ETHUSD") return price.toFixed(2);
+  if (symbol === "SOLUSD") return price.toFixed(3);
+  if (symbol === "XRPUSD" || symbol === "ADAUSD" || symbol === "DOGEUSD") return price.toFixed(4);
+  if (symbol === "USOIL" || symbol === "UKOIL" || symbol === "NATGAS") return price.toFixed(3);
+  if (symbol === "CORN") return price.toFixed(2);
   if (symbol.endsWith("JPY")) return price.toFixed(3);
   return price.toFixed(5);
 };
@@ -111,10 +133,13 @@ const fetchYahooSymbol = async (providerSymbol: string) => {
   return { price, changePct };
 };
 
-const fetchYahooQuotes = async (): Promise<LiveTicker[]> => {
+const fetchYahooQuotes = async (symbols: UiTickerSymbol[]): Promise<LiveTicker[]> => {
   const rows = await Promise.all(
-    UI_SYMBOLS.map(async (symbol) => {
+    symbols.map(async (symbol) => {
       const providerSymbol = SYMBOL_MAP[symbol];
+      if (!providerSymbol) {
+        throw new Error(`Missing provider symbol map for ${symbol}`);
+      }
       const quote = await fetchYahooSymbol(providerSymbol);
 
       return {
@@ -133,8 +158,8 @@ const fetchYahooQuotes = async (): Promise<LiveTicker[]> => {
   return rows;
 };
 
-const refreshTickers = async (): Promise<CacheRecord> => {
-  const rows = await fetchYahooQuotes();
+const refreshTickers = async (symbols: UiTickerSymbol[]): Promise<CacheRecord> => {
+  const rows = await fetchYahooQuotes(symbols);
   return {
     data: rows,
     source: "yahoo-chart-http",
@@ -143,8 +168,13 @@ const refreshTickers = async (): Promise<CacheRecord> => {
   };
 };
 
-export async function GET() {
-  const cached = TICKER_CACHE.get(CACHE_KEY);
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const market = normalizeMarket(url.searchParams.get("market"));
+  const symbols = MARKET_SYMBOLS[market];
+  const cacheKey = `live-tickers-${market}`;
+
+  const cached = TICKER_CACHE.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return NextResponse.json(cached.data, {
       headers: {
@@ -155,15 +185,18 @@ export async function GET() {
     });
   }
 
+  let inFlightRefresh = IN_FLIGHT_REFRESH.get(cacheKey);
+
   if (!inFlightRefresh) {
-    inFlightRefresh = refreshTickers().finally(() => {
-      inFlightRefresh = null;
+    inFlightRefresh = refreshTickers(symbols).finally(() => {
+      IN_FLIGHT_REFRESH.delete(cacheKey);
     });
+    IN_FLIGHT_REFRESH.set(cacheKey, inFlightRefresh);
   }
 
   try {
     const refreshed = await inFlightRefresh;
-    TICKER_CACHE.set(CACHE_KEY, refreshed);
+    TICKER_CACHE.set(cacheKey, refreshed);
 
     return NextResponse.json(refreshed.data, {
       headers: {

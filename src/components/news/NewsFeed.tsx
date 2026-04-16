@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Headphones, Minus, Radio, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { featuredNews, hotStory } from "@/lib/terminalData";
+import { fetchNewsFeedWithMeta } from "@/lib/api/dataService";
+import { useMarket } from "@/components/layout/MarketContext";
 
 const SentiMeter = ({ score }: { score: number }) => {
   const isBullish = score > 0.2;
@@ -30,12 +32,62 @@ const SentiMeter = ({ score }: { score: number }) => {
 };
 
 export default function NewsFeed() {
+  const { market } = useMarket();
   const [impactFilter, setImpactFilter] = useState<"all" | "high" | "medium" | "low">("all");
+  const [newsItems, setNewsItems] = useState(featuredNews);
   const [activeId, setActiveId] = useState(featuredNews[0]?.id ?? "");
+  const [newsSource, setNewsSource] = useState("local-fallback");
+  const [newsCache, setNewsCache] = useState("unknown");
+  const [fallbackReason, setFallbackReason] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadNews = async () => {
+      setIsLoading(true);
+
+      try {
+        const response = await fetchNewsFeedWithMeta(market);
+        if (!mounted) return;
+
+        if (response.news.length > 0) {
+          setNewsItems(response.news);
+          setActiveId(response.news[0].id);
+        } else {
+          const fallback = featuredNews.filter((item) => !item.market || item.market === market);
+          setNewsItems(fallback.length > 0 ? fallback : featuredNews);
+          setActiveId((fallback[0] ?? featuredNews[0])?.id ?? "");
+        }
+
+        setNewsSource(response.source);
+        setNewsCache(response.cache);
+        setFallbackReason(response.fallbackReason);
+      } catch {
+        if (!mounted) return;
+        const fallback = featuredNews.filter((item) => !item.market || item.market === market);
+        setNewsItems(fallback.length > 0 ? fallback : featuredNews);
+        setActiveId((fallback[0] ?? featuredNews[0])?.id ?? "");
+        setNewsSource("local-fallback");
+        setNewsCache("none");
+        setFallbackReason("news-fetch-failed");
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadNews();
+
+    return () => {
+      mounted = false;
+    };
+  }, [market]);
 
   const filteredNews = useMemo(
-    () => featuredNews.filter((item) => impactFilter === "all" || item.impact === impactFilter),
-    [impactFilter]
+    () => newsItems.filter((item) => impactFilter === "all" || item.impact === impactFilter),
+    [impactFilter, newsItems]
   );
 
   const avgSentiment = useMemo(() => {
@@ -51,7 +103,17 @@ export default function NewsFeed() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Signal News Terminal</h1>
-            <p className="mt-1 text-sm text-[var(--ink-muted)]">Curated headlines inspired by Financial Juice with sentiment scoring.</p>
+            <p className="mt-1 text-sm text-[var(--ink-muted)]">{market.toUpperCase()} scoped headlines with sentiment scoring.</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+              <span className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-0.5 text-[var(--ink-muted)]">
+                Source: <span className="font-semibold text-[var(--ink-primary)]">{newsSource}</span>
+              </span>
+              <span className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-0.5 text-[var(--ink-muted)]">
+                Cache: <span className="font-semibold text-[var(--ink-primary)]">{newsCache}</span>
+              </span>
+              {fallbackReason ? <span className="rounded border border-[#ff9d7a55] bg-[#ff9d7a12] px-2 py-0.5 text-[#ffb38f]">Note: {fallbackReason}</span> : null}
+              {isLoading ? <span className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-0.5 text-[var(--ink-muted)]">Loading...</span> : null}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {(["all", "high", "medium", "low"] as const).map((impact) => (

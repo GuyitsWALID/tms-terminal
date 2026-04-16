@@ -23,6 +23,7 @@
   --impact-low: #ffe27a;
   --bull: #2ecf87;
   --bear: #ff6a6a;
+  --world-glow: #3a3d44;
   --radius: 10px;
 }
 
@@ -41,6 +42,114 @@
   --brand: #2d2d2f;
   --brand-strong: #0f0f10;
   --ring-accent: #666a72;
+  --world-glow: #bcc0cb;
+}
+
+[data-market="forex"] {
+  --bg-main: #08090b;
+  --bg-deep: #050608;
+  --surface-header: #111318;
+  --surface-1: #0d1015;
+  --surface-2: #151922;
+  --surface-3: #1b2130;
+  --surface-hover: #222b3a;
+  --line-strong: #4e5a6e;
+  --line-soft: #2c3444;
+  --ink-primary: #f2f6ff;
+  --ink-muted: #9ca7bd;
+  --brand: #2d3035;
+  --brand-strong: #14161a;
+  --ring-accent: #6d7682;
+  --bull: #2ecf87;
+  --bear: #ff6a6a;
+  --world-glow: #6a7894;
+}
+
+[data-market="crypto"] {
+  --bg-main: #140a1f;
+  --bg-deep: #0d0616;
+  --surface-header: #241036;
+  --surface-1: #1c0d2b;
+  --surface-2: #27123c;
+  --surface-3: #30194a;
+  --surface-hover: #3a2160;
+  --line-strong: #7f57b0;
+  --line-soft: #55357e;
+  --ink-primary: #f6ecff;
+  --ink-muted: #c9b2e9;
+  --brand: #6f33b8;
+  --brand-strong: #4f2386;
+  --ring-accent: #9f69e2;
+  --bull: #5fe2b9;
+  --bear: #ff8bb7;
+  --impact-medium: #a880ff;
+  --world-glow: #9b4bff;
+}
+
+[data-market="commodities"] {
+  --bg-main: #06140c;
+  --bg-deep: #041008;
+  --surface-header: #0f2518;
+  --surface-1: #0b1f14;
+  --surface-2: #123022;
+  --surface-3: #173a2b;
+  --surface-hover: #1e4a36;
+  --line-strong: #4a8f69;
+  --line-soft: #2d5f47;
+  --ink-primary: #eefef4;
+  --ink-muted: #a8d7bc;
+  --brand: #279a56;
+  --brand-strong: #1b6f3f;
+  --ring-accent: #56b980;
+  --bull: #57dd8e;
+  --bear: #e6846a;
+  --impact-medium: #6ecf8a;
+  --world-glow: #2cbf72;
+}
+
+[data-theme="light"][data-market="forex"] {
+  --bg-main: #f3f6fb;
+  --bg-deep: #ffffff;
+  --surface-header: #dde5f0;
+  --surface-1: #ffffff;
+  --surface-2: #eef2f9;
+  --surface-3: #e6ecf6;
+  --surface-hover: #dce5f3;
+  --line-strong: #9ca9bf;
+  --line-soft: #c8d1e0;
+  --ink-primary: #1a2130;
+  --ink-muted: #59657d;
+  --world-glow: #a2b0c9;
+}
+
+[data-theme="light"][data-market="crypto"] {
+  --bg-main: #f5efff;
+  --bg-deep: #ffffff;
+  --surface-header: #eadfff;
+  --surface-1: #ffffff;
+  --surface-2: #f2e9ff;
+  --surface-3: #ecddff;
+  --surface-hover: #e2d0ff;
+  --line-strong: #b69fdb;
+  --line-soft: #d9c9f5;
+  --ink-primary: #2f1f49;
+  --ink-muted: #6f5a94;
+  --world-glow: #bb8fff;
+}
+
+[data-theme="light"][data-market="commodities"] {
+  --bg-main: #edf9f0;
+  --bg-deep: #ffffff;
+  --surface-header: #d9efdf;
+  --surface-1: #ffffff;
+  --surface-2: #e6f5eb;
+  --surface-3: #dff1e6;
+  --surface-hover: #d2eadb;
+  --line-strong: #95b7a2;
+  --line-soft: #c3ddce;
+  --ink-primary: #173426;
+  --ink-muted: #4f7862;
+  --world-glow: #95d0ab;
 }
 
 body {
@@ -49,6 +158,7 @@ body {
   font-family: var(--font-plex-sans), sans-serif;
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 260ms ease, color 260ms ease;
 }
 
 * {
@@ -58,12 +168,18 @@ body {
 .ff-shell {
   min-height: 100vh;
   color: var(--ink-primary);
+  background:
+    radial-gradient(1200px 620px at 8% -14%, color-mix(in srgb, var(--world-glow) 26%, transparent) 0%, transparent 64%),
+    radial-gradient(980px 540px at 92% -6%, color-mix(in srgb, var(--world-glow) 20%, transparent) 0%, transparent 72%),
+    var(--bg-main);
+  transition: background 340ms ease, color 260ms ease;
 }
 
 .ff-topbar {
   border-bottom: 1px solid var(--line-strong);
   background: linear-gradient(180deg, color-mix(in srgb, var(--surface-header) 96%, transparent) 0%, color-mix(in srgb, var(--surface-1) 96%, transparent) 100%);
   backdrop-filter: blur(12px);
+  transition: background 260ms ease, border-color 260ms ease;
 }
 
 .ff-panel {
@@ -71,6 +187,7 @@ body {
   border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--line-strong) 30%, transparent);
+  transition: background 260ms ease, border-color 260ms ease, box-shadow 260ms ease;
 }
 
 .ff-panel-title {

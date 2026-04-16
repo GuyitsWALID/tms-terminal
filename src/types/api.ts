@@ -1,3 +1,5 @@
+import type { MarketKey } from "@/types";
+
 export interface NewsItem {
   id: string;
   timestamp: string;
@@ -7,6 +9,7 @@ export interface NewsItem {
   sentimentScore: number; // -1 to 1
   source: string;
   category: string;
+  market?: MarketKey;
 }
 
 export interface CalendarEvent {

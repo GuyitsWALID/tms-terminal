@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import type { MarketKey } from "@/types";
 
 interface ChartWidgetProps {
   symbol: string;
+  market: MarketKey;
 }
 
-export default function TradingChart({ symbol }: ChartWidgetProps) {
+export default function TradingChart({ symbol, market }: ChartWidgetProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [widgetTheme, setWidgetTheme] = useState<"dark" | "light">(() => {
     if (typeof window === "undefined") {
@@ -37,7 +39,7 @@ export default function TradingChart({ symbol }: ChartWidgetProps) {
     }
 
     const normalized = symbol.replace("/", "");
-    const tvSymbol = normalized.includes(":") ? normalized : `FX:${normalized}`;
+    const tvSymbol = normalized.includes(":") ? normalized : market === "crypto" ? `BINANCE:${normalized}` : market === "commodities" ? `TVC:${normalized}` : `FX:${normalized}`;
 
     container.innerHTML = "";
 
@@ -70,7 +72,7 @@ export default function TradingChart({ symbol }: ChartWidgetProps) {
     return () => {
       container.innerHTML = "";
     };
-  }, [symbol, widgetTheme]);
+  }, [symbol, widgetTheme, market]);
 
   return (
     <div className="h-[360px] w-full overflow-hidden rounded border border-[var(--line-strong)] bg-[var(--surface-1)] sm:h-[420px] lg:h-[520px]">

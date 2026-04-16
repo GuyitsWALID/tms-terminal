@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchLiveTickersWithMeta, type LiveTicker } from "@/lib/api/dataService";
+import type { MarketKey } from "@/types";
 
 type HookResult = {
   tickers: LiveTicker[];
@@ -11,7 +12,7 @@ type HookResult = {
   isLoading: boolean;
 };
 
-export function useLiveTickers(intervalMs = 1000): HookResult {
+export function useLiveTickers(intervalMs = 1000, market: MarketKey = "forex"): HookResult {
   const [tickers, setTickers] = useState<LiveTicker[]>([]);
   const [source, setSource] = useState("none");
   const [cache, setCache] = useState("none");
@@ -34,7 +35,7 @@ export function useLiveTickers(intervalMs = 1000): HookResult {
       abortRef.current = new AbortController();
 
       try {
-        const result = await fetchLiveTickersWithMeta();
+        const result = await fetchLiveTickersWithMeta(market);
         if (!mounted) return;
         if (Array.isArray(result.tickers) && result.tickers.length > 0) {
           setTickers(result.tickers);
@@ -65,7 +66,7 @@ export function useLiveTickers(intervalMs = 1000): HookResult {
       abortRef.current?.abort();
       if (timer) clearTimeout(timer);
     };
-  }, [intervalMs]);
+  }, [intervalMs, market]);
 
   return useMemo(
     () => ({

@@ -4,9 +4,11 @@ import React from "react";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLiveTickers } from "@/hooks/useLiveTickers";
+import { useMarket } from "@/components/layout/MarketContext";
 
 export default function TickerTape() {
-  const { tickers } = useLiveTickers(1000);
+  const { market } = useMarket();
+  const { tickers } = useLiveTickers(1000, market);
 
   return (
     <div className="ticker-marquee rounded border border-[var(--line-soft)] bg-[var(--surface-1)]">
