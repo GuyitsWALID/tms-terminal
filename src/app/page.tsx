@@ -3,19 +3,27 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Folder } from "lucide-react";
+import { format } from "date-fns";
 import {
   featuredNews,
   forumsMostReplied,
-  hotStory,
-  majorPairs,
-  type PairCard,
   marketSentiment,
   sessions,
   calendarEvents,
 } from "@/lib/terminalData";
-import { fetchEconomicCalendar } from "@/lib/api/dataService";
+import { fetchEconomicCalendarWithMeta } from "@/lib/api/dataService";
 import type { EconomicEvent } from "@/types";
 import { useLiveTickers } from "@/hooks/useLiveTickers";
+import { getMarketDefinition } from "@/lib/market";
+import { useMarket } from "@/components/layout/MarketContext";
+
+type HomePairCard = {
+  symbol: string;
+  bid: string;
+  spread: string;
+  change6h: string;
+  direction: "up" | "down";
+};
 
 const impactClass = {
   high: "ff-impact-high",
@@ -30,43 +38,103 @@ const impactFolderColor = {
 };
 
 export default function Home() {
+  const { market } = useMarket();
+  const marketConfig = getMarketDefinition(market);
   const [liveCalendarEvents, setLiveCalendarEvents] = useState<EconomicEvent[]>(calendarEvents);
-  const { tickers } = useLiveTickers(1000);
+  const { tickers } = useLiveTickers(1000, market);
 
-  const liveMajors = useMemo<PairCard[]>(() => {
+  const spreadMap = useMemo<Record<string, string>>(
+    () => ({
+      EURUSD: "0.8",
+      GBPUSD: "1.1",
+      USDJPY: "0.9",
+      USDCHF: "1.0",
+      AUDUSD: "0.9",
+      NZDUSD: "1.2",
+      USDCAD: "1.0",
+      XAUUSD: "12.0",
+      BTCUSD: "18.0",
+      ETHUSD: "1.8",
+      SOLUSD: "0.35",
+      XRPUSD: "0.002",
+      ADAUSD: "0.001",
+      DOGEUSD: "0.001",
+      XAGUSD: "0.02",
+      USOIL: "0.03",
+      UKOIL: "0.03",
+      NATGAS: "0.01",
+      CORN: "0.15",
+    }),
+    []
+  );
+
+  const liveMajors = useMemo<HomePairCard[]>(() => {
     const bySymbol = new Map<string, (typeof tickers)[number]>(tickers.map((ticker) => [ticker.symbol, ticker]));
 
-    return majorPairs.map((pair) => {
-      const compact = pair.symbol.replace("/", "");
+    return marketConfig.chartSymbols.slice(0, 8).map((pair) => {
+      const compact = pair.compact;
       const ticker = bySymbol.get(compact);
 
       if (!ticker) {
         return {
-          ...pair,
+          symbol: pair.display,
           bid: "--",
+          spread: spreadMap[compact] ?? "--",
           change6h: "--",
           direction: "up",
         };
       }
 
       return {
-        ...pair,
+        symbol: pair.display,
         bid: ticker.price,
+        spread: spreadMap[compact] ?? "--",
         change6h: ticker.change,
         direction: ticker.isUp ? "up" : "down",
       };
     });
-  }, [tickers]);
+  }, [tickers, marketConfig, spreadMap]);
+
+  const marketNews = useMemo(() => featuredNews.filter((item) => !item.market || item.market === market), [market]);
+
+  const marketHotStory = useMemo(() => {
+    if (market === "crypto") {
+      return {
+        title: "Crypto Orderflow Turns Risk-On As BTC Reclaims Session VWAP",
+        source: "Crypto Desk",
+        age: "9 min ago",
+        body: "Digital asset flow improved through US open with spot-led momentum and tighter spread conditions across majors.",
+      };
+    }
+
+    if (market === "commodities") {
+      return {
+        title: "Commodities Pulse: Gold Stable While Oil Reacts To Inventory Headlines",
+        source: "Commodities Wire",
+        age: "14 min ago",
+        body: "Metals remain range-bound while energy reacts sharply to inventory and geopolitical supply narrative updates.",
+      };
+    }
+
+    return {
+      title: "US Labor Data Beats Again, Dollar Index Pushes Higher Ahead of Fed Speakers",
+      source: "Financial Juice",
+      age: "13 min ago",
+      body: "A stronger-than-expected labor print pushed rate-cut expectations further out. Verified traders remain split on follow-through, with most expecting USD momentum to hold through London close before potential mean reversion in NY afternoon.",
+    };
+  }, [market]);
+
+  const scopedSentiment = useMemo(() => marketSentiment.filter((row) => row.market === market), [market]);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadCalendar = async () => {
       try {
-        const events = await fetchEconomicCalendar();
+        const result = await fetchEconomicCalendarWithMeta({ market, scope: "day", date: new Date() });
         if (!isMounted) return;
-        if (Array.isArray(events) && events.length > 0) {
-          setLiveCalendarEvents(events);
+        if (Array.isArray(result.events) && result.events.length > 0) {
+          setLiveCalendarEvents(result.events);
         }
       } catch {
         // Keep static fallback on failure.
@@ -78,13 +146,13 @@ export default function Home() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [market]);
 
   return (
     <div className="space-y-3">
       <section className="ff-panel overflow-hidden">
         <div className="border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-[var(--ink-primary)]">
-          Majors
+          {marketConfig.label} Majors
         </div>
         <div className="ff-scroll grid grid-cols-2 divide-x divide-y divide-[var(--line-soft)] overflow-x-auto sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-8 xl:divide-y-0">
           {liveMajors.map((pair) => (
@@ -107,7 +175,7 @@ export default function Home() {
             <Link href="/news" className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-primary)]">View All</Link>
           </div>
           <div className="divide-y divide-[var(--line-soft)]">
-            {featuredNews.slice(0, 5).map((item) => (
+            {marketNews.slice(0, 5).map((item) => (
               <div key={item.id} className="bg-[var(--surface-2)] px-4 py-3 text-sm hover:bg-[var(--surface-hover)]">
                 <p className="font-semibold text-[var(--ink-primary)]">{item.headline}</p>
                 <p className="mt-1 text-xs text-[var(--ink-muted)]">{item.source} | {item.timestamp} | {item.category}</p>
@@ -124,9 +192,9 @@ export default function Home() {
           <div className="grid gap-4 bg-[var(--surface-2)] p-4 md:grid-cols-[140px_minmax(0,1fr)]">
             <div className="h-32 rounded border border-[var(--line-strong)] bg-gradient-to-br from-[var(--surface-hover)] to-[var(--surface-3)]" />
             <div>
-              <h3 className="font-rajdhani text-2xl font-bold leading-tight text-[var(--ink-primary)]">{hotStory.title}</h3>
-              <p className="mt-2 text-xs text-[var(--ink-muted)]">{hotStory.source} | {hotStory.age}</p>
-              <p className="mt-3 text-sm leading-relaxed text-[var(--ink-muted)]">{hotStory.body}</p>
+              <h3 className="font-rajdhani text-2xl font-bold leading-tight text-[var(--ink-primary)]">{marketHotStory.title}</h3>
+              <p className="mt-2 text-xs text-[var(--ink-muted)]">{marketHotStory.source} | {marketHotStory.age}</p>
+              <p className="mt-3 text-sm leading-relaxed text-[var(--ink-muted)]">{marketHotStory.body}</p>
             </div>
           </div>
         </div>
@@ -134,7 +202,7 @@ export default function Home() {
 
       <section className="ff-panel overflow-hidden">
         <div className="flex items-center justify-between border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-2">
-            <h2 className="ff-panel-title text-xs sm:text-sm text-[var(--ink-primary)]">Today: Apr 12</h2>
+            <h2 className="ff-panel-title text-xs sm:text-sm text-[var(--ink-primary)]">Today: {format(new Date(), "MMM d")}</h2>
           <div className="hidden gap-2 text-[11px] text-[var(--ink-muted)] sm:flex">
             <span>Search Events</span>
             <span>Filter</span>
@@ -216,13 +284,18 @@ export default function Home() {
               </div>
             ))}
             <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
-              {marketSentiment.slice(0, 2).map((row) => (
+              {scopedSentiment.slice(0, 2).map((row) => (
                 <div key={row.pair} className="rounded border border-[var(--line-soft)] bg-[var(--surface-3)] p-2">
                   <p className="font-semibold text-[var(--ink-primary)]">{row.pair}</p>
                   <p className="text-[#34d58c]">Long {row.long}%</p>
                   <p className="text-[#ff7b7b]">Short {row.short}%</p>
                 </div>
               ))}
+              {scopedSentiment.length === 0 ? (
+                <div className="col-span-2 rounded border border-[var(--line-soft)] bg-[var(--surface-3)] p-2 text-[var(--ink-muted)]">
+                  No positioning rows for this market.
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

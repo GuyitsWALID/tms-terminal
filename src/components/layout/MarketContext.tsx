@@ -14,10 +14,18 @@ const STORAGE_KEY = "tms-market";
 const MarketContext = createContext<MarketContextValue | undefined>(undefined);
 
 export function MarketProvider({ children }: { children: React.ReactNode }) {
-  const [market, setMarket] = useState<MarketKey>(() => {
-    if (typeof window === "undefined") return "forex";
-    return normalizeMarket(window.localStorage.getItem(STORAGE_KEY));
-  });
+  const [market, setMarket] = useState<MarketKey>("forex");
+
+  useEffect(() => {
+    const stored = normalizeMarket(window.localStorage.getItem(STORAGE_KEY));
+    const syncStored = window.setTimeout(() => {
+      setMarket(stored);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(syncStored);
+    };
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-market", market);

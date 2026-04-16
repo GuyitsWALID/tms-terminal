@@ -10,6 +10,7 @@ import {
   Calendar,
   ChevronDown,
   ChevronRight,
+  Globe,
   GraduationCap,
   LineChart,
   Menu,
@@ -26,9 +27,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sessions } from "@/lib/terminalData";
-import { useLiveTickers } from "@/hooks/useLiveTickers";
 import { MARKET_ORDER, getMarketDefinition } from "@/lib/market";
 import { MarketProvider, useMarket } from "@/components/layout/MarketContext";
+import TradingViewTickerTape from "@/components/charts/TradingViewTickerTape";
 
 const menuItems = [
   { id: "calendar", name: "Calendar", icon: Calendar, path: "/calendar" },
@@ -48,7 +49,6 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const { market, setMarket } = useMarket();
   const marketConfig = getMarketDefinition(market);
-  const { tickers } = useLiveTickers(1000, market);
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("tms-theme");
@@ -103,6 +103,22 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
       window.removeEventListener("mousedown", handleOutside);
     };
   }, [isProfileMenuOpen]);
+
+  useEffect(() => {
+    const handleTvPermissionRejection = (event: PromiseRejectionEvent) => {
+      const reasonText = typeof event.reason === "string" ? event.reason : String(event.reason ?? "");
+      const lowered = reasonText.toLowerCase();
+      if (lowered.includes("[tv]") && lowered.includes("permission denied")) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener("unhandledrejection", handleTvPermissionRejection);
+
+    return () => {
+      window.removeEventListener("unhandledrejection", handleTvPermissionRejection);
+    };
+  }, []);
 
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
@@ -207,6 +223,23 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
               {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
             </button>
 
+            <div className="relative flex items-center rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-1.5 py-1 text-[var(--ink-primary)] 2xl:hidden sm:px-2 sm:py-1.5">
+              <Globe size={14} className="pointer-events-none mr-1 text-[var(--ink-muted)]" />
+              <select
+                value={market}
+                onChange={(e) => setMarket(e.target.value as typeof market)}
+                className="appearance-none bg-transparent pr-4 text-[11px] font-semibold text-[var(--ink-primary)] outline-none sm:text-xs"
+                aria-label="Select market"
+              >
+                {MARKET_ORDER.map((marketOption) => (
+                  <option key={marketOption} value={marketOption} className="bg-[var(--surface-1)]">
+                    {getMarketDefinition(marketOption).label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-[var(--ink-muted)]" />
+            </div>
+
             <button className="relative rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--ink-primary)] sm:p-2">
               <Bell size={14} />
               <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[#ff4b55]" />
@@ -264,24 +297,8 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
 
             {!isMobileMenuOpen ? (
               <div className="border-t border-[var(--line-soft)] bg-[var(--surface-1)]">
-                <div className="ticker-marquee mx-auto max-w-[1460px] px-1 md:px-4">
-                  <div className="ticker-track whitespace-nowrap">
-                    {tickers.length > 0
-                      ? Array.from({ length: 4 }).flatMap((_, loop) =>
-                          tickers.map((item, idx) => (
-                            <div key={`${item.symbol}-${loop}-${idx}`} className="flex min-w-fit items-center gap-2 border-r border-[var(--line-soft)] px-3 py-2 text-[11px] sm:px-4 sm:text-xs">
-                              <span className="font-semibold text-[var(--ink-primary)]">{item.symbol}</span>
-                              <span className="font-mono text-[var(--ink-primary)]">{item.price}</span>
-                              <span className={cn("font-semibold", item.isUp ? "text-[#31d488]" : "text-[#ff7878]")}>{item.change}</span>
-                            </div>
-                          ))
-                        )
-                      : [
-                          <div key="ticker-unavailable" className="flex min-w-fit items-center gap-2 px-4 py-2 text-xs text-[var(--ink-muted)]">
-                            Live ticker unavailable
-                          </div>,
-                        ]}
-                  </div>
+                <div className="ticker-marquee w-full">
+                  <TradingViewTickerTape />
                 </div>
               </div>
             ) : null}

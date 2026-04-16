@@ -45,7 +45,7 @@
   --world-glow: #bcc0cb;
 }
 
-[data-market="forex"] {
+[data-theme="dark"][data-market="forex"] {
   --bg-main: #08090b;
   --bg-deep: #050608;
   --surface-header: #111318;
@@ -65,7 +65,7 @@
   --world-glow: #6a7894;
 }
 
-[data-market="crypto"] {
+[data-theme="dark"][data-market="crypto"] {
   --bg-main: #140a1f;
   --bg-deep: #0d0616;
   --surface-header: #241036;
@@ -86,7 +86,7 @@
   --world-glow: #9b4bff;
 }
 
-[data-market="commodities"] {
+[data-theme="dark"][data-market="commodities"] {
   --bg-main: #06140c;
   --bg-deep: #041008;
   --surface-header: #0f2518;
