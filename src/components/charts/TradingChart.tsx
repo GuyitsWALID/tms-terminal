@@ -56,6 +56,7 @@ export default function TradingChart({ symbol, market }: ChartWidgetProps) {
       interval: "60",
       timezone: "Etc/UTC",
       theme: widgetTheme,
+      isTransparent: true,
       style: "1",
       locale: "en",
       allow_symbol_change: true,

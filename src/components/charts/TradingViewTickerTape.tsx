@@ -124,7 +124,7 @@ export default function TradingViewTickerTape({ className }: TradingViewTickerTa
     ticker.setAttribute("locale", "en");
     ticker.setAttribute("color-theme", widgetTheme);
     ticker.setAttribute("theme", widgetTheme);
-    ticker.setAttribute("is-transparent", "");
+    ticker.setAttribute("is-transparent", "true");
     ticker.setAttribute("show-hover", "");
   }, [symbols, widgetTheme]);
 
@@ -177,7 +177,7 @@ export default function TradingViewTickerTape({ className }: TradingViewTickerTa
         locale: "en",
         "color-theme": widgetTheme,
         theme: widgetTheme,
-        "is-transparent": "",
+        "is-transparent": "true",
         "show-hover": "",
       })}
     </div>
