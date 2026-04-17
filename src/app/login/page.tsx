@@ -1,12 +1,12 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -129,5 +129,13 @@ export default function LoginPage() {
         {errorMessage ? <p className="mt-2 text-xs text-[#ff8f8f]">{errorMessage}</p> : null}
       </section>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-6xl py-10 text-sm text-[var(--ink-muted)]">Loading login...</div>}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

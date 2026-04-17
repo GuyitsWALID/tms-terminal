@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-type TeamRow = {
+type TeamDbRow = {
   id: string;
   display_name: string | null;
   role: "user" | "analyst" | "admin";
@@ -10,6 +10,17 @@ type TeamRow = {
   is_active: boolean;
   xp: number;
   created_at: string;
+};
+
+type TeamMember = {
+  id: string;
+  displayName: string;
+  role: "user" | "analyst" | "admin";
+  isVerifiedAnalyst: boolean;
+  specialization: string | null;
+  isActive: boolean;
+  xp: number;
+  createdAt: string;
 };
 
 type TeamUpdateInput = {
@@ -54,9 +65,11 @@ export async function GET() {
     return NextResponse.json({ error: "Unable to load team members." }, { status: 500 });
   }
 
+  const rows = (data ?? []) as TeamDbRow[];
+
   return NextResponse.json(
     {
-      team: (data ?? []).map((row) => ({
+      team: rows.map((row) => ({
         id: row.id,
         displayName: row.display_name ?? "Anonymous",
         role: row.role,
@@ -65,7 +78,7 @@ export async function GET() {
         isActive: row.is_active,
         xp: row.xp,
         createdAt: row.created_at,
-      } satisfies TeamRow)),
+      } satisfies TeamMember)),
     },
     { status: 200 }
   );

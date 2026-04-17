@@ -90,7 +90,7 @@ export async function PATCH(request: NextRequest) {
     bio: pickValue(input.bio),
     timezone: pickValue(input.timezone),
     specialization: pickValue(input.specialization),
-    favorite_market: input.favoriteMarket && input.favoriteMarket !== "" ? input.favoriteMarket : null,
+    favorite_market: input.favoriteMarket ? input.favoriteMarket : null,
   };
 
   const { data: profile, error } = await supabase
