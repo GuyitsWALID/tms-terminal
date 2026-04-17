@@ -12,10 +12,12 @@ import {
 } from "@/lib/api/scraperUtils";
 import { getMonthJobCachedRows, triggerMonthScrapeJob } from "@/lib/api/calendarMonthJob";
 import { MARKET_CALENDAR_CURRENCIES, MARKET_KEYWORDS, normalizeMarket } from "@/lib/market";
+import { buildCalendarEventKey } from "@/lib/calendarEventKey";
 import type { MarketKey } from "@/types";
 
 type CalendarApiEvent = {
   id: string;
+  eventKey?: string;
   time: string;
   eventDate?: string;
   currency: string;
@@ -179,10 +181,17 @@ const parseForexFactoryExport = (raw: string) => {
 const toClientRows = (rows: ExportCalendarEvent[], tzOffset: number, includeDateInTime: boolean): CalendarApiEvent[] =>
   rows.map((row) => {
     const { dateKey, ...base } = row;
+    const eventDate = getAdjustedDateIso(dateKey, row.time, tzOffset);
     return {
       ...base,
-      eventDate: getAdjustedDateIso(dateKey, row.time, tzOffset),
+      eventDate,
       time: adjustTimeToOffset(dateKey, row.time, tzOffset, includeDateInTime),
+      eventKey: buildCalendarEventKey({
+        eventDate,
+        currency: row.currency,
+        event: row.event,
+        impact: row.impact,
+      }),
     };
   });
 
@@ -190,6 +199,12 @@ const fallbackCalendarEvents = (year: string, month: string, day: string): Calen
   const isoDate = `${year}-${toTwoDigits(month)}-${toTwoDigits(day)}`;
   return calendarEvents.map((event) => ({
     id: event.id,
+    eventKey: buildCalendarEventKey({
+      eventDate: isoDate,
+      currency: event.currency,
+      event: event.event,
+      impact: event.impact,
+    }),
     time: event.time,
     eventDate: isoDate,
     currency: event.currency,

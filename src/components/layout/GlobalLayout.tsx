@@ -41,6 +41,7 @@ const menuItems = [
 
 function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const isAuthRoute = pathname === "/login" || pathname === "/signup";
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -124,6 +125,14 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
     document.documentElement.setAttribute("data-theme", nextTheme);
     window.localStorage.setItem("tms-theme", nextTheme);
   };
+
+  if (isAuthRoute) {
+    return (
+      <div className="min-h-screen bg-[radial-gradient(1200px_600px_at_20%_-10%,rgba(34,211,238,0.12),transparent_55%),radial-gradient(900px_500px_at_100%_0%,rgba(59,130,246,0.10),transparent_55%),var(--bg-main)] px-4 py-8 sm:px-6 lg:px-8">
+        <main className="mx-auto w-full max-w-6xl">{children}</main>
+      </div>
+    );
+  }
 
   return (
     <div className="ff-shell">
@@ -269,20 +278,22 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
                   >
                     Profile Page
                   </Link>
-                  <button
+                  <Link
+                    href="/login"
                     onClick={() => setIsProfileMenuOpen(false)}
-                    className="mb-2 w-full rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)] hover:bg-[var(--surface-hover)]"
+                    className="mb-2 block w-full rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)] hover:bg-[var(--surface-hover)]"
                     role="menuitem"
                   >
                     Login
-                  </button>
-                  <button
+                  </Link>
+                  <Link
+                    href="/signup"
                     onClick={() => setIsProfileMenuOpen(false)}
-                    className="w-full rounded-md bg-[var(--brand-strong)] px-3 py-2 text-xs font-bold uppercase tracking-wide text-white hover:opacity-90"
+                    className="block w-full rounded-md bg-[var(--brand-strong)] px-3 py-2 text-center text-xs font-bold uppercase tracking-wide text-white hover:opacity-90"
                     role="menuitem"
                   >
                     Sign Up
-                  </button>
+                  </Link>
                 </div>
               ) : null}
             </div>
