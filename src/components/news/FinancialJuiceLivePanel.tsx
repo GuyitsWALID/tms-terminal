@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import type { NewsItem } from "@/types/api";
 import { useMarket } from "@/components/layout/MarketContext";
 import { cn } from "@/lib/utils";
+import { TIME_PREFERENCES_EVENT, formatDateWithPreferences, readTimePreferences, type TimePreferences } from "@/lib/timePreferences";
+
+const HYDRATION_SAFE_TIME_PREFERENCES: TimePreferences = { timeZone: "UTC", timeFormat: "ampm" };
 
 const SOURCE_KEYWORD = "financial juice";
 
@@ -36,6 +39,33 @@ export default function FinancialJuiceLivePanel() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [delayed, setDelayed] = useState(false);
+  const [timePreferences, setTimePreferences] = useState(HYDRATION_SAFE_TIME_PREFERENCES);
+
+  useEffect(() => {
+    setTimePreferences(readTimePreferences());
+
+    const onTimePreferencesChange = () => {
+      setTimePreferences(readTimePreferences());
+    };
+
+    window.addEventListener(TIME_PREFERENCES_EVENT, onTimePreferencesChange as EventListener);
+
+    return () => {
+      window.removeEventListener(TIME_PREFERENCES_EVENT, onTimePreferencesChange as EventListener);
+    };
+  }, []);
+
+  const formatItemTimestamp = (item: NewsItem) => {
+    if (!item.publishedAt) return item.timestamp;
+
+    const parsed = new Date(item.publishedAt);
+    if (Number.isNaN(parsed.getTime())) return item.timestamp;
+
+    return formatDateWithPreferences(parsed, timePreferences, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -133,7 +163,7 @@ export default function FinancialJuiceLivePanel() {
           items.map((item) => (
             <article key={item.id} className="border-b border-[var(--line-soft)] px-4 py-3">
               <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase text-[var(--ink-muted)]">
-                <span>{item.timestamp}</span>
+                <span>{formatItemTimestamp(item)}</span>
                 <span>|</span>
                 <span>{item.category}</span>
                 <span

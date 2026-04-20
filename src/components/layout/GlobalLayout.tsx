@@ -29,6 +29,15 @@ import { MARKET_ORDER, getMarketDefinition } from "@/lib/market";
 import { MarketProvider, useMarket } from "@/components/layout/MarketContext";
 import TradingViewTickerTape from "@/components/charts/TradingViewTickerTape";
 import LiveSessionsPanel from "@/components/layout/LiveSessionsPanel";
+import {
+  TIME_PREFERENCES_EVENT,
+  TIME_ZONE_OPTIONS,
+  type TimePreferences,
+  formatDateWithPreferences,
+  getTimeZoneLabel,
+  readTimePreferences,
+  saveTimePreferences,
+} from "@/lib/timePreferences";
 
 const menuItems = [
   { id: "calendar", name: "Calendar", icon: Calendar, path: "/calendar" },
@@ -44,10 +53,23 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   const isAuthRoute = pathname === "/login" || pathname === "/signup";
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isTimeSettingsOpen, setIsTimeSettingsOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [timePreferences, setTimePreferences] = useState<TimePreferences>({ timeZone: "UTC", timeFormat: "ampm" });
+  const [timePreferencesDraft, setTimePreferencesDraft] = useState<TimePreferences>({ timeZone: "UTC", timeFormat: "ampm" });
   const [now, setNow] = useState("--:--:--");
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const timeMenuRef = useRef<HTMLDivElement | null>(null);
   const { market, setMarket } = useMarket();
+
+  const timezoneLabel = getTimeZoneLabel(timePreferences.timeZone);
+
+  const formatClock = (preferences: TimePreferences) =>
+    formatDateWithPreferences(new Date(), preferences, {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("tms-theme");
@@ -60,48 +82,69 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
 
     document.documentElement.setAttribute("data-theme", initialTheme);
 
-    const formatClock = () =>
-      new Intl.DateTimeFormat("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }).format(new Date());
+    const initialTimePreferences = readTimePreferences();
 
     const syncTheme = window.setTimeout(() => {
       setTheme(initialTheme);
     }, 0);
 
     const syncClock = window.setTimeout(() => {
-      setNow(formatClock());
+      setTimePreferences(initialTimePreferences);
+      setTimePreferencesDraft(initialTimePreferences);
+      setNow(formatClock(initialTimePreferences));
     }, 0);
-
-    const timer = window.setInterval(() => {
-      setNow(formatClock());
-    }, 1000);
 
     return () => {
       window.clearTimeout(syncTheme);
       window.clearTimeout(syncClock);
+    };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(formatClock(timePreferences));
+    }, 1000);
+
+    return () => {
       window.clearInterval(timer);
+    };
+  }, [timePreferences]);
+
+  useEffect(() => {
+    const handleTimePreferencesUpdate = () => {
+      const latest = readTimePreferences();
+      setTimePreferences(latest);
+      setTimePreferencesDraft(latest);
+    };
+
+    window.addEventListener(TIME_PREFERENCES_EVENT, handleTimePreferencesUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener(TIME_PREFERENCES_EVENT, handleTimePreferencesUpdate as EventListener);
     };
   }, []);
 
   useEffect(() => {
     const handleOutside = (event: MouseEvent) => {
-      if (!profileMenuRef.current) return;
-      if (!profileMenuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+
+      if (profileMenuRef.current && !profileMenuRef.current.contains(target)) {
         setIsProfileMenuOpen(false);
+      }
+
+      if (timeMenuRef.current && !timeMenuRef.current.contains(target)) {
+        setIsTimeSettingsOpen(false);
       }
     };
 
-    if (isProfileMenuOpen) {
+    if (isProfileMenuOpen || isTimeSettingsOpen) {
       window.addEventListener("mousedown", handleOutside);
     }
 
     return () => {
       window.removeEventListener("mousedown", handleOutside);
     };
-  }, [isProfileMenuOpen]);
+  }, [isProfileMenuOpen, isTimeSettingsOpen]);
 
   useEffect(() => {
     const handleTvPermissionRejection = (event: PromiseRejectionEvent) => {
@@ -124,6 +167,17 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
     setTheme(nextTheme);
     document.documentElement.setAttribute("data-theme", nextTheme);
     window.localStorage.setItem("tms-theme", nextTheme);
+  };
+
+  const onSaveTimeSettings = () => {
+    saveTimePreferences(timePreferencesDraft);
+    setTimePreferences(timePreferencesDraft);
+    setIsTimeSettingsOpen(false);
+  };
+
+  const onCancelTimeSettings = () => {
+    setTimePreferencesDraft(timePreferences);
+    setIsTimeSettingsOpen(false);
   };
 
   if (isAuthRoute) {
@@ -252,9 +306,74 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
               <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[#ff4b55]" />
             </button>
 
-            <div className="hidden w-[110px] xl:w-[126px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-3 py-1.5 sm:block">
-              <p className="font-rajdhani text-base leading-none whitespace-nowrap">{now}</p>
-              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--ink-muted)]">UTC</p>
+            <div className="relative hidden sm:block" ref={timeMenuRef}>
+              <button
+                onClick={() => setIsTimeSettingsOpen((open) => !open)}
+                className="w-[132px] xl:w-[170px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-3 py-1.5 text-left"
+                aria-expanded={isTimeSettingsOpen}
+                aria-haspopup="dialog"
+                aria-label="Open time settings"
+              >
+                <p className="font-rajdhani text-base leading-none whitespace-nowrap">{now}</p>
+                <p className="truncate text-[10px] uppercase tracking-[0.16em] text-[var(--ink-muted)]">{timezoneLabel}</p>
+              </button>
+
+              {isTimeSettingsOpen ? (
+                <div className="absolute right-0 top-12 z-[70] w-[340px] rounded-md border border-[var(--line-strong)] bg-[var(--surface-1)] p-4 shadow-lg" role="dialog" aria-label="Time settings">
+                  <p className="mb-3 text-sm text-[var(--ink-muted)]">
+                    Above is the synchronized time. It matches your device clock, and all timestamps are displayed in your selected local time.
+                  </p>
+
+                  <div className="mb-3 grid gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-muted)]">Time Zone</label>
+                    <select
+                      value={timePreferencesDraft.timeZone}
+                      onChange={(event) => setTimePreferencesDraft((current) => ({ ...current, timeZone: event.target.value }))}
+                      className="h-9 rounded border border-[var(--line-soft)] bg-[var(--surface-2)] px-2 text-sm text-[var(--ink-primary)] outline-none"
+                    >
+                      {TIME_ZONE_OPTIONS.map((zone) => (
+                        <option key={zone} value={zone}>
+                          {getTimeZoneLabel(zone)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="mb-4 grid gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-muted)]">Time Format</label>
+                    <select
+                      value={timePreferencesDraft.timeFormat}
+                      onChange={(event) =>
+                        setTimePreferencesDraft((current) => ({
+                          ...current,
+                          timeFormat: event.target.value as TimePreferences["timeFormat"],
+                        }))
+                      }
+                      className="h-9 rounded border border-[var(--line-soft)] bg-[var(--surface-2)] px-2 text-sm text-[var(--ink-primary)] outline-none"
+                    >
+                      <option value="ampm">am / pm</option>
+                      <option value="24h">24-hour</option>
+                    </select>
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={onSaveTimeSettings}
+                      className="rounded border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)]"
+                    >
+                      Save Settings
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onCancelTimeSettings}
+                      className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--ink-muted)]"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="relative" ref={profileMenuRef}>
@@ -337,7 +456,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
           <div className="mx-auto grid w-full max-w-[1460px] grid-cols-1 gap-4 px-3 py-4 md:px-6 xl:grid-cols-[260px_minmax(0,1fr)]">
             <aside className="ff-panel ff-grid-entrance hidden p-3 xl:block">
               <div className="mb-3">
-                <LiveSessionsPanel market={market} showTraders />
+                <LiveSessionsPanel market={market} showTraders={false} />
               </div>
 
               <div className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-3">

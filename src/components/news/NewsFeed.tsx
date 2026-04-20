@@ -7,6 +7,9 @@ import { featuredNews, hotStory } from "@/lib/terminalData";
 import { fetchNewsFeedWithMeta } from "@/lib/api/dataService";
 import { useMarket } from "@/components/layout/MarketContext";
 import type { NewsItem } from "@/types/api";
+import { TIME_PREFERENCES_EVENT, formatDateWithPreferences, readTimePreferences, type TimePreferences } from "@/lib/timePreferences";
+
+const HYDRATION_SAFE_TIME_PREFERENCES: TimePreferences = { timeZone: "UTC", timeFormat: "ampm" };
 
 const dedupeById = (items: NewsItem[]) => {
   const seen = new Set<string>();
@@ -51,6 +54,33 @@ export default function NewsFeed() {
   const [fallbackReason, setFallbackReason] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [liveConnected, setLiveConnected] = useState(false);
+  const [timePreferences, setTimePreferences] = useState(HYDRATION_SAFE_TIME_PREFERENCES);
+
+  useEffect(() => {
+    setTimePreferences(readTimePreferences());
+
+    const onTimePreferencesChange = () => {
+      setTimePreferences(readTimePreferences());
+    };
+
+    window.addEventListener(TIME_PREFERENCES_EVENT, onTimePreferencesChange as EventListener);
+
+    return () => {
+      window.removeEventListener(TIME_PREFERENCES_EVENT, onTimePreferencesChange as EventListener);
+    };
+  }, []);
+
+  const formatNewsTimestamp = (item: NewsItem) => {
+    if (!item.publishedAt) return item.timestamp;
+
+    const parsed = new Date(item.publishedAt);
+    if (Number.isNaN(parsed.getTime())) return item.timestamp;
+
+    return formatDateWithPreferences(parsed, timePreferences, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -196,7 +226,7 @@ export default function NewsFeed() {
                   )}
                 >
                   <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] uppercase text-[var(--ink-muted)]">
-                    <span>{item.timestamp}</span>
+                    <span>{formatNewsTimestamp(item)}</span>
                     <span>|</span>
                     <span>{item.source}</span>
                     <span>|</span>
@@ -281,6 +311,3 @@ export default function NewsFeed() {
     </div>
   );
 }
-
-
-

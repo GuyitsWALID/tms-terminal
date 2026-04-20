@@ -7,6 +7,7 @@ import type { NewsItem } from "@/types/api";
 import type { MarketKey } from "@/types";
 import type { PerspectiveBias, PerspectiveConsensus, VerifiedPerspective } from "@/types";
 import type { AuthStatus } from "@/types";
+import { getTimeZoneOffsetHours, readTimePreferences } from "@/lib/timePreferences";
 
 export type LiveTickerSymbol = string;
 
@@ -52,9 +53,11 @@ export type VerifiedPerspectivesResponse = {
 export async function fetchEconomicCalendarWithMeta(options?: EconomicCalendarFetchOptions): Promise<EconomicCalendarResponse> {
   const { date, scope = "week", market = "forex" } = options ?? {};
   const url = new URL("/api/calendar", window.location.origin);
+  const timePreferences = readTimePreferences();
+  const tzOffset = getTimeZoneOffsetHours(timePreferences.timeZone, date ?? new Date());
 
   url.searchParams.set("scope", scope);
-  url.searchParams.set("tz_offset", "3");
+  url.searchParams.set("tz_offset", String(tzOffset));
   url.searchParams.set("market", market);
 
   if (date) {

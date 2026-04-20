@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 import { featuredNews } from "@/lib/terminalData";
-import { MARKET_KEYWORDS, normalizeMarket } from "@/lib/market";
+import { normalizeMarket } from "@/lib/market";
 import type { MarketKey } from "@/types";
 import {
   SCRAPER_TTL_MS,
@@ -139,19 +139,8 @@ const dedupeNews = (items: NewsApiItem[]) => {
 };
 
 const filterNewsByMarket = (items: NewsApiItem[], market: MarketKey) => {
-  if (market === "forex") return { rows: items, usedGenericFallback: false };
-
-  const keywords = MARKET_KEYWORDS[market];
-  const scoped = items.filter((item) => {
-    const haystack = `${item.headline} ${item.category}`.toLowerCase();
-    return keywords.some((keyword) => haystack.includes(keyword));
-  });
-
-  if (scoped.length > 0) {
-    return { rows: scoped, usedGenericFallback: false };
-  }
-
-  return { rows: items, usedGenericFallback: true };
+  void market;
+  return { rows: items, usedGenericFallback: false };
 };
 
 export async function GET(request: Request) {

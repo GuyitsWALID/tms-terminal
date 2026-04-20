@@ -13,6 +13,7 @@ import { Calendar } from "../ui/calendar";
 import { Button } from "@/components/ui/button";
 import { useMarket } from "@/components/layout/MarketContext";
 import LiveSessionsPanel from "@/components/layout/LiveSessionsPanel";
+import { TIME_PREFERENCES_EVENT } from "@/lib/timePreferences";
 
 const IMPACT_COLORS = {
   high: "ff-impact-high",
@@ -76,6 +77,7 @@ export default function EconomicCalendar() {
   const [detailModalLoading, setDetailModalLoading] = useState(false);
   const [detailModalData, setDetailModalData] = useState<EconomicEvent["scrapedDetail"] | null>(null);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  const [timePreferencesVersion, setTimePreferencesVersion] = useState(0);
 
   const fetchAnchorDate = currentMonthAnchor;
 
@@ -90,6 +92,18 @@ export default function EconomicCalendar() {
 
     return () => {
       window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onTimePreferencesChange = () => {
+      setTimePreferencesVersion((current) => current + 1);
+    };
+
+    window.addEventListener(TIME_PREFERENCES_EVENT, onTimePreferencesChange as EventListener);
+
+    return () => {
+      window.removeEventListener(TIME_PREFERENCES_EVENT, onTimePreferencesChange as EventListener);
     };
   }, []);
 
@@ -165,7 +179,7 @@ export default function EconomicCalendar() {
       if (retryTimer) clearTimeout(retryTimer);
       isMounted = false;
     };
-  }, [fetchAnchorDate, market]);
+  }, [fetchAnchorDate, market, timePreferencesVersion]);
 
   const normalizedRange = useMemo(() => {
     if (!selectedRange?.from) return null;

@@ -1,6 +1,5 @@
 import * as cheerio from "cheerio";
 import type { MarketKey } from "@/types";
-import { MARKET_KEYWORDS } from "@/lib/market";
 import { analyzeSentiment, fetchWithTimeout, inferImpactFromText, normalizeText, safeId } from "@/lib/api/scraperUtils";
 
 export type FinancialJuiceNewsItem = {
@@ -46,12 +45,6 @@ const getSourceState = (): SourceState => {
   }
 
   return globalThis.__tmsFinancialJuiceSourceState;
-};
-
-const isMarketMatch = (headline: string, category: string, market: MarketKey) => {
-  if (market === "forex") return true;
-  const haystack = `${headline} ${category}`.toLowerCase();
-  return MARKET_KEYWORDS[market].some((keyword) => haystack.includes(keyword));
 };
 
 type FinancialJuiceStartupPayload = {
@@ -213,24 +206,28 @@ const parseFinancialJuiceTelegram = async (): Promise<FinancialJuiceNewsItem[]> 
   return rows.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 };
 
-export const fetchFinancialJuiceWithFallback = async (market: MarketKey): Promise<FinancialJuiceSourceResult> => {
+export const fetchFinancialJuiceWithFallback = async (_market: MarketKey): Promise<FinancialJuiceSourceResult> => {
+  void _market;
   const state = getSourceState();
   const now = Date.now();
 
-  const applyMarket = (items: FinancialJuiceNewsItem[]) =>
-    items.filter((item) => isMarketMatch(item.headline, item.category, market)).slice(0, 40);
+  const applyMarket = (items: FinancialJuiceNewsItem[]) => ({
+    items: items.slice(0, 40),
+    usedGenericFallback: false,
+  });
 
   if (now >= state.directCooldownUntil) {
     try {
-      const direct = applyMarket(await parseFinancialJuiceHome());
+      const directResult = applyMarket(await parseFinancialJuiceHome());
+      const direct = directResult.items;
 
       if (direct.length > 0) {
         state.directFailures = 0;
         state.directCooldownUntil = 0;
         return {
           source: "financialjuice-home",
-          usedFallback: false,
-          fallbackReason: "",
+          usedFallback: directResult.usedGenericFallback,
+          fallbackReason: directResult.usedGenericFallback ? "market-generic-fallback" : "",
           items: direct,
         };
       }
@@ -244,12 +241,15 @@ export const fetchFinancialJuiceWithFallback = async (market: MarketKey): Promis
   }
 
   try {
-    const telegram = applyMarket(await parseFinancialJuiceTelegram());
+    const telegramResult = applyMarket(await parseFinancialJuiceTelegram());
+    const telegram = telegramResult.items;
     if (telegram.length > 0) {
+      const baseReason = state.directCooldownUntil > now ? "direct-cooldown" : "direct-fetch-failed";
+      const fallbackReason = telegramResult.usedGenericFallback ? `${baseReason},market-generic-fallback` : baseReason;
       return {
         source: "telegram",
         usedFallback: true,
-        fallbackReason: state.directCooldownUntil > now ? "direct-cooldown" : "direct-fetch-failed",
+        fallbackReason,
         items: telegram,
       };
     }

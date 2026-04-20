@@ -61,12 +61,7 @@ const MARKET_TICKER_THEME = {
 
 export default function TradingViewTickerTape({ className }: TradingViewTickerTapeProps) {
   const { market } = useMarket();
-  const [widgetTheme, setWidgetTheme] = useState<"dark" | "light">(() => {
-    if (typeof window === "undefined") return "dark";
-    const stored = window.localStorage.getItem("tms-theme");
-    if (stored === "dark" || stored === "light") return stored;
-    return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
-  });
+  const [widgetTheme, setWidgetTheme] = useState<"dark" | "light">("dark");
 
   const tickerRef = useRef<HTMLElement | null>(null);
 
@@ -85,13 +80,25 @@ export default function TradingViewTickerTape({ className }: TradingViewTickerTa
   }, []);
 
   useEffect(() => {
+    const syncTheme = window.setTimeout(() => {
+      const stored = window.localStorage.getItem("tms-theme");
+      if (stored === "dark" || stored === "light") {
+        setWidgetTheme(stored);
+      } else {
+        setWidgetTheme(document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark");
+      }
+    }, 0);
+
     const root = document.documentElement;
     const observer = new MutationObserver(() => {
       setWidgetTheme(root.getAttribute("data-theme") === "light" ? "light" : "dark");
     });
 
     observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => observer.disconnect();
+    return () => {
+      window.clearTimeout(syncTheme);
+      observer.disconnect();
+    };
   }, []);
 
   useEffect(() => {

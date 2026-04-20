@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { MarketKey } from "@/types";
 import { cn } from "@/lib/utils";
+import {
+  TIME_PREFERENCES_EVENT,
+  type TimePreferences,
+  formatDateWithPreferences,
+  getTimeZoneLabel,
+  readTimePreferences,
+} from "@/lib/timePreferences";
 
 type SessionDef = {
   name: "Sydney" | "Tokyo" | "London" | "New York";
@@ -68,12 +75,6 @@ const sessionProgress = (currentMinutes: number, startHour: number, endHour: num
   return Math.max(0, Math.min(100, (elapsed / duration) * 100));
 };
 
-const formatRange = (startHour: number, endHour: number) => {
-  const start = `${String(startHour).padStart(2, "0")}:00`;
-  const end = `${String(endHour).padStart(2, "0")}:00`;
-  return `${start} - ${end} UTC`;
-};
-
 const segmentStyle = (startMin: number, endMin: number) => {
   return {
     left: `${(startMin / 1440) * 100}%`,
@@ -81,17 +82,36 @@ const segmentStyle = (startMin: number, endMin: number) => {
   };
 };
 
+const HYDRATION_SAFE_TIME_PREFERENCES: TimePreferences = { timeZone: "UTC", timeFormat: "ampm" };
+
+const formatSessionRange = (startHour: number, endHour: number, preferences: TimePreferences, referenceDate: Date) => {
+  const baseUtcDate = new Date(
+    Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth(), referenceDate.getUTCDate(), 0, 0, 0, 0)
+  );
+
+  const startUtc = new Date(baseUtcDate.getTime() + startHour * 60 * 60 * 1000);
+  const endUtc = new Date(baseUtcDate.getTime() + endHour * 60 * 60 * 1000);
+
+  const start = formatDateWithPreferences(startUtc, preferences, { hour: "2-digit", minute: "2-digit" });
+  const end = formatDateWithPreferences(endUtc, preferences, { hour: "2-digit", minute: "2-digit" });
+
+  return `${start} - ${end}`;
+};
+
 export default function LiveSessionsPanel({
   market,
   compact = false,
-  showTraders = true,
+  showTraders = false,
   className,
 }: LiveSessionsPanelProps) {
   const [now, setNow] = useState(() => new Date());
+  const [timePreferences, setTimePreferences] = useState<TimePreferences>(HYDRATION_SAFE_TIME_PREFERENCES);
   const [usersOnline, setUsersOnline] = useState<number | null>(null);
   const [usersSource, setUsersSource] = useState<"provider" | "fallback">("fallback");
   const [usersSetupState, setUsersSetupState] = useState<"ok" | "unconfigured" | "provider-error">("unconfigured");
   const [deployedOnVercel, setDeployedOnVercel] = useState(false);
+
+  const timeZoneLabel = getTimeZoneLabel(timePreferences.timeZone);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -102,6 +122,25 @@ export default function LiveSessionsPanel({
   }, []);
 
   useEffect(() => {
+    setTimePreferences(readTimePreferences());
+
+    const onTimePreferencesChange = () => {
+      setTimePreferences(readTimePreferences());
+      setNow(new Date());
+    };
+
+    window.addEventListener(TIME_PREFERENCES_EVENT, onTimePreferencesChange as EventListener);
+
+    return () => {
+      window.removeEventListener(TIME_PREFERENCES_EVENT, onTimePreferencesChange as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showTraders) {
+      return;
+    }
+
     let mounted = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -149,7 +188,7 @@ export default function LiveSessionsPanel({
       mounted = false;
       if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [showTraders]);
 
   const currentMinutes = toUtcMinutes(now);
 
@@ -160,10 +199,10 @@ export default function LiveSessionsPanel({
         ...def,
         active,
         progressPct: active ? sessionProgress(currentMinutes, def.startUtcHour, def.endUtcHour) : 0,
-        rangeLabel: formatRange(def.startUtcHour, def.endUtcHour),
+        rangeLabel: formatSessionRange(def.startUtcHour, def.endUtcHour, timePreferences, now),
       };
     });
-  }, [currentMinutes]);
+  }, [currentMinutes, now, timePreferences]);
 
   const activeWeight = useMemo(() => sessions.reduce((acc, session) => acc + (session.active ? session.weight : 0), 0), [sessions]);
 
@@ -182,7 +221,7 @@ export default function LiveSessionsPanel({
     <div className={cn("rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-3", className)}>
       <div className="mb-2 flex items-center justify-between">
         <p className="ff-panel-title text-xs text-[var(--ink-muted)]">Sessions</p>
-        <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">UTC Live</span>
+        <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">{timeZoneLabel}</span>
       </div>
 
       {showTraders ? (
@@ -221,7 +260,7 @@ export default function LiveSessionsPanel({
                     ...segmentStyle(start, end),
                     backgroundColor: session.color,
                   }}
-                  title={`${session.name} (${formatRange(session.startUtcHour, session.endUtcHour)})`}
+                  title={`${session.name} (${formatSessionRange(session.startUtcHour, session.endUtcHour, timePreferences, now)})`}
                 />
               );
             }
@@ -235,7 +274,7 @@ export default function LiveSessionsPanel({
                     ...segmentStyle(start, 1440),
                     backgroundColor: session.color,
                   }}
-                  title={`${session.name} (${formatRange(session.startUtcHour, session.endUtcHour)})`}
+                  title={`${session.name} (${formatSessionRange(session.startUtcHour, session.endUtcHour, timePreferences, now)})`}
                 />
                 <div
                   key={`${session.name}-b`}
@@ -244,7 +283,7 @@ export default function LiveSessionsPanel({
                     ...segmentStyle(0, end),
                     backgroundColor: session.color,
                   }}
-                  title={`${session.name} (${formatRange(session.startUtcHour, session.endUtcHour)})`}
+                  title={`${session.name} (${formatSessionRange(session.startUtcHour, session.endUtcHour, timePreferences, now)})`}
                 />
               </div>
             );
@@ -253,7 +292,7 @@ export default function LiveSessionsPanel({
           <div
             className="absolute bottom-0 top-0 w-[2px] bg-white/80"
             style={{ left: `${(currentMinutes / 1440) * 100}%` }}
-            title="Current UTC time"
+            title={`Current time in ${timeZoneLabel}`}
           />
         </div>
       </div>
