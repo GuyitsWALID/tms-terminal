@@ -54,12 +54,14 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isTimeSettingsOpen, setIsTimeSettingsOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [timePreferences, setTimePreferences] = useState<TimePreferences>({ timeZone: "UTC", timeFormat: "ampm" });
   const [timePreferencesDraft, setTimePreferencesDraft] = useState<TimePreferences>({ timeZone: "UTC", timeFormat: "ampm" });
   const [now, setNow] = useState("--:--:--");
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const timeMenuRef = useRef<HTMLDivElement | null>(null);
+  const searchMenuRef = useRef<HTMLDivElement | null>(null);
   const { market, setMarket } = useMarket();
 
   const timezoneLabel = getTimeZoneLabel(timePreferences.timeZone);
@@ -135,16 +137,20 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
       if (timeMenuRef.current && !timeMenuRef.current.contains(target)) {
         setIsTimeSettingsOpen(false);
       }
+
+      if (searchMenuRef.current && !searchMenuRef.current.contains(target)) {
+        setIsSearchOpen(false);
+      }
     };
 
-    if (isProfileMenuOpen || isTimeSettingsOpen) {
+    if (isProfileMenuOpen || isTimeSettingsOpen || isSearchOpen) {
       window.addEventListener("mousedown", handleOutside);
     }
 
     return () => {
       window.removeEventListener("mousedown", handleOutside);
     };
-  }, [isProfileMenuOpen, isTimeSettingsOpen]);
+  }, [isProfileMenuOpen, isTimeSettingsOpen, isSearchOpen]);
 
   useEffect(() => {
     const handleTvPermissionRejection = (event: PromiseRejectionEvent) => {
@@ -253,12 +259,33 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <div className="relative hidden 2xl:flex">
-              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-muted)]" />
-              <input
-                placeholder="Search events, pairs, analysts"
-                className="h-8 w-32 2xl:w-36 rounded-full border border-[var(--line-strong)] bg-[var(--surface-1)] pl-9 pr-4 text-xs text-[var(--ink-primary)] outline-none placeholder:text-[var(--ink-muted)] focus:border-[var(--brand)]"
-              />
+            <div className="relative hidden xl:block" ref={searchMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsSearchOpen((open) => !open)}
+                className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--ink-primary)] sm:p-2"
+                aria-label="Open search"
+                aria-expanded={isSearchOpen}
+                aria-haspopup="dialog"
+              >
+                <Search size={14} />
+              </button>
+
+              {isSearchOpen ? (
+                <div
+                  className="absolute right-0 top-11 z-[70] w-[min(22rem,70vw)] rounded-md border border-[var(--line-strong)] bg-[var(--surface-1)] p-2 shadow-lg"
+                  role="dialog"
+                  aria-label="Search"
+                >
+                  <div className="relative">
+                    <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-muted)]" />
+                    <input
+                      placeholder="Search events, pairs, analysts"
+                      className="h-9 w-full rounded-full border border-[var(--line-strong)] bg-[var(--surface-1)] pl-9 pr-4 text-xs text-[var(--ink-primary)] outline-none placeholder:text-[var(--ink-muted)] focus:border-[var(--brand)]"
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="relative hidden items-center rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-1 2xl:flex">
