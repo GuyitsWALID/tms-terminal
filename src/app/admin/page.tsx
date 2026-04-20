@@ -15,6 +15,7 @@ type TeamMember = {
 
 type InviteCode = {
   code: string;
+  invite_type: "analyst" | "admin";
   is_active: boolean;
   max_uses: number | null;
   used_count: number;
@@ -27,6 +28,7 @@ export default function AdminPage() {
   const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([]);
   const [maxUses, setMaxUses] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
+  const [inviteType, setInviteType] = useState<"analyst" | "admin">("analyst");
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isBusy, setIsBusy] = useState(false);
@@ -105,6 +107,7 @@ export default function AdminPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          inviteType,
           maxUses: maxUses.trim() ? Number(maxUses) : null,
           expiresAt: expiresAt || null,
         }),
@@ -118,6 +121,7 @@ export default function AdminPage() {
       setStatusMessage("Invite code created.");
       setMaxUses("");
       setExpiresAt("");
+      setInviteType("analyst");
       await loadInviteCodes();
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to create invite code.");
@@ -210,6 +214,16 @@ export default function AdminPage() {
       </div>
 
       <form onSubmit={createInviteCode} className="mt-4 grid gap-2 rounded border border-[var(--line-soft)] bg-[var(--surface-2)] p-3 sm:max-w-lg">
+        <label className="text-xs uppercase tracking-[0.12em] text-[var(--ink-muted)]">Invite type</label>
+        <select
+          value={inviteType}
+          onChange={(e) => setInviteType(e.target.value as "analyst" | "admin")}
+          className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--ink-primary)] outline-none"
+        >
+          <option value="analyst">Verified Analyst Invite</option>
+          <option value="admin">Admin Invite</option>
+        </select>
+
         <label className="text-xs uppercase tracking-[0.12em] text-[var(--ink-muted)]">Max uses (optional)</label>
         <input
           type="number"
@@ -245,6 +259,7 @@ export default function AdminPage() {
           <thead className="bg-[var(--surface-2)] text-[var(--ink-muted)]">
             <tr>
               <th className="px-3 py-2">Code</th>
+              <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Uses</th>
               <th className="px-3 py-2">Expires</th>
@@ -255,6 +270,7 @@ export default function AdminPage() {
             {inviteCodes.map((row) => (
               <tr key={row.code} className="border-t border-[var(--line-soft)]">
                 <td className="px-3 py-2 font-semibold">{row.code}</td>
+                <td className="px-3 py-2">{row.invite_type === "admin" ? "Admin" : "Analyst"}</td>
                 <td className="px-3 py-2">{row.is_active ? "Active" : "Inactive"}</td>
                 <td className="px-3 py-2">{row.used_count}{row.max_uses ? ` / ${row.max_uses}` : ""}</td>
                 <td className="px-3 py-2">{row.expires_at ? new Date(row.expires_at).toLocaleString() : "-"}</td>
@@ -263,7 +279,7 @@ export default function AdminPage() {
             ))}
             {inviteCodes.length === 0 ? (
               <tr>
-                <td className="px-3 py-3 text-[var(--ink-muted)]" colSpan={5}>No invite codes yet.</td>
+                <td className="px-3 py-3 text-[var(--ink-muted)]" colSpan={6}>No invite codes yet.</td>
               </tr>
             ) : null}
           </tbody>

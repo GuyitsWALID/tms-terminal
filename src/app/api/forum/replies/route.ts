@@ -26,10 +26,19 @@ export async function GET(request: NextRequest) {
 
   const authorIds = Array.from(new Set((replies ?? []).map((reply) => reply.author_id as string)));
 
-  let profilesMap = new Map<string, string>();
+  let profilesMap = new Map<string, { name: string; role: "user" | "analyst" | "admin"; isVerifiedAnalyst: boolean }>();
   if (authorIds.length > 0) {
-    const { data: profiles } = await supabase.from("profiles").select("id, display_name").in("id", authorIds);
-    profilesMap = new Map((profiles ?? []).map((profile) => [profile.id as string, (profile.display_name as string | null) ?? "Anonymous"]));
+    const { data: profiles } = await supabase.from("profiles").select("id, display_name, role, is_verified_analyst").in("id", authorIds);
+    profilesMap = new Map(
+      (profiles ?? []).map((profile) => [
+        profile.id as string,
+        {
+          name: (profile.display_name as string | null) ?? "Anonymous",
+          role: (profile.role as "user" | "analyst" | "admin") ?? "user",
+          isVerifiedAnalyst: Boolean(profile.is_verified_analyst),
+        },
+      ])
+    );
   }
 
   return NextResponse.json(
@@ -38,7 +47,9 @@ export async function GET(request: NextRequest) {
         id: reply.id,
         threadId: reply.thread_id,
         authorId: reply.author_id,
-        authorName: profilesMap.get(reply.author_id as string) ?? "Anonymous",
+        authorName: profilesMap.get(reply.author_id as string)?.name ?? "Anonymous",
+        authorRole: profilesMap.get(reply.author_id as string)?.role ?? "user",
+        authorIsVerifiedAnalyst: profilesMap.get(reply.author_id as string)?.isVerifiedAnalyst ?? false,
         content: reply.content,
         createdAt: reply.created_at,
         updatedAt: reply.updated_at,
@@ -88,6 +99,8 @@ export async function POST(request: NextRequest) {
         threadId: row.thread_id,
         authorId: row.author_id,
         authorName: user.email ?? "Anonymous",
+        authorRole: "user",
+        authorIsVerifiedAnalyst: false,
         content: row.content,
         createdAt: row.created_at,
         updatedAt: row.updated_at,

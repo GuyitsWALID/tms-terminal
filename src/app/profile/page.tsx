@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import RoleBadges from "@/components/ui/RoleBadges";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { fetchAuthStatus, redeemAnalystInviteCode } from "@/lib/api/dataService";
 import type { AuthStatus, MarketKey, UserProfile } from "@/types";
@@ -155,6 +156,9 @@ export default function ProfilePage() {
             <Link href="/login" className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)]">
               Login
             </Link>
+            <Link href="/admin/login" className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)]">
+              Admin Login
+            </Link>
             <Link href="/signup" className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-xs font-bold uppercase tracking-wide text-white">
               Sign Up
             </Link>
@@ -170,7 +174,10 @@ export default function ProfilePage() {
               </div>
               <div className="rounded border border-[var(--line-soft)] bg-[var(--surface-2)] p-3 text-xs">
                 <p className="text-[var(--ink-muted)]">Role</p>
-                <p className="mt-1 font-semibold text-[var(--ink-primary)]">{authState.profile?.role ?? "user"}</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="font-semibold text-[var(--ink-primary)]">{authState.profile?.role ?? "user"}</p>
+                  <RoleBadges role={authState.profile?.role} isVerifiedAnalyst={authState.profile?.isVerifiedAnalyst} />
+                </div>
               </div>
               <div className="rounded border border-[var(--line-soft)] bg-[var(--surface-2)] p-3 text-xs">
                 <p className="text-[var(--ink-muted)]">Rank / XP</p>

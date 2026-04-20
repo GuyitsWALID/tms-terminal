@@ -41,9 +41,23 @@ const ensureAdmin = async () => {
     return { supabase, user: null, authorized: false, status: 401 as const, error: "Authentication required." };
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (!profile || profile.role !== "admin") {
-    return { supabase, user, authorized: false, status: 403 as const, error: "Admin role required." };
+  const { data: adminRole } = await supabase
+    .from("user_roles")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .eq("role", "admin")
+    .maybeSingle();
+
+  if (!adminRole) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile?.role !== "admin") {
+      return { supabase, user, authorized: false, status: 403 as const, error: "Admin role required." };
+    }
   }
 
   return { supabase, user, authorized: true as const };

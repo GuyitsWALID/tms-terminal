@@ -85,5 +85,31 @@ export interface AuthStatus {
   isAuthenticated: boolean;
   userId?: string;
   email?: string;
+  isEmailVerified?: boolean;
+  roles?: Array<"admin" | "va">;
   profile?: UserProfile;
+}
+
+export type HeaderSearchScope = "all" | "website" | "forum" | "news";
+
+export interface HeaderSearchResult {
+  id: string;
+  title: string;
+  snippet: string;
+  href: string;
+  sourceType: Exclude<HeaderSearchScope, "all">;
+  sourceLabel: string;
+  createdAt?: string;
+}
+
+export type HeaderNotificationKind = "email-verification" | "browser-permission" | "system-notice" | "guest-reminder";
+
+export interface HeaderNotificationItem {
+  id: string;
+  kind: HeaderNotificationKind;
+  title: string;
+  message: string;
+  actionHref?: string;
+  severity: "info" | "warning" | "critical";
+  createdAt: string;
 }

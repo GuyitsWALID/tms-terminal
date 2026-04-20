@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type InviteCodeRow = {
   code: string;
+  invite_type: "analyst" | "admin";
   is_active: boolean;
   max_uses: number | null;
   used_count: number;
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
 
   const { data: inviteRow, error: inviteError } = await supabase
     .from("analyst_invite_codes")
-    .select("code, is_active, max_uses, used_count, expires_at")
+    .select("code, invite_type, is_active, max_uses, used_count, expires_at")
     .eq("code", code)
     .single();
 
@@ -55,17 +56,50 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invite code usage limit reached." }, { status: 400 });
   }
 
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("role, is_verified_analyst")
+    .eq("id", user.id)
+    .single();
+
+  const currentRole = (currentProfile?.role as "user" | "analyst" | "admin" | undefined) ?? "user";
+  const currentVerified = Boolean(currentProfile?.is_verified_analyst);
+
+  const profilePatch: {
+    role: "user" | "analyst" | "admin";
+    is_verified_analyst: boolean;
+    invite_code_used: string;
+  } = {
+    role: currentRole,
+    is_verified_analyst: currentVerified,
+    invite_code_used: code,
+  };
+
+  if (invite.invite_type === "admin") {
+    profilePatch.role = "admin";
+  } else {
+    profilePatch.is_verified_analyst = true;
+    if (currentRole !== "admin") {
+      profilePatch.role = "analyst";
+    }
+  }
+
   const { error: profileUpdateError } = await supabase
     .from("profiles")
-    .update({
-      role: "analyst",
-      is_verified_analyst: true,
-      invite_code_used: code,
-    })
+    .update(profilePatch)
     .eq("id", user.id);
 
   if (profileUpdateError) {
     return NextResponse.json({ error: "Unable to verify analyst profile." }, { status: 500 });
+  }
+
+  const roleToGrant = invite.invite_type === "admin" ? "admin" : "va";
+  const { error: roleGrantError } = await supabase
+    .from("user_roles")
+    .upsert({ user_id: user.id, role: roleToGrant }, { onConflict: "user_id,role" });
+
+  if (roleGrantError) {
+    return NextResponse.json({ error: "Profile updated, but role grant failed." }, { status: 500 });
   }
 
   const { error: inviteUpdateError } = await supabase

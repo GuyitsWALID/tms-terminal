@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { MessageCircleMore, ShieldCheck } from "lucide-react";
+import RoleBadges from "@/components/ui/RoleBadges";
 
 type ForumThread = {
   id: string;
@@ -9,6 +10,8 @@ type ForumThread = {
   category: string;
   content: string;
   authorName: string;
+  authorRole?: "user" | "analyst" | "admin";
+  authorIsVerifiedAnalyst?: boolean;
   createdAt: string;
 };
 
@@ -16,6 +19,8 @@ type ForumReply = {
   id: string;
   threadId: string;
   authorName: string;
+  authorRole?: "user" | "analyst" | "admin";
+  authorIsVerifiedAnalyst?: boolean;
   content: string;
   createdAt: string;
 };
@@ -110,7 +115,12 @@ export default function ForumPage() {
             {threads.map((thread) => (
               <article key={thread.id} className="rounded border border-[var(--line-soft)] bg-[var(--surface-hover)] p-3 text-sm hover:bg-[var(--surface-hover)]">
                 <p className="font-semibold text-[var(--ink-primary)]">{thread.title}</p>
-                <p className="mt-1 text-xs text-[var(--ink-muted)]">{thread.authorName} | {thread.category}</p>
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--ink-muted)]">
+                  <span>{thread.authorName}</span>
+                  <RoleBadges role={thread.authorRole} isVerifiedAnalyst={thread.authorIsVerifiedAnalyst} />
+                  <span>|</span>
+                  <span>{thread.category}</span>
+                </p>
                 <p className="mt-1 text-xs text-[var(--ink-muted)]">{(threadReplyCount[thread.id] ?? 0).toLocaleString()} replies | {new Date(thread.createdAt).toLocaleString()}</p>
                 <p className="mt-2 text-xs text-[var(--ink-muted)] line-clamp-2">{thread.content}</p>
               </article>
@@ -129,7 +139,12 @@ export default function ForumPage() {
                 <div key={reply.id} className="rounded border border-[var(--line-soft)] bg-[var(--surface-hover)] p-3 text-sm">
                   <p className="font-semibold text-[var(--ink-primary)]">{reply.threadTitle}</p>
                   <p className="mt-1 text-[var(--ink-muted)]">{reply.content}</p>
-                  <p className="mt-1 text-xs text-[var(--ink-muted)]">{reply.authorName} | {new Date(reply.createdAt).toLocaleString()}</p>
+                  <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--ink-muted)]">
+                    <span>{reply.authorName}</span>
+                    <RoleBadges role={reply.authorRole} isVerifiedAnalyst={reply.authorIsVerifiedAnalyst} />
+                    <span>|</span>
+                    <span>{new Date(reply.createdAt).toLocaleString()}</span>
+                  </p>
                 </div>
               ))}
               {latestReplies.length === 0 ? <p className="text-xs text-[var(--ink-muted)]">No replies yet.</p> : null}

@@ -26,9 +26,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MARKET_ORDER, getMarketDefinition } from "@/lib/market";
+import type { HeaderNotificationItem, HeaderSearchResult, HeaderSearchScope } from "@/types";
 import { MarketProvider, useMarket } from "@/components/layout/MarketContext";
 import TradingViewTickerTape from "@/components/charts/TradingViewTickerTape";
 import LiveSessionsPanel from "@/components/layout/LiveSessionsPanel";
+import { fetchHeaderNotifications, fetchUnifiedSearch } from "@/lib/api/dataService";
 import {
   TIME_PREFERENCES_EVENT,
   TIME_ZONE_OPTIONS,
@@ -48,23 +50,44 @@ const menuItems = [
   { id: "forum", name: "Forum", icon: ShieldCheck, path: "/forum" },
 ];
 
+const SEARCH_SCOPE_TABS: Array<{ id: HeaderSearchScope; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "website", label: "Website" },
+  { id: "forum", label: "Forum" },
+  { id: "news", label: "News" },
+];
+
+const NOTIFICATION_READ_STORAGE_KEY = "tms-read-notification-ids-v1";
+
 function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAuthRoute = pathname === "/login" || pathname === "/signup";
+  const isAdminRoute = pathname.startsWith("/admin");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isTimeSettingsOpen, setIsTimeSettingsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchScope, setSearchScope] = useState<HeaderSearchScope>("all");
+  const [searchResults, setSearchResults] = useState<HeaderSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [notificationItems, setNotificationItems] = useState<HeaderNotificationItem[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [timePreferences, setTimePreferences] = useState<TimePreferences>({ timeZone: "UTC", timeFormat: "ampm" });
   const [timePreferencesDraft, setTimePreferencesDraft] = useState<TimePreferences>({ timeZone: "UTC", timeFormat: "ampm" });
   const [now, setNow] = useState("--:--:--");
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const timeMenuRef = useRef<HTMLDivElement | null>(null);
   const searchMenuRef = useRef<HTMLDivElement | null>(null);
+  const notificationsMenuRef = useRef<HTMLDivElement | null>(null);
   const { market, setMarket } = useMarket();
 
   const timezoneLabel = getTimeZoneLabel(timePreferences.timeZone);
+  const unreadCount = notificationItems.filter((item) => !readNotificationIds.includes(item.id)).length;
 
   const formatClock = (preferences: TimePreferences) =>
     formatDateWithPreferences(new Date(), preferences, {
@@ -127,6 +150,77 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const syncReadState = window.setTimeout(() => {
+      try {
+        const raw = window.localStorage.getItem(NOTIFICATION_READ_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as unknown;
+        if (!Array.isArray(parsed)) return;
+        const ids = parsed.filter((item) => typeof item === "string");
+        setReadNotificationIds(ids);
+      } catch {
+        // Ignore bad local storage data.
+      }
+    }, 0);
+
+    return () => {
+      window.clearTimeout(syncReadState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isSearchOpen) return;
+
+    const timer = window.setTimeout(async () => {
+      setSearchLoading(true);
+      setSearchError("");
+
+      try {
+        const response = await fetchUnifiedSearch(searchQuery, searchScope, market);
+        setSearchResults(response.results);
+      } catch {
+        setSearchError("Search is temporarily unavailable.");
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 220);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [isSearchOpen, searchQuery, searchScope, market]);
+
+  useEffect(() => {
+    if (!isNotificationsOpen) return;
+
+    const loadNotifications = async () => {
+      setNotificationsLoading(true);
+
+      try {
+        const permission = typeof window !== "undefined" && "Notification" in window ? Notification.permission : "default";
+        const response = await fetchHeaderNotifications(permission);
+        setNotificationItems(response.items);
+      } catch {
+        setNotificationItems([
+          {
+            id: "notifications-unavailable",
+            kind: "system-notice",
+            title: "Notifications unavailable",
+            message: "Unable to load notifications right now. Please try again.",
+            severity: "warning",
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+      } finally {
+        setNotificationsLoading(false);
+      }
+    };
+
+    void loadNotifications();
+  }, [isNotificationsOpen]);
+
+  useEffect(() => {
     const handleOutside = (event: MouseEvent) => {
       const target = event.target as Node;
 
@@ -141,16 +235,20 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
       if (searchMenuRef.current && !searchMenuRef.current.contains(target)) {
         setIsSearchOpen(false);
       }
+
+      if (notificationsMenuRef.current && !notificationsMenuRef.current.contains(target)) {
+        setIsNotificationsOpen(false);
+      }
     };
 
-    if (isProfileMenuOpen || isTimeSettingsOpen || isSearchOpen) {
+    if (isProfileMenuOpen || isTimeSettingsOpen || isSearchOpen || isNotificationsOpen) {
       window.addEventListener("mousedown", handleOutside);
     }
 
     return () => {
       window.removeEventListener("mousedown", handleOutside);
     };
-  }, [isProfileMenuOpen, isTimeSettingsOpen, isSearchOpen]);
+  }, [isProfileMenuOpen, isTimeSettingsOpen, isSearchOpen, isNotificationsOpen]);
 
   useEffect(() => {
     const handleTvPermissionRejection = (event: PromiseRejectionEvent) => {
@@ -175,6 +273,21 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem("tms-theme", nextTheme);
   };
 
+  const persistReadNotificationIds = (ids: string[]) => {
+    setReadNotificationIds(ids);
+    window.localStorage.setItem(NOTIFICATION_READ_STORAGE_KEY, JSON.stringify(ids));
+  };
+
+  const markNotificationRead = (id: string) => {
+    if (readNotificationIds.includes(id)) return;
+    persistReadNotificationIds([...readNotificationIds, id]);
+  };
+
+  const markAllNotificationsRead = () => {
+    const allIds = Array.from(new Set([...readNotificationIds, ...notificationItems.map((item) => item.id)]));
+    persistReadNotificationIds(allIds);
+  };
+
   const onSaveTimeSettings = () => {
     saveTimePreferences(timePreferencesDraft);
     setTimePreferences(timePreferencesDraft);
@@ -192,6 +305,10 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
         <main className="mx-auto w-full max-w-6xl">{children}</main>
       </div>
     );
+  }
+
+  if (isAdminRoute) {
+    return <div className="min-h-screen bg-[var(--bg-main)]">{children}</div>;
   }
 
   return (
@@ -262,7 +379,10 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
             <div className="relative hidden xl:block" ref={searchMenuRef}>
               <button
                 type="button"
-                onClick={() => setIsSearchOpen((open) => !open)}
+                onClick={() => {
+                  setIsSearchOpen((open) => !open);
+                  setIsNotificationsOpen(false);
+                }}
                 className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--ink-primary)] sm:p-2"
                 aria-label="Open search"
                 aria-expanded={isSearchOpen}
@@ -273,16 +393,73 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
 
               {isSearchOpen ? (
                 <div
-                  className="absolute right-0 top-11 z-[70] w-[min(22rem,70vw)] rounded-md border border-[var(--line-strong)] bg-[var(--surface-1)] p-2 shadow-lg"
+                  className="absolute right-0 top-11 z-[70] w-[min(34rem,84vw)] rounded-md border border-[var(--line-strong)] bg-[var(--surface-1)] p-2 shadow-lg"
                   role="dialog"
                   aria-label="Search"
                 >
                   <div className="relative">
                     <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-muted)]" />
                     <input
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
                       placeholder="Search events, pairs, analysts"
                       className="h-9 w-full rounded-full border border-[var(--line-strong)] bg-[var(--surface-1)] pl-9 pr-4 text-xs text-[var(--ink-primary)] outline-none placeholder:text-[var(--ink-muted)] focus:border-[var(--brand)]"
                     />
+                  </div>
+
+                  <div className="mt-2 flex items-center gap-1">
+                    {SEARCH_SCOPE_TABS.map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setSearchScope(tab.id)}
+                        className={cn(
+                          "rounded border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide",
+                          searchScope === tab.id
+                            ? "border-[var(--brand)] bg-[var(--surface-hover)] text-[var(--ink-primary)]"
+                            : "border-[var(--line-soft)] bg-[var(--surface-1)] text-[var(--ink-muted)]"
+                        )}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-2 max-h-[52vh] overflow-y-auto rounded border border-[var(--line-soft)] bg-[var(--surface-2)]">
+                    {searchLoading ? (
+                      <p className="p-3 text-xs text-[var(--ink-muted)]">Searching...</p>
+                    ) : searchError ? (
+                      <p className="p-3 text-xs text-[#ffb38f]">{searchError}</p>
+                    ) : searchResults.length === 0 ? (
+                      <p className="p-3 text-xs text-[var(--ink-muted)]">No results found.</p>
+                    ) : (
+                      searchResults.map((result) => (
+                        <Link
+                          key={result.id}
+                          href={result.href}
+                          onClick={() => setIsSearchOpen(false)}
+                          className="block border-b border-[var(--line-soft)] px-3 py-2 last:border-b-0 hover:bg-[var(--surface-hover)]"
+                        >
+                          <div className="mb-1 flex items-center gap-2 text-[10px] uppercase text-[var(--ink-muted)]">
+                            <span
+                              className={cn(
+                                "rounded px-1.5 py-0.5 font-bold",
+                                result.sourceType === "website"
+                                  ? "bg-[#7fb3ff22] text-[#8bc0ff]"
+                                  : result.sourceType === "forum"
+                                    ? "bg-[#9e8bff22] text-[#bcaeff]"
+                                    : "bg-[#6ed1a522] text-[#80e4b8]"
+                              )}
+                            >
+                              {result.sourceLabel}
+                            </span>
+                            {result.createdAt ? <span>{new Date(result.createdAt).toLocaleString()}</span> : null}
+                          </div>
+                          <p className="text-sm font-semibold text-[var(--ink-primary)]">{result.title}</p>
+                          <p className="text-xs text-[var(--ink-muted)]">{result.snippet}</p>
+                        </Link>
+                      ))
+                    )}
                   </div>
                 </div>
               ) : null}
@@ -328,10 +505,103 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
               <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-[var(--ink-muted)]" />
             </div>
 
-            <button className="relative rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--ink-primary)] sm:p-2">
-              <Bell size={14} />
-              <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[#ff4b55]" />
-            </button>
+            <div className="relative" ref={notificationsMenuRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsNotificationsOpen((open) => !open);
+                  setIsSearchOpen(false);
+                }}
+                className="relative rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--ink-primary)] sm:p-2"
+                aria-label="Open notifications"
+                aria-expanded={isNotificationsOpen}
+                aria-haspopup="dialog"
+              >
+                <Bell size={14} />
+                {unreadCount > 0 ? (
+                  <span className="absolute -right-1 -top-1 min-w-[16px] rounded-full bg-[#ff4b55] px-1 text-center text-[10px] font-bold leading-4 text-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                ) : null}
+              </button>
+
+              {isNotificationsOpen ? (
+                <div className="absolute right-0 top-11 z-[70] w-[min(26rem,86vw)] rounded-md border border-[var(--line-strong)] bg-[var(--surface-1)] p-2 shadow-lg" role="dialog" aria-label="Notifications">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="ff-panel-title text-xs text-[var(--ink-primary)]">Notifications</p>
+                    <button
+                      type="button"
+                      onClick={markAllNotificationsRead}
+                      className="rounded border border-[var(--line-soft)] bg-[var(--surface-2)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]"
+                    >
+                      Mark all read
+                    </button>
+                  </div>
+
+                  <div className="max-h-[52vh] overflow-y-auto rounded border border-[var(--line-soft)] bg-[var(--surface-2)]">
+                    {notificationsLoading ? (
+                      <p className="p-3 text-xs text-[var(--ink-muted)]">Loading notifications...</p>
+                    ) : notificationItems.length === 0 ? (
+                      <p className="p-3 text-xs text-[var(--ink-muted)]">No notifications right now.</p>
+                    ) : (
+                      notificationItems.map((item) => {
+                        const isRead = readNotificationIds.includes(item.id);
+
+                        return (
+                          <div key={item.id} className={cn("border-b border-[var(--line-soft)] p-3 last:border-b-0", isRead ? "opacity-65" : "opacity-100")}>
+                            <div className="mb-1 flex items-center gap-2">
+                              <span
+                                className={cn(
+                                  "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                                  item.severity === "critical"
+                                    ? "bg-[#ff4b5522] text-[#ff9ea3]"
+                                    : item.severity === "warning"
+                                      ? "bg-[#ffb34722] text-[#ffd28e]"
+                                      : "bg-[#7fb3ff22] text-[#a5ccff]"
+                                )}
+                              >
+                                {item.kind.replace("-", " ")}
+                              </span>
+                              {!isRead ? <span className="h-1.5 w-1.5 rounded-full bg-[#39db93]" /> : null}
+                            </div>
+                            <p className="text-sm font-semibold text-[var(--ink-primary)]">{item.title}</p>
+                            <p className="mt-1 text-xs text-[var(--ink-muted)]">{item.message}</p>
+                            <div className="mt-2 flex items-center justify-between">
+                              <span className="text-[10px] text-[var(--ink-muted)]">{new Date(item.createdAt).toLocaleString()}</span>
+                              <div className="flex items-center gap-2">
+                                {!isRead ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => markNotificationRead(item.id)}
+                                    className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]"
+                                  >
+                                    Mark read
+                                  </button>
+                                ) : null}
+                                {item.actionHref ? (
+                                  <Link
+                                    href={item.actionHref}
+                                    onClick={() => {
+                                      markNotificationRead(item.id);
+                                      setIsNotificationsOpen(false);
+                                    }}
+                                    className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-primary)]"
+                                  >
+                                    Open
+                                  </Link>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <div className="mt-2 text-right text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Unread: {unreadCount}</div>
+                </div>
+              ) : null}
+            </div>
 
             <div className="relative hidden sm:block" ref={timeMenuRef}>
               <button

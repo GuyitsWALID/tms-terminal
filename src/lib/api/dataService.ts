@@ -7,6 +7,7 @@ import type { NewsItem } from "@/types/api";
 import type { MarketKey } from "@/types";
 import type { PerspectiveBias, PerspectiveConsensus, VerifiedPerspective } from "@/types";
 import type { AuthStatus } from "@/types";
+import type { HeaderNotificationItem, HeaderSearchResult, HeaderSearchScope } from "@/types";
 import { getTimeZoneOffsetHours, readTimePreferences } from "@/lib/timePreferences";
 
 export type LiveTickerSymbol = string;
@@ -48,6 +49,22 @@ export type NewsFeedResponse = {
 export type VerifiedPerspectivesResponse = {
   perspectives: VerifiedPerspective[];
   consensus: PerspectiveConsensus[];
+};
+
+export type HeaderSearchResponse = {
+  query: string;
+  scope: HeaderSearchScope;
+  results: HeaderSearchResult[];
+  grouped: {
+    website: HeaderSearchResult[];
+    forum: HeaderSearchResult[];
+    news: HeaderSearchResult[];
+  };
+};
+
+export type HeaderNotificationsResponse = {
+  isAuthenticated: boolean;
+  items: HeaderNotificationItem[];
 };
 
 export async function fetchEconomicCalendarWithMeta(options?: EconomicCalendarFetchOptions): Promise<EconomicCalendarResponse> {
@@ -179,6 +196,28 @@ export async function fetchAuthStatus(): Promise<AuthStatus> {
   }
 
   return (await res.json()) as AuthStatus;
+}
+
+export async function fetchUnifiedSearch(query: string, scope: HeaderSearchScope, market: MarketKey): Promise<HeaderSearchResponse> {
+  const url = new URL("/api/search", window.location.origin);
+  url.searchParams.set("q", query);
+  url.searchParams.set("scope", scope);
+  url.searchParams.set("market", market);
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) throw new Error("Search request failed");
+
+  return (await res.json()) as HeaderSearchResponse;
+}
+
+export async function fetchHeaderNotifications(permission: string): Promise<HeaderNotificationsResponse> {
+  const url = new URL("/api/notifications", window.location.origin);
+  url.searchParams.set("permission", permission);
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) throw new Error("Notifications request failed");
+
+  return (await res.json()) as HeaderNotificationsResponse;
 }
 
 export async function redeemAnalystInviteCode(code: string): Promise<AuthStatus> {
