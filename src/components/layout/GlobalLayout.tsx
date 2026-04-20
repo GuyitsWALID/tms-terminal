@@ -257,7 +257,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
               <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-muted)]" />
               <input
                 placeholder="Search events, pairs, analysts"
-                className="h-8 w-44 2xl:w-48 rounded-full border border-[var(--line-strong)] bg-[var(--surface-1)] pl-9 pr-4 text-xs text-[var(--ink-primary)] outline-none placeholder:text-[var(--ink-muted)] focus:border-[var(--brand)]"
+                className="h-8 w-32 2xl:w-36 rounded-full border border-[var(--line-strong)] bg-[var(--surface-1)] pl-9 pr-4 text-xs text-[var(--ink-primary)] outline-none placeholder:text-[var(--ink-muted)] focus:border-[var(--brand)]"
               />
             </div>
 
