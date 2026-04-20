@@ -10,6 +10,9 @@ export interface NewsItem {
   source: string;
   category: string;
   market?: MarketKey;
+  sourcePostId?: string;
+  publishedAt?: string;
+  url?: string;
 }
 
 export interface CalendarEvent {

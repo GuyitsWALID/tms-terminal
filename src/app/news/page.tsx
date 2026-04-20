@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import NewsFeed from "@/components/news/NewsFeed";
+import FinancialJuiceLivePanel from "@/components/news/FinancialJuiceLivePanel";
 import TradingViewPanel from "@/components/tradingview/TradingViewPanel";
 import TradingViewWidget from "@/components/tradingview/TradingViewWidget";
 
@@ -34,6 +35,8 @@ export default function NewsPage() {
           )}
         </div>
       </TradingViewPanel>
+
+      <FinancialJuiceLivePanel />
     </div>
   );
 }

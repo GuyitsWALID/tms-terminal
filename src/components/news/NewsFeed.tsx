@@ -6,6 +6,16 @@ import { cn } from "@/lib/utils";
 import { featuredNews, hotStory } from "@/lib/terminalData";
 import { fetchNewsFeedWithMeta } from "@/lib/api/dataService";
 import { useMarket } from "@/components/layout/MarketContext";
+import type { NewsItem } from "@/types/api";
+
+const dedupeById = (items: NewsItem[]) => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+};
 
 const SentiMeter = ({ score }: { score: number }) => {
   const isBullish = score > 0.2;
@@ -40,6 +50,7 @@ export default function NewsFeed() {
   const [newsCache, setNewsCache] = useState("unknown");
   const [fallbackReason, setFallbackReason] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [liveConnected, setLiveConnected] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -82,6 +93,38 @@ export default function NewsFeed() {
 
     return () => {
       mounted = false;
+    };
+  }, [market]);
+
+  useEffect(() => {
+    const streamUrl = `/api/news/live?market=${market}`;
+    const eventSource = new EventSource(streamUrl);
+
+    eventSource.onopen = () => {
+      setLiveConnected(true);
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as { items?: NewsItem[] };
+        const liveItems = payload.items;
+        if (!Array.isArray(liveItems) || liveItems.length === 0) return;
+
+        setNewsItems((prev) => dedupeById([...liveItems, ...prev]).slice(0, 120));
+        setNewsSource((prev) => (prev.includes("financialjuice-telegram-live") ? prev : `${prev},financialjuice-telegram-live`));
+        setNewsCache("LIVE");
+      } catch {
+        // Ignore malformed stream messages.
+      }
+    };
+
+    eventSource.onerror = () => {
+      setLiveConnected(false);
+    };
+
+    return () => {
+      eventSource.close();
+      setLiveConnected(false);
     };
   }, [market]);
 
@@ -138,7 +181,7 @@ export default function NewsFeed() {
         <section className="ff-panel overflow-hidden">
           <div className="flex items-center justify-between border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-2">
             <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">Live Feed</h2>
-            <span className="rounded bg-[#2fd48822] px-2 py-0.5 text-[10px] font-bold uppercase text-[#39db93]">Connected</span>
+            <span className={cn("rounded px-2 py-0.5 text-[10px] font-bold uppercase", liveConnected ? "bg-[#2fd48822] text-[#39db93]" : "bg-[#ff9d7a22] text-[#ffb38f]")}>{liveConnected ? "Connected" : "Retrying"}</span>
           </div>
 
           <div className="grid grid-cols-1 divide-y divide-[var(--line-soft)] bg-[var(--surface-2)] lg:grid-cols-[minmax(0,1fr)_340px] lg:divide-x lg:divide-y-0">

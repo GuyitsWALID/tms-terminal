@@ -14,6 +14,7 @@ import {
   safeId,
   type CacheRecord,
 } from "@/lib/api/scraperUtils";
+import { getFinancialJuiceSnapshot } from "@/lib/news/liveFinancialJuiceStore";
 
 type NewsApiItem = {
   id: string;
@@ -24,9 +25,33 @@ type NewsApiItem = {
   sentimentScore: number;
   source: string;
   category: string;
+  sourcePostId?: string;
+  publishedAt?: string;
+  url?: string;
 };
 
 const NEWS_CACHE = new Map<string, CacheRecord<NewsApiItem[]>>();
+
+const getLiveFinancialJuiceItems = (): NewsApiItem[] => {
+  return getFinancialJuiceSnapshot(80).map((item) => ({
+    id: item.id,
+    timestamp: item.timestamp,
+    headline: item.headline,
+    impact: item.impact,
+    sentiment: item.sentiment,
+    sentimentScore: item.sentimentScore,
+    source: item.source,
+    category: item.category,
+    sourcePostId: item.sourcePostId,
+    publishedAt: item.publishedAt,
+    url: item.url,
+  }));
+};
+
+const mergeWithLiveItems = (baseItems: NewsApiItem[]) => {
+  const liveItems = getLiveFinancialJuiceItems();
+  return dedupeNews([...liveItems, ...baseItems]).slice(0, 40);
+};
 
 const fallbackNewsItems = (market: MarketKey): NewsApiItem[] =>
   featuredNews
@@ -153,12 +178,14 @@ export async function GET(request: Request) {
 
   const cached = NEWS_CACHE.get(cacheKey);
   if (cached && isCacheFresh(cached)) {
-    return NextResponse.json(cached.data, {
+    const { rows: scopedItems, usedGenericFallback } = filterNewsByMarket(mergeWithLiveItems(cached.data), market);
+    return NextResponse.json(scopedItems, {
       headers: {
         "Cache-Control": "no-store",
         "x-news-cache": "HIT",
-        "x-news-source": cached.source,
+        "x-news-source": `${cached.source},financialjuice-telegram-live`,
         "x-news-market": market,
+        ...(usedGenericFallback ? { "x-news-fallback-reason": "market-generic-fallback" } : {}),
       },
     });
   }
@@ -172,7 +199,7 @@ export async function GET(request: Request) {
     const ffItems = ffResult.status === "fulfilled" ? ffResult.value : [];
     const fjItems = fjResult.status === "fulfilled" ? fjResult.value : [];
 
-    const mergedItems = dedupeNews([...ffItems, ...fjItems]).slice(0, 40);
+    const mergedItems = mergeWithLiveItems([...ffItems, ...fjItems]);
 
     if (mergedItems.length > 0) {
       const sourceLabel = [
@@ -204,25 +231,27 @@ export async function GET(request: Request) {
     console.error("News aggregation warning:", message);
 
     if (cached) {
-      return NextResponse.json(cached.data, {
+      const { rows: scopedItems, usedGenericFallback } = filterNewsByMarket(mergeWithLiveItems(cached.data), market);
+      return NextResponse.json(scopedItems, {
         headers: {
           "Cache-Control": "no-store",
           "x-news-cache": "STALE",
-          "x-news-source": cached.source,
-          "x-news-fallback-reason": "stale-cache",
+          "x-news-source": `${cached.source},financialjuice-telegram-live`,
+          "x-news-fallback-reason": usedGenericFallback ? "market-generic-fallback" : "stale-cache",
           "x-news-market": market,
         },
       });
     }
 
-    const fallback = fallbackNewsItems(market);
+    const fallback = mergeWithLiveItems(fallbackNewsItems(market));
     NEWS_CACHE.set(cacheKey, makeCacheRecord(fallback, "local-fallback"));
-    return NextResponse.json(fallback, {
+    const { rows: scopedItems, usedGenericFallback } = filterNewsByMarket(fallback, market);
+    return NextResponse.json(scopedItems, {
       headers: {
         "Cache-Control": "no-store",
         "x-news-cache": "MISS",
-        "x-news-source": "local-fallback",
-        "x-news-fallback-reason": "all-sources-failed",
+        "x-news-source": "local-fallback,financialjuice-telegram-live",
+        "x-news-fallback-reason": usedGenericFallback ? "market-generic-fallback" : "all-sources-failed",
         "x-news-market": market,
       },
     });

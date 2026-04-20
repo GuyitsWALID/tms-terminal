@@ -9,6 +9,7 @@ import TradingViewSymbolInfoCard from "@/components/charts/TradingViewSymbolInfo
 import TradingViewPanel from "@/components/tradingview/TradingViewPanel";
 import TradingViewWidget from "@/components/tradingview/TradingViewWidget";
 import NewsFeed from "@/components/news/NewsFeed";
+import FinancialJuiceLivePanel from "@/components/news/FinancialJuiceLivePanel";
 import EconomicCalendar from "@/components/calendar/EconomicCalendar";
 
 export default function Home() {
@@ -131,6 +132,8 @@ export default function Home() {
           </div>
         </TradingViewPanel>
       </section>
+
+      <FinancialJuiceLivePanel />
 
       <section className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <TradingViewPanel title="Market Data" bodyClassName="p-0">
