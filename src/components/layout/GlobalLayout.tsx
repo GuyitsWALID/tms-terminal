@@ -273,10 +273,10 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
                   <Link
                     href="/profile"
                     onClick={() => setIsProfileMenuOpen(false)}
-                    className="mb-2 block rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)] hover:bg-[var(--surface-hover)]"
+                    className="mb-2 block rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-xs text-center font-semibold uppercase tracking-wide text-[var(--ink-primary)] hover:bg-[var(--surface-hover)]"
                     role="menuitem"
                   >
-                    Profile Page
+                    Profile
                   </Link>
                   <Link
                     href="/login"

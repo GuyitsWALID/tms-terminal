@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { NewsItem } from "@/types/api";
 import { useMarket } from "@/components/layout/MarketContext";
 import { cn } from "@/lib/utils";
@@ -24,49 +24,65 @@ const fetchFinancialJuiceFeed = async (market: "forex" | "crypto" | "commodities
     throw new Error("FinancialJuice fetch failed");
   }
 
-  return (await response.json()) as NewsItem[];
+  const rows = (await response.json()) as NewsItem[];
+  return {
+    rows,
+    fallback: response.headers.get("x-financialjuice-fallback") === "1",
+  };
 };
 
 export default function FinancialJuiceLivePanel() {
   const { market } = useMarket();
   const [items, setItems] = useState<NewsItem[]>([]);
-  const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [delayed, setDelayed] = useState(false);
 
   useEffect(() => {
     let mounted = true;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
 
-    const loadInitial = async () => {
-      setLoading(true);
+    const refresh = async (isInitial = false) => {
+      if (isInitial) {
+        setLoading(true);
+      }
+
       try {
         const response = await fetchFinancialJuiceFeed(market);
         if (!mounted) return;
 
-        setItems(response.filter(isFinancialJuiceItem).slice(0, 12));
+        const latest = response.rows.filter(isFinancialJuiceItem).slice(0, 12);
+        if (latest.length > 0) {
+          setItems((prev) => dedupeById([...latest, ...prev]).slice(0, 12));
+          setDelayed(false);
+        } else {
+          setDelayed(true);
+        }
       } catch {
         if (!mounted) return;
-        setItems([]);
+        setDelayed(true);
       } finally {
-        if (mounted) {
+        if (mounted && isInitial) {
           setLoading(false);
         }
       }
     };
 
-    void loadInitial();
+    void refresh(true);
+    intervalId = setInterval(() => {
+      void refresh(false);
+    }, 12000);
 
     return () => {
       mounted = false;
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
     };
   }, [market]);
 
   useEffect(() => {
     const streamUrl = `/api/news/live?market=${market}`;
     const eventSource = new EventSource(streamUrl);
-
-    eventSource.onopen = () => {
-      setConnected(true);
-    };
 
     eventSource.onmessage = (event) => {
       try {
@@ -78,48 +94,40 @@ export default function FinancialJuiceLivePanel() {
         if (liveItems.length === 0) return;
 
         setItems((prev) => dedupeById([...liveItems, ...prev]).slice(0, 12));
+        setDelayed(false);
       } catch {
         // Ignore malformed events to keep stream alive.
       }
     };
 
     eventSource.onerror = () => {
-      setConnected(false);
+      setDelayed(true);
     };
 
     return () => {
       eventSource.close();
-      setConnected(false);
     };
   }, [market]);
-
-  const statusLabel = useMemo(() => {
-    if (loading) return "Syncing";
-    if (connected) return "Live";
-    return "Retrying";
-  }, [connected, loading]);
 
   return (
     <section className="ff-panel overflow-hidden">
       <div className="flex items-center justify-between gap-2 border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-2">
         <div>
           <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">FinancialJuice Live Wire</h2>
-          <p className="text-[11px] text-[var(--ink-muted)]">Telegram headlines pushed into the terminal in near real time.</p>
+          <p className="text-[11px] text-[var(--ink-muted)]">Direct FinancialJuice feed with automatic Telegram fallback.</p>
         </div>
-        <span
-          className={cn(
-            "rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-            connected ? "bg-[#2fd48822] text-[#39db93]" : "bg-[#ff9d7a22] text-[#ffb38f]"
-          )}
-        >
-          {statusLabel}
-        </span>
       </div>
+
+      {delayed ? (
+        <div className="border-b border-[#ff9d7a55] bg-[#ff9d7a12] px-4 py-2 text-xs text-[#ffb38f]">
+          Live source delayed. Showing last known FinancialJuice headlines while reconnecting.
+        </div>
+      ) : null}
 
       <div className="ff-scroll max-h-[320px] overflow-y-auto bg-[var(--surface-2)]">
         {items.length === 0 ? (
           <div className="p-4 text-sm text-[var(--ink-muted)]">
-            {loading ? "Fetching current headlines..." : "No live FinancialJuice Telegram headlines available right now."}
+            {loading ? "Fetching current headlines..." : "No live FinancialJuice headlines available right now."}
           </div>
         ) : (
           items.map((item) => (

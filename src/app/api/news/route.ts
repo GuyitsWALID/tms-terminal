@@ -15,6 +15,7 @@ import {
   type CacheRecord,
 } from "@/lib/api/scraperUtils";
 import { getFinancialJuiceSnapshot } from "@/lib/news/liveFinancialJuiceStore";
+import { fetchFinancialJuiceWithFallback } from "@/lib/news/financialJuiceSource";
 
 type NewsApiItem = {
   id: string;
@@ -110,40 +111,21 @@ const parseForexFactoryNews = async (): Promise<NewsApiItem[]> => {
   return items;
 };
 
-const parseFinancialJuiceNews = async (): Promise<NewsApiItem[]> => {
-  const response = await fetchWithTimeout("https://www.financialjuice.com/", 12000);
-  if (!response.ok) throw new Error(`FinancialJuice request failed (${response.status})`);
-
-  const html = await response.text();
-  const $ = cheerio.load(html);
-  const items: NewsApiItem[] = [];
-
-  $(".news-item, .headline, .item, article").each((index, element) => {
-    const row = $(element);
-    const headline = normalizeText(row.find("a, h3, h2, span").first().text()) || normalizeText(row.text());
-    if (!headline || headline.length < 12) return;
-
-    const timestamp =
-      normalizeText(row.find("time, .time, .date").first().text()) ||
-      `${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-
-    const category = normalizeText(row.find(".category, .tag").first().text()) || "General";
-    const { sentiment, score } = analyzeSentiment(headline);
-    const impact = inferImpactFromText(`${headline} ${category}`);
-
-    items.push({
-      id: safeId(`${headline}-${timestamp}`, index),
-      timestamp,
-      headline,
-      impact,
-      sentiment,
-      sentimentScore: score,
-      source: "Financial Juice",
-      category,
-    });
-  });
-
-  return items;
+const parseFinancialJuiceNews = async (market: MarketKey): Promise<NewsApiItem[]> => {
+  const resolved = await fetchFinancialJuiceWithFallback(market);
+  return resolved.items.map((item) => ({
+    id: item.id,
+    timestamp: item.timestamp,
+    headline: item.headline,
+    impact: item.impact,
+    sentiment: item.sentiment,
+    sentimentScore: item.sentimentScore,
+    source: item.source,
+    category: item.category,
+    sourcePostId: item.sourcePostId,
+    publishedAt: item.publishedAt,
+    url: item.url,
+  }));
 };
 
 const dedupeNews = (items: NewsApiItem[]) => {
@@ -193,7 +175,7 @@ export async function GET(request: Request) {
   try {
     const [ffResult, fjResult] = await Promise.allSettled([
       parseForexFactoryNews(),
-      parseFinancialJuiceNews(),
+      parseFinancialJuiceNews(market),
     ]);
 
     const ffItems = ffResult.status === "fulfilled" ? ffResult.value : [];
