@@ -39,15 +39,18 @@ export default function ProfilePage() {
   const hasSupabaseClient = Boolean(supabase);
   const [authState, setAuthState] = useState<AuthStatus>({ isAuthenticated: false });
   const [profileForm, setProfileForm] = useState<EditableProfileState>(emptyForm);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isBusy, setIsBusy] = useState(false);
 
   const refreshStatus = useCallback(async () => {
+    setProfileLoaded(false);
     if (!hasSupabaseClient) {
       setAuthState({ isAuthenticated: false });
       setErrorMessage("Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+      setProfileLoaded(true);
       return;
     }
 
@@ -55,16 +58,22 @@ export default function ProfilePage() {
     setAuthState(status);
 
     if (status.isAuthenticated) {
-      const profileRes = await fetch("/api/profile", { cache: "no-store" });
-      if (profileRes.ok) {
-        const payload = (await profileRes.json()) as { profile: UserProfile };
-        setProfileForm(toForm(payload.profile));
-      } else {
+      try {
+        const profileRes = await fetch("/api/profile", { cache: "no-store" });
+        if (profileRes.ok) {
+          const payload = (await profileRes.json()) as { profile: UserProfile };
+          setProfileForm(toForm(payload.profile));
+        } else {
+          // fallback to status.profile if available
+          setProfileForm(toForm(status.profile));
+        }
+      } catch (err) {
         setProfileForm(toForm(status.profile));
       }
     } else {
       setProfileForm(emptyForm);
     }
+    setProfileLoaded(true);
   }, [hasSupabaseClient]);
 
   useEffect(() => {
@@ -144,12 +153,15 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-3">
+      {!profileLoaded ? (
+        <div className="ff-panel p-4 sm:p-6 text-sm text-[var(--ink-muted)]">Loading profile...</div>
+      ) : null}
       <div className="ff-panel p-4 sm:p-6">
         <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none text-[var(--ink-primary)] sm:text-3xl">Profile</h1>
         <p className="mt-2 text-sm text-[var(--ink-muted)]">Manage your account, XP profile, and analyst onboarding.</p>
       </div>
 
-      {!authState.isAuthenticated ? (
+      {profileLoaded && !authState.isAuthenticated ? (
         <div className="ff-panel p-4 sm:p-6">
           <p className="text-sm text-[var(--ink-muted)]">You are currently signed out.</p>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -164,7 +176,7 @@ export default function ProfilePage() {
             </Link>
           </div>
         </div>
-      ) : (
+      ) : profileLoaded ? (
         <>
           <div className="ff-panel p-4 sm:p-6">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -277,7 +289,7 @@ export default function ProfilePage() {
             </form>
           ) : null}
         </>
-      )}
+      ) : null}
 
       {statusMessage ? <p className="px-1 text-xs text-[#2fd488]">{statusMessage}</p> : null}
       {errorMessage ? <p className="px-1 text-xs text-[#ff8f8f]">{errorMessage}</p> : null}
