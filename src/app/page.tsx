@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useMarket } from "@/components/layout/MarketContext";
 import { getMarketDefinition } from "@/lib/market";
 import { MARKET_QUOTES_GROUPS, MARKET_TECHNICAL_SYMBOL } from "@/lib/tradingviewWidgets";
@@ -13,6 +14,7 @@ import FinancialJuiceLivePanel from "@/components/news/FinancialJuiceLivePanel";
 import EconomicCalendar from "@/components/calendar/EconomicCalendar";
 
 export default function Home() {
+  const searchParams = useSearchParams();
   const { market } = useMarket();
   const marketConfig = getMarketDefinition(market);
   const [newsWidgetFailed, setNewsWidgetFailed] = useState(false);
@@ -23,6 +25,19 @@ export default function Home() {
     if (typeof window === "undefined") return "dark";
     return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
   });
+
+  useEffect(() => {
+    const code = searchParams.get("code");
+    if (!code) {
+      return;
+    }
+
+    const next = searchParams.get("next") ?? "/profile";
+    const callbackUrl = new URL("/auth/callback", window.location.origin);
+    callbackUrl.searchParams.set("code", code);
+    callbackUrl.searchParams.set("next", next);
+    window.location.replace(callbackUrl.toString());
+  }, [searchParams]);
 
   useEffect(() => {
     const root = document.documentElement;
