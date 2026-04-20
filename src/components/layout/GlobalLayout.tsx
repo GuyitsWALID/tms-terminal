@@ -770,14 +770,23 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <aside className="hidden border-l border-[var(--line-strong)] bg-[var(--surface-2)] xl:block" aria-label="Right ad space">
-          <div className="sticky top-20 px-4 py-6">
-            <div className="rounded border border-dashed border-[var(--line-soft)] bg-[var(--surface-1)]/55 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-muted)]">
-              Ad Space
-            </div>
-          </div>
-        </aside>
+
       </div>
+      <footer className="w-full border-t border-[var(--line-strong)] bg-[var(--surface-2)] py-6 mt-8">
+        <div className="mx-auto max-w-6xl flex flex-col md:flex-row items-center justify-between gap-4 px-4 text-xs text-[var(--ink-muted)]">
+          <div className="flex items-center gap-2">
+            <Image src="/TMSLOGO.png" alt="TMS Logo" width={28} height={28} className="h-7 w-7 rounded object-cover" />
+            <span className="font-bold text-[var(--ink-primary)]">TMS Terminal</span>
+            <span className="hidden md:inline">| The Market Syndicate</span>
+          </div>
+          <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4">
+            <span>&copy; {new Date().getFullYear()} TMS Terminal. All rights reserved.</span>
+            <Link href="/about" className="hover:underline text-[var(--ink-primary)]">About</Link>
+            <Link href="/privacy" className="hover:underline text-[var(--ink-primary)]">Privacy Policy</Link>
+            <Link href="/contact" className="hover:underline text-[var(--ink-primary)]">Contact</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
