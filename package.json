@@ -6,10 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "bridge:financialjuice": "node scripts/financialjuice-telegram-bridge.mjs"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.15",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.103.3",
+    "@vercel/analytics": "^2.0.1",
     "autoprefixer": "^10.4.27",
     "axios": "^1.15.0",
     "cheerio": "^1.2.0",

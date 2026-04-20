@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 import { featuredNews } from "@/lib/terminalData";
-import { MARKET_KEYWORDS, normalizeMarket } from "@/lib/market";
+import { normalizeMarket } from "@/lib/market";
 import type { MarketKey } from "@/types";
 import {
   SCRAPER_TTL_MS,
@@ -14,6 +14,8 @@ import {
   safeId,
   type CacheRecord,
 } from "@/lib/api/scraperUtils";
+import { getFinancialJuiceSnapshot } from "@/lib/news/liveFinancialJuiceStore";
+import { fetchFinancialJuiceWithFallback } from "@/lib/news/financialJuiceSource";
 
 type NewsApiItem = {
   id: string;
@@ -24,9 +26,33 @@ type NewsApiItem = {
   sentimentScore: number;
   source: string;
   category: string;
+  sourcePostId?: string;
+  publishedAt?: string;
+  url?: string;
 };
 
 const NEWS_CACHE = new Map<string, CacheRecord<NewsApiItem[]>>();
+
+const getLiveFinancialJuiceItems = (): NewsApiItem[] => {
+  return getFinancialJuiceSnapshot(80).map((item) => ({
+    id: item.id,
+    timestamp: item.timestamp,
+    headline: item.headline,
+    impact: item.impact,
+    sentiment: item.sentiment,
+    sentimentScore: item.sentimentScore,
+    source: item.source,
+    category: item.category,
+    sourcePostId: item.sourcePostId,
+    publishedAt: item.publishedAt,
+    url: item.url,
+  }));
+};
+
+const mergeWithLiveItems = (baseItems: NewsApiItem[]) => {
+  const liveItems = getLiveFinancialJuiceItems();
+  return dedupeNews([...liveItems, ...baseItems]).slice(0, 40);
+};
 
 const fallbackNewsItems = (market: MarketKey): NewsApiItem[] =>
   featuredNews
@@ -85,40 +111,21 @@ const parseForexFactoryNews = async (): Promise<NewsApiItem[]> => {
   return items;
 };
 
-const parseFinancialJuiceNews = async (): Promise<NewsApiItem[]> => {
-  const response = await fetchWithTimeout("https://www.financialjuice.com/", 12000);
-  if (!response.ok) throw new Error(`FinancialJuice request failed (${response.status})`);
-
-  const html = await response.text();
-  const $ = cheerio.load(html);
-  const items: NewsApiItem[] = [];
-
-  $(".news-item, .headline, .item, article").each((index, element) => {
-    const row = $(element);
-    const headline = normalizeText(row.find("a, h3, h2, span").first().text()) || normalizeText(row.text());
-    if (!headline || headline.length < 12) return;
-
-    const timestamp =
-      normalizeText(row.find("time, .time, .date").first().text()) ||
-      `${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-
-    const category = normalizeText(row.find(".category, .tag").first().text()) || "General";
-    const { sentiment, score } = analyzeSentiment(headline);
-    const impact = inferImpactFromText(`${headline} ${category}`);
-
-    items.push({
-      id: safeId(`${headline}-${timestamp}`, index),
-      timestamp,
-      headline,
-      impact,
-      sentiment,
-      sentimentScore: score,
-      source: "Financial Juice",
-      category,
-    });
-  });
-
-  return items;
+const parseFinancialJuiceNews = async (market: MarketKey): Promise<NewsApiItem[]> => {
+  const resolved = await fetchFinancialJuiceWithFallback(market);
+  return resolved.items.map((item) => ({
+    id: item.id,
+    timestamp: item.timestamp,
+    headline: item.headline,
+    impact: item.impact,
+    sentiment: item.sentiment,
+    sentimentScore: item.sentimentScore,
+    source: item.source,
+    category: item.category,
+    sourcePostId: item.sourcePostId,
+    publishedAt: item.publishedAt,
+    url: item.url,
+  }));
 };
 
 const dedupeNews = (items: NewsApiItem[]) => {
@@ -132,19 +139,8 @@ const dedupeNews = (items: NewsApiItem[]) => {
 };
 
 const filterNewsByMarket = (items: NewsApiItem[], market: MarketKey) => {
-  if (market === "forex") return { rows: items, usedGenericFallback: false };
-
-  const keywords = MARKET_KEYWORDS[market];
-  const scoped = items.filter((item) => {
-    const haystack = `${item.headline} ${item.category}`.toLowerCase();
-    return keywords.some((keyword) => haystack.includes(keyword));
-  });
-
-  if (scoped.length > 0) {
-    return { rows: scoped, usedGenericFallback: false };
-  }
-
-  return { rows: items, usedGenericFallback: true };
+  void market;
+  return { rows: items, usedGenericFallback: false };
 };
 
 export async function GET(request: Request) {
@@ -153,12 +149,14 @@ export async function GET(request: Request) {
 
   const cached = NEWS_CACHE.get(cacheKey);
   if (cached && isCacheFresh(cached)) {
-    return NextResponse.json(cached.data, {
+    const { rows: scopedItems, usedGenericFallback } = filterNewsByMarket(mergeWithLiveItems(cached.data), market);
+    return NextResponse.json(scopedItems, {
       headers: {
         "Cache-Control": "no-store",
         "x-news-cache": "HIT",
-        "x-news-source": cached.source,
+        "x-news-source": `${cached.source},financialjuice-telegram-live`,
         "x-news-market": market,
+        ...(usedGenericFallback ? { "x-news-fallback-reason": "market-generic-fallback" } : {}),
       },
     });
   }
@@ -166,13 +164,13 @@ export async function GET(request: Request) {
   try {
     const [ffResult, fjResult] = await Promise.allSettled([
       parseForexFactoryNews(),
-      parseFinancialJuiceNews(),
+      parseFinancialJuiceNews(market),
     ]);
 
     const ffItems = ffResult.status === "fulfilled" ? ffResult.value : [];
     const fjItems = fjResult.status === "fulfilled" ? fjResult.value : [];
 
-    const mergedItems = dedupeNews([...ffItems, ...fjItems]).slice(0, 40);
+    const mergedItems = mergeWithLiveItems([...ffItems, ...fjItems]);
 
     if (mergedItems.length > 0) {
       const sourceLabel = [
@@ -204,25 +202,27 @@ export async function GET(request: Request) {
     console.error("News aggregation warning:", message);
 
     if (cached) {
-      return NextResponse.json(cached.data, {
+      const { rows: scopedItems, usedGenericFallback } = filterNewsByMarket(mergeWithLiveItems(cached.data), market);
+      return NextResponse.json(scopedItems, {
         headers: {
           "Cache-Control": "no-store",
           "x-news-cache": "STALE",
-          "x-news-source": cached.source,
-          "x-news-fallback-reason": "stale-cache",
+          "x-news-source": `${cached.source},financialjuice-telegram-live`,
+          "x-news-fallback-reason": usedGenericFallback ? "market-generic-fallback" : "stale-cache",
           "x-news-market": market,
         },
       });
     }
 
-    const fallback = fallbackNewsItems(market);
+    const fallback = mergeWithLiveItems(fallbackNewsItems(market));
     NEWS_CACHE.set(cacheKey, makeCacheRecord(fallback, "local-fallback"));
-    return NextResponse.json(fallback, {
+    const { rows: scopedItems, usedGenericFallback } = filterNewsByMarket(fallback, market);
+    return NextResponse.json(scopedItems, {
       headers: {
         "Cache-Control": "no-store",
         "x-news-cache": "MISS",
-        "x-news-source": "local-fallback",
-        "x-news-fallback-reason": "all-sources-failed",
+        "x-news-source": "local-fallback,financialjuice-telegram-live",
+        "x-news-fallback-reason": usedGenericFallback ? "market-generic-fallback" : "all-sources-failed",
         "x-news-market": market,
       },
     });

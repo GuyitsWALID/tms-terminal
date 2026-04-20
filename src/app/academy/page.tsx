@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Brain, Trophy } from "lucide-react";
 import { academyQuestions } from "@/lib/terminalData";
+import { fetchAuthStatus } from "@/lib/api/dataService";
 
 export default function AcademyPage() {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [xp, setXp] = useState(1240);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [academyStatus, setAcademyStatus] = useState<string>("");
 
   const question = academyQuestions[questionIndex];
   const answered = selectedIndex !== null;
@@ -15,11 +18,66 @@ export default function AcademyPage() {
 
   const progress = useMemo(() => ((questionIndex + 1) / academyQuestions.length) * 100, [questionIndex]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const hydrateProgress = async () => {
+      try {
+        const authStatus = await fetchAuthStatus();
+        if (!mounted) return;
+        setIsAuthenticated(authStatus.isAuthenticated);
+
+        if (!authStatus.isAuthenticated) {
+          setAcademyStatus("Sign in to persist XP progress.");
+          return;
+        }
+
+        const progressRes = await fetch("/api/academy/progress", { cache: "no-store" });
+        if (!progressRes.ok) {
+          setAcademyStatus("Unable to load persisted XP. Using local session XP.");
+          return;
+        }
+
+        const payload = (await progressRes.json()) as { progress: { xp: number } };
+        if (!mounted) return;
+        setXp(payload.progress.xp ?? 0);
+        setAcademyStatus("XP is synced with your account.");
+      } catch {
+        if (!mounted) return;
+        setAcademyStatus("Unable to reach academy backend. Using local session XP.");
+      }
+    };
+
+    void hydrateProgress();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const submitAnswer = (index: number) => {
     if (answered) return;
     setSelectedIndex(index);
     if (index === question.answerIndex) {
-      setXp((current) => current + question.xp);
+      const nextXp = xp + question.xp;
+      setXp(nextXp);
+
+      if (isAuthenticated) {
+        void fetch("/api/academy/progress", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            xpDelta: question.xp,
+            completedLessonsDelta: 1,
+          }),
+        }).then(async (res) => {
+          if (!res.ok) return;
+          const payload = (await res.json()) as { progress: { xp: number } };
+          setXp(payload.progress.xp ?? nextXp);
+        });
+      }
     }
   };
 
@@ -37,6 +95,7 @@ export default function AcademyPage() {
       <div className="ff-panel p-4">
         <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Academy XP Arena</h1>
         <p className="mt-1 text-sm text-[var(--ink-muted)]">Gamified macro training with AI-generated fundamentals and progression rewards.</p>
+        {academyStatus ? <p className="mt-1 text-xs text-[var(--ink-muted)]">{academyStatus}</p> : null}
       </div>
 
       <section className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">

@@ -5,6 +5,10 @@
 import type { EconomicEvent } from "@/types";
 import type { NewsItem } from "@/types/api";
 import type { MarketKey } from "@/types";
+import type { PerspectiveBias, PerspectiveConsensus, VerifiedPerspective } from "@/types";
+import type { AuthStatus } from "@/types";
+import type { HeaderNotificationItem, HeaderSearchResult, HeaderSearchScope } from "@/types";
+import { getTimeZoneOffsetHours, readTimePreferences } from "@/lib/timePreferences";
 
 export type LiveTickerSymbol = string;
 
@@ -42,12 +46,35 @@ export type NewsFeedResponse = {
   fallbackReason: string;
 };
 
+export type VerifiedPerspectivesResponse = {
+  perspectives: VerifiedPerspective[];
+  consensus: PerspectiveConsensus[];
+};
+
+export type HeaderSearchResponse = {
+  query: string;
+  scope: HeaderSearchScope;
+  results: HeaderSearchResult[];
+  grouped: {
+    website: HeaderSearchResult[];
+    forum: HeaderSearchResult[];
+    news: HeaderSearchResult[];
+  };
+};
+
+export type HeaderNotificationsResponse = {
+  isAuthenticated: boolean;
+  items: HeaderNotificationItem[];
+};
+
 export async function fetchEconomicCalendarWithMeta(options?: EconomicCalendarFetchOptions): Promise<EconomicCalendarResponse> {
   const { date, scope = "week", market = "forex" } = options ?? {};
   const url = new URL("/api/calendar", window.location.origin);
+  const timePreferences = readTimePreferences();
+  const tzOffset = getTimeZoneOffsetHours(timePreferences.timeZone, date ?? new Date());
 
   url.searchParams.set("scope", scope);
-  url.searchParams.set("tz_offset", "3");
+  url.searchParams.set("tz_offset", String(tzOffset));
   url.searchParams.set("market", market);
 
   if (date) {
@@ -113,4 +140,100 @@ export async function fetchLiveTickersWithMeta(market: MarketKey = "forex"): Pro
 export async function fetchLiveTickers(market: MarketKey = "forex") {
   const result = await fetchLiveTickersWithMeta(market);
   return result.tickers;
+}
+
+export async function fetchVerifiedPerspectives(eventKey: string | undefined, market: MarketKey): Promise<VerifiedPerspectivesResponse> {
+  const url = new URL("/api/verified-perspectives", window.location.origin);
+  if (eventKey) {
+    url.searchParams.set("eventKey", eventKey);
+  }
+  url.searchParams.set("market", market);
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) throw new Error("Verified perspectives fetch failed");
+  return (await res.json()) as VerifiedPerspectivesResponse;
+}
+
+export type CreateVerifiedPerspectiveInput = {
+  eventKey: string;
+  market: MarketKey;
+  eventDate: string;
+  currency: string;
+  eventTitle: string;
+  impact: "high" | "medium" | "low";
+  bias: PerspectiveBias;
+  confidence: number;
+  thesis: string;
+  analystDesk?: string;
+};
+
+export async function createVerifiedPerspective(input: CreateVerifiedPerspectiveInput): Promise<VerifiedPerspective> {
+  const url = new URL("/api/verified-perspectives", window.location.origin);
+
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!res.ok) {
+    const payload = (await res.json().catch(() => ({ error: "Unable to submit perspective" }))) as { error?: string };
+    throw new Error(payload.error ?? "Unable to submit perspective");
+  }
+
+  const payload = (await res.json()) as { perspective: VerifiedPerspective };
+  return payload.perspective;
+}
+
+export async function fetchAuthStatus(): Promise<AuthStatus> {
+  const url = new URL("/api/auth/status", window.location.origin);
+  const res = await fetch(url.toString(), { cache: "no-store" });
+
+  if (!res.ok) {
+    return { isAuthenticated: false };
+  }
+
+  return (await res.json()) as AuthStatus;
+}
+
+export async function fetchUnifiedSearch(query: string, scope: HeaderSearchScope, market: MarketKey): Promise<HeaderSearchResponse> {
+  const url = new URL("/api/search", window.location.origin);
+  url.searchParams.set("q", query);
+  url.searchParams.set("scope", scope);
+  url.searchParams.set("market", market);
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) throw new Error("Search request failed");
+
+  return (await res.json()) as HeaderSearchResponse;
+}
+
+export async function fetchHeaderNotifications(permission: string): Promise<HeaderNotificationsResponse> {
+  const url = new URL("/api/notifications", window.location.origin);
+  url.searchParams.set("permission", permission);
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) throw new Error("Notifications request failed");
+
+  return (await res.json()) as HeaderNotificationsResponse;
+}
+
+export async function redeemAnalystInviteCode(code: string): Promise<AuthStatus> {
+  const url = new URL("/api/auth/redeem-invite", window.location.origin);
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ code }),
+  });
+
+  if (!res.ok) {
+    const payload = (await res.json().catch(() => ({ error: "Unable to redeem invite code" }))) as { error?: string };
+    throw new Error(payload.error ?? "Unable to redeem invite code");
+  }
+
+  return (await res.json()) as AuthStatus;
 }
