@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMarket } from "@/components/layout/MarketContext";
@@ -13,7 +13,7 @@ import NewsFeed from "@/components/news/NewsFeed";
 import FinancialJuiceLivePanel from "@/components/news/FinancialJuiceLivePanel";
 import EconomicCalendar from "@/components/calendar/EconomicCalendar";
 
-export default function Home() {
+function HomeContent() {
   const searchParams = useSearchParams();
   const { market } = useMarket();
   const marketConfig = getMarketDefinition(market);
@@ -184,5 +184,13 @@ export default function Home() {
         </TradingViewPanel>
       </section>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-6xl py-10 text-sm text-[var(--ink-muted)]">Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }
