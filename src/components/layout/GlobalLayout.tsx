@@ -30,7 +30,7 @@ import type { HeaderNotificationItem, HeaderSearchResult, HeaderSearchScope } fr
 import { MarketProvider, useMarket } from "@/components/layout/MarketContext";
 import TradingViewTickerTape from "@/components/charts/TradingViewTickerTape";
 import LiveSessionsPanel from "@/components/layout/LiveSessionsPanel";
-import { fetchHeaderNotifications, fetchUnifiedSearch } from "@/lib/api/dataService";
+import { fetchHeaderNotifications, fetchUnifiedSearch, fetchAuthStatus } from "@/lib/api/dataService";
 import {
   TIME_PREFERENCES_EVENT,
   TIME_ZONE_OPTIONS,
@@ -299,6 +299,11 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
     setIsTimeSettingsOpen(false);
   };
 
+  const [authStatus, setAuthStatus] = useState<{ isAuthenticated: boolean } | null>(null);
+  useEffect(() => {
+    fetchAuthStatus().then(setAuthStatus);
+  }, []);
+
   if (isAuthRoute) {
     return (
       <div className="min-h-screen bg-[radial-gradient(1200px_600px_at_20%_-10%,rgba(34,211,238,0.12),transparent_55%),radial-gradient(900px_500px_at_100%_0%,rgba(59,130,246,0.10),transparent_55%),var(--bg-main)] px-4 py-8 sm:px-6 lg:px-8">
@@ -313,11 +318,11 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="ff-shell">
-      <div className="mx-auto w-full max-w-[1920px] xl:grid xl:grid-cols-[170px_minmax(0,1fr)_170px]">
+      <div className="mx-auto w-full max-w-[1920px] xl:grid xl:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="hidden border-r border-[var(--line-strong)] bg-[var(--surface-2)] xl:block" aria-label="Left ad space">
           <div className="sticky top-20 px-4 py-6">
-            <div className="rounded border border-dashed border-[var(--line-soft)] bg-[var(--surface-1)]/55 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-muted)]">
-              Ad Space
+            <div className="rounded border border-dashed border-[var(--line-soft)] bg-[var(--surface-1)]/55 px-3 py-2 text-center text-[12px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-muted)]">
+              Ad Space 
             </div>
           </div>
         </aside>
@@ -694,22 +699,38 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
                   >
                     Profile
                   </Link>
-                  <Link
-                    href="/login"
-                    onClick={() => setIsProfileMenuOpen(false)}
-                    className="mb-2 block w-full rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)] hover:bg-[var(--surface-hover)]"
-                    role="menuitem"
-                  >
-                    Login
-                  </Link>
-                  <Link
-                    href="/signup"
-                    onClick={() => setIsProfileMenuOpen(false)}
-                    className="block w-full rounded-md bg-[var(--brand-strong)] px-3 py-2 text-center text-xs font-bold uppercase tracking-wide text-white hover:opacity-90"
-                    role="menuitem"
-                  >
-                    Sign Up
-                  </Link>
+                  {authStatus?.isAuthenticated ? (
+                    <button
+                      onClick={async () => {
+                        await fetch("/api/auth/logout", { method: "POST" });
+                        setIsProfileMenuOpen(false);
+                        window.location.reload();
+                      }}
+                      className="block w-full rounded-md bg-red-600 px-3 py-2 text-center text-xs font-bold uppercase tracking-wide text-white hover:bg-red-700 mt-2"
+                      role="menuitem"
+                    >
+                      Log out
+                    </button>
+                  ) : (
+                    <>
+                      <Link
+                        href="/login"
+                        onClick={() => setIsProfileMenuOpen(false)}
+                        className="mb-2 block w-full rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)] hover:bg-[var(--surface-hover)]"
+                        role="menuitem"
+                      >
+                        Login
+                      </Link>
+                      <Link
+                        href="/signup"
+                        onClick={() => setIsProfileMenuOpen(false)}
+                        className="block w-full rounded-md bg-[var(--brand-strong)] px-3 py-2 text-center text-xs font-bold uppercase tracking-wide text-white hover:opacity-90"
+                        role="menuitem"
+                      >
+                        Sign Up
+                      </Link>
+                    </>
+                  )}
                 </div>
               ) : null}
             </div>
