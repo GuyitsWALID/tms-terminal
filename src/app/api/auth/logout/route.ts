@@ -10,7 +10,6 @@ export async function POST() {
   }
   await supabase.auth.signOut();
   // Clear cookies if needed
-  cookies().delete("sb-access-token");
-  cookies().delete("sb-refresh-token");
+ 
   return NextResponse.json({ success: true });
 }
