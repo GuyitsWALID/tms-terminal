@@ -30,6 +30,7 @@ import type { HeaderNotificationItem, HeaderSearchResult, HeaderSearchScope } fr
 import { MarketProvider, useMarket } from "@/components/layout/MarketContext";
 import TradingViewTickerTape from "@/components/charts/TradingViewTickerTape";
 import LiveSessionsPanel from "@/components/layout/LiveSessionsPanel";
+import ManageAlertsModal from "@/components/calendar/ManageAlertsModal";
 import { fetchHeaderNotifications, fetchUnifiedSearch, fetchAuthStatus } from "@/lib/api/dataService";
 import {
   TIME_PREFERENCES_EVENT,
@@ -64,6 +65,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   const isAuthRoute = pathname === "/login" || pathname === "/signup";
   const isAdminRoute = pathname.startsWith("/admin");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isManageAlertsOpen, setIsManageAlertsOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isTimeSettingsOpen, setIsTimeSettingsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -317,6 +319,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   }
 
   return (
+    <>
     <div className="ff-shell">
       <div className="mx-auto w-full max-w-[1920px] xl:grid xl:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="hidden border-r border-[var(--line-strong)] bg-[var(--surface-2)] xl:block" aria-label="Left ad space">
@@ -783,7 +786,13 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
                   <p className="ff-panel-title text-xs">Event Alerts</p>
                 </div>
                 <p className="text-xs text-[var(--ink-muted)]">Receive notifications 5 minutes before starred events, with verified trader summaries.</p>
-                <button className="mt-3 w-full rounded-md bg-[var(--brand-strong)] py-2 text-xs font-bold uppercase tracking-wider text-white">Manage Alerts</button>
+                <button
+                  type="button"
+                  onClick={() => setIsManageAlertsOpen(true)}
+                  className="mt-3 w-full rounded-md bg-[var(--brand-strong)] py-2 text-xs font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-80"
+                >
+                  Manage Alerts
+                </button>
               </div>
             </aside>
 
@@ -809,6 +818,13 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
         </div>
       </footer>
     </div>
+
+      <ManageAlertsModal
+        isOpen={isManageAlertsOpen}
+        onClose={() => setIsManageAlertsOpen(false)}
+        market={market}
+      />
+    </>
   );
 }
 

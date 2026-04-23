@@ -1,13 +1,23 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  Activity,
+  ArrowUpRight,
+  BadgeCheck,
+  Bell,
+  Flag,
+  Ticket,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 
 type TeamMember = {
   id: string;
   displayName: string;
   role: "user" | "analyst" | "admin";
   isVerifiedAnalyst: boolean;
-  specialization: string | null;
   isActive: boolean;
   xp: number;
   createdAt: string;
@@ -23,267 +33,278 @@ type InviteCode = {
   created_at: string;
 };
 
-export default function AdminPage() {
+const STAT_CARD_CONFIGS = [
+  {
+    key: "totalUsers",
+    label: "Total Users",
+    icon: Users,
+    color: "#1d9bf0",
+    bg: "#1d9bf015",
+    border: "#1d9bf044",
+    href: "/admin/users",
+  },
+  {
+    key: "verifiedAnalysts",
+    label: "Verified Analysts",
+    icon: BadgeCheck,
+    color: "#2ecf87",
+    bg: "#2ecf8715",
+    border: "#2ecf8744",
+    href: "/admin/users",
+  },
+  {
+    key: "activeInvites",
+    label: "Active Invites",
+    icon: Ticket,
+    color: "#ffb347",
+    bg: "#ffb34715",
+    border: "#ffb34744",
+    href: "/admin/invites",
+  },
+  {
+    key: "openComplaints",
+    label: "Open Complaints",
+    icon: Flag,
+    color: "#ff4b55",
+    bg: "#ff4b5515",
+    border: "#ff4b5544",
+    href: "/admin/complaints",
+  },
+];
+
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  color,
+  bg,
+  border,
+  href,
+  loading,
+}: {
+  label: string;
+  value: number | string;
+  icon: React.ElementType;
+  color: string;
+  bg: string;
+  border: string;
+  href: string;
+  loading: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-lg border p-4 transition-colors hover:brightness-110"
+      style={{ background: bg, borderColor: border }}
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color }}>
+          {label}
+        </p>
+        <div className="flex items-center gap-1 opacity-60 transition-opacity group-hover:opacity-100">
+          <ArrowUpRight size={12} style={{ color }} />
+        </div>
+      </div>
+      <p className="mt-3 font-rajdhani text-4xl font-bold" style={{ color: "var(--ink-primary)" }}>
+        {loading ? (
+          <span className="inline-block h-8 w-12 animate-pulse rounded bg-[var(--surface-hover)]" />
+        ) : (
+          value
+        )}
+      </p>
+      <div className="mt-2 flex items-center gap-1.5">
+        <Icon size={12} style={{ color }} />
+        <span className="text-[10px] uppercase tracking-wide" style={{ color }}>
+          View all
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+const RECENT_ACTIVITY_MOCK = [
+  { id: 1, type: "invite_used", message: "Invite code TMS-XK9 was redeemed by a new analyst", time: "2 mins ago", color: "#2ecf87" },
+  { id: 2, type: "complaint", message: "New forum complaint filed: Spam post in #FX Analysis", time: "14 mins ago", color: "#ff4b55" },
+  { id: 3, type: "user_join", message: "New user registered via analyst invite", time: "1 hr ago", color: "#1d9bf0" },
+  { id: 4, type: "invite_used", message: "Invite code TMS-W2R was redeemed", time: "3 hrs ago", color: "#2ecf87" },
+  { id: 5, type: "complaint", message: "Forum complaint resolved: Inappropriate language", time: "5 hrs ago", color: "#ffb347" },
+  { id: 6, type: "user_join", message: "New analyst profile verified: @macro_hawk", time: "Yesterday", color: "#1d9bf0" },
+];
+
+const GROWTH_BARS = [
+  { month: "Nov", users: 4 },
+  { month: "Dec", users: 9 },
+  { month: "Jan", users: 15 },
+  { month: "Feb", users: 23 },
+  { month: "Mar", users: 31 },
+  { month: "Apr", users: 38 },
+];
+
+export default function AdminDashboardPage() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([]);
-  const [maxUses, setMaxUses] = useState("");
-  const [expiresAt, setExpiresAt] = useState("");
-  const [inviteType, setInviteType] = useState<"analyst" | "admin">("analyst");
-  const [statusMessage, setStatusMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isBusy, setIsBusy] = useState(false);
-
-  const loadTeamMembers = async () => {
-    const res = await fetch("/api/admin/team", { cache: "no-store" });
-    if (!res.ok) {
-      const payload = (await res.json().catch(() => ({ error: "Unable to load team members" }))) as { error?: string };
-      throw new Error(payload.error ?? "Unable to load team members");
-    }
-
-    const payload = (await res.json()) as { team: TeamMember[] };
-    setTeamMembers(payload.team ?? []);
-  };
-
-  const loadInviteCodes = async () => {
-    const res = await fetch("/api/admin/invite-codes", { cache: "no-store" });
-    if (!res.ok) {
-      const payload = (await res.json().catch(() => ({ error: "Unable to load invite codes" }))) as { error?: string };
-      throw new Error(payload.error ?? "Unable to load invite codes");
-    }
-    const payload = (await res.json()) as { inviteCodes: InviteCode[] };
-    setInviteCodes(payload.inviteCodes);
-  };
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void loadTeamMembers().catch((error: unknown) => {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to load team members.");
-    });
-
-    void loadInviteCodes().catch((error: unknown) => {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to load invite codes.");
-    });
+    const load = async () => {
+      try {
+        const [teamRes, inviteRes] = await Promise.all([
+          fetch("/api/admin/team", { cache: "no-store" }),
+          fetch("/api/admin/invite-codes", { cache: "no-store" }),
+        ]);
+        if (teamRes.ok) {
+          const d = (await teamRes.json()) as { team: TeamMember[] };
+          setTeamMembers(d.team ?? []);
+        }
+        if (inviteRes.ok) {
+          const d = (await inviteRes.json()) as { inviteCodes: InviteCode[] };
+          setInviteCodes(d.inviteCodes ?? []);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    void load();
   }, []);
 
-  const updateTeamMember = async (memberId: string, updates: Partial<TeamMember>) => {
-    setIsBusy(true);
-    setStatusMessage("");
-    setErrorMessage("");
-
-    try {
-      const res = await fetch("/api/admin/team", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: memberId,
-          role: updates.role,
-          isVerifiedAnalyst: updates.isVerifiedAnalyst,
-          isActive: updates.isActive,
-          specialization: updates.specialization ?? undefined,
-        }),
-      });
-
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => ({ error: "Unable to update team member" }))) as { error?: string };
-        throw new Error(payload.error ?? "Unable to update team member");
-      }
-
-      setStatusMessage("Team member updated.");
-      await loadTeamMembers();
-    } catch (error: unknown) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to update team member.");
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const createInviteCode = async (e: FormEvent) => {
-    e.preventDefault();
-    setIsBusy(true);
-    setStatusMessage("");
-    setErrorMessage("");
-
-    try {
-      const res = await fetch("/api/admin/invite-codes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          inviteType,
-          maxUses: maxUses.trim() ? Number(maxUses) : null,
-          expiresAt: expiresAt || null,
-        }),
-      });
-
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => ({ error: "Unable to create invite code" }))) as { error?: string };
-        throw new Error(payload.error ?? "Unable to create invite code");
-      }
-
-      setStatusMessage("Invite code created.");
-      setMaxUses("");
-      setExpiresAt("");
-      setInviteType("analyst");
-      await loadInviteCodes();
-    } catch (error: unknown) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to create invite code.");
-    } finally {
-      setIsBusy(false);
-    }
-  };
+  const maxBar = Math.max(...GROWTH_BARS.map((b) => b.users));
 
   return (
-    <div className="ff-panel p-4 sm:p-6">
-      <h1 className="font-rajdhani text-2xl font-bold uppercase text-[var(--ink-primary)] sm:text-3xl">Admin / Invite Codes</h1>
-      <p className="mt-2 text-sm text-[var(--ink-muted)]">Team management, analyst onboarding, and operational controls.</p>
+    <div className="space-y-6">
+      {/* Page header */}
+      <div>
+        <h1 className="font-rajdhani text-3xl font-bold uppercase leading-none text-[var(--ink-primary)]">
+          Admin Dashboard
+        </h1>
+        <p className="mt-1 text-sm text-[var(--ink-muted)]">
+          Platform overview · {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        </p>
+      </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="rounded border border-[var(--line-soft)] bg-[var(--surface-2)] p-3 text-xs">
-          <p className="text-[var(--ink-muted)]">Team Members</p>
-          <p className="mt-1 text-xl font-bold text-[var(--ink-primary)]">{teamMembers.length}</p>
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Total Users"
+          value={teamMembers.length}
+          icon={Users}
+          color="#1d9bf0"
+          bg="#1d9bf015"
+          border="#1d9bf044"
+          href="/admin/users"
+          loading={loading}
+        />
+        <StatCard
+          label="Verified Analysts"
+          value={teamMembers.filter((m) => m.isVerifiedAnalyst).length}
+          icon={BadgeCheck}
+          color="#2ecf87"
+          bg="#2ecf8715"
+          border="#2ecf8744"
+          href="/admin/users"
+          loading={loading}
+        />
+        <StatCard
+          label="Active Invites"
+          value={inviteCodes.filter((c) => c.is_active).length}
+          icon={Ticket}
+          color="#ffb347"
+          bg="#ffb34715"
+          border="#ffb34744"
+          href="/admin/invites"
+          loading={loading}
+        />
+        <StatCard
+          label="Open Complaints"
+          value={2}
+          icon={Flag}
+          color="#ff4b55"
+          bg="#ff4b5515"
+          border="#ff4b5544"
+          href="/admin/complaints"
+          loading={false}
+        />
+      </div>
+
+      {/* Main grid */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        {/* Growth chart */}
+        <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface-1)]">
+          <div className="flex items-center justify-between border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-3 rounded-t-lg">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={14} className="text-[#1d9bf0]" />
+              <h2 className="ff-panel-title text-xs text-[var(--ink-primary)]">User Growth (6 Months)</h2>
+            </div>
+            <span className="text-[10px] text-[var(--ink-muted)]">Cumulative registrations</span>
+          </div>
+          <div className="p-4">
+            <div className="flex items-end gap-3 h-36">
+              {GROWTH_BARS.map((bar) => (
+                <div key={bar.month} className="flex flex-1 flex-col items-center gap-1.5">
+                  <span className="text-[10px] font-semibold text-[var(--ink-primary)]">{bar.users}</span>
+                  <div
+                    className="w-full rounded-t transition-all"
+                    style={{
+                      height: `${(bar.users / maxBar) * 100}%`,
+                      background: "linear-gradient(180deg, #1d9bf0 0%, #1d9bf055 100%)",
+                      minHeight: 4,
+                    }}
+                  />
+                  <span className="text-[10px] text-[var(--ink-muted)]">{bar.month}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="rounded border border-[var(--line-soft)] bg-[var(--surface-2)] p-3 text-xs">
-          <p className="text-[var(--ink-muted)]">Verified Analysts</p>
-          <p className="mt-1 text-xl font-bold text-[var(--ink-primary)]">{teamMembers.filter((member) => member.isVerifiedAnalyst).length}</p>
-        </div>
-        <div className="rounded border border-[var(--line-soft)] bg-[var(--surface-2)] p-3 text-xs">
-          <p className="text-[var(--ink-muted)]">Active Invite Codes</p>
-          <p className="mt-1 text-xl font-bold text-[var(--ink-primary)]">{inviteCodes.filter((code) => code.is_active).length}</p>
+
+        {/* Recent activity */}
+        <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface-1)]">
+          <div className="flex items-center justify-between border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-3 rounded-t-lg">
+            <div className="flex items-center gap-2">
+              <Activity size={14} className="text-[#ffb347]" />
+              <h2 className="ff-panel-title text-xs text-[var(--ink-primary)]">Recent Activity</h2>
+            </div>
+          </div>
+          <div className="divide-y divide-[var(--line-soft)]">
+            {RECENT_ACTIVITY_MOCK.map((item) => (
+              <div key={item.id} className="flex items-start gap-3 px-4 py-3">
+                <span
+                  className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
+                  style={{ background: item.color }}
+                />
+                <div className="min-w-0">
+                  <p className="text-xs text-[var(--ink-primary)]">{item.message}</p>
+                  <p className="mt-0.5 text-[10px] text-[var(--ink-muted)]">{item.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="mt-4 overflow-auto rounded border border-[var(--line-soft)]">
-        <table className="min-w-full text-left text-xs text-[var(--ink-primary)]">
-          <thead className="bg-[var(--surface-2)] text-[var(--ink-muted)]">
-            <tr>
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">Role</th>
-              <th className="px-3 py-2">Verified</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">XP</th>
-              <th className="px-3 py-2">Created</th>
-              <th className="px-3 py-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {teamMembers.map((member) => (
-              <tr key={member.id} className="border-t border-[var(--line-soft)]">
-                <td className="px-3 py-2 font-semibold">{member.displayName}</td>
-                <td className="px-3 py-2">{member.role}</td>
-                <td className="px-3 py-2">{member.isVerifiedAnalyst ? "Yes" : "No"}</td>
-                <td className="px-3 py-2">{member.isActive ? "Active" : "Suspended"}</td>
-                <td className="px-3 py-2">{member.xp}</td>
-                <td className="px-3 py-2">{new Date(member.createdAt).toLocaleDateString()}</td>
-                <td className="px-3 py-2">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() =>
-                        updateTeamMember(member.id, {
-                          isVerifiedAnalyst: !member.isVerifiedAnalyst,
-                          role: !member.isVerifiedAnalyst ? "analyst" : "user",
-                        })
-                      }
-                      disabled={isBusy}
-                      className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-1 text-[10px] uppercase tracking-wide"
-                    >
-                      {member.isVerifiedAnalyst ? "Revoke Analyst" : "Make Analyst"}
-                    </button>
-                    <button
-                      onClick={() => updateTeamMember(member.id, { isActive: !member.isActive })}
-                      disabled={isBusy}
-                      className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-1 text-[10px] uppercase tracking-wide"
-                    >
-                      {member.isActive ? "Suspend" : "Activate"}
-                    </button>
-                    <button
-                      onClick={() => updateTeamMember(member.id, { role: member.role === "admin" ? "user" : "admin" })}
-                      disabled={isBusy}
-                      className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-1 text-[10px] uppercase tracking-wide"
-                    >
-                      {member.role === "admin" ? "Remove Admin" : "Make Admin"}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {teamMembers.length === 0 ? (
-              <tr>
-                <td className="px-3 py-3 text-[var(--ink-muted)]" colSpan={7}>No team members found.</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-
-      <form onSubmit={createInviteCode} className="mt-4 grid gap-2 rounded border border-[var(--line-soft)] bg-[var(--surface-2)] p-3 sm:max-w-lg">
-        <label className="text-xs uppercase tracking-[0.12em] text-[var(--ink-muted)]">Invite type</label>
-        <select
-          value={inviteType}
-          onChange={(e) => setInviteType(e.target.value as "analyst" | "admin")}
-          className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--ink-primary)] outline-none"
-        >
-          <option value="analyst">Verified Analyst Invite</option>
-          <option value="admin">Admin Invite</option>
-        </select>
-
-        <label className="text-xs uppercase tracking-[0.12em] text-[var(--ink-muted)]">Max uses (optional)</label>
-        <input
-          type="number"
-          min={1}
-          value={maxUses}
-          onChange={(e) => setMaxUses(e.target.value)}
-          className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--ink-primary)] outline-none"
-          placeholder="e.g. 5"
-        />
-
-        <label className="text-xs uppercase tracking-[0.12em] text-[var(--ink-muted)]">Expires at (optional)</label>
-        <input
-          type="datetime-local"
-          value={expiresAt}
-          onChange={(e) => setExpiresAt(e.target.value)}
-          className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--ink-primary)] outline-none"
-        />
-
-        <button
-          type="submit"
-          disabled={isBusy}
-          className="mt-1 w-fit rounded-md bg-[var(--brand-strong)] px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
-        >
-          {isBusy ? "Creating..." : "Create Invite Code"}
-        </button>
-      </form>
-
-      {statusMessage ? <p className="mt-3 text-xs text-[#2fd488]">{statusMessage}</p> : null}
-      {errorMessage ? <p className="mt-2 text-xs text-[#ff8f8f]">{errorMessage}</p> : null}
-
-      <div className="mt-4 overflow-auto rounded border border-[var(--line-soft)]">
-        <table className="min-w-full text-left text-xs text-[var(--ink-primary)]">
-          <thead className="bg-[var(--surface-2)] text-[var(--ink-muted)]">
-            <tr>
-              <th className="px-3 py-2">Code</th>
-              <th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Uses</th>
-              <th className="px-3 py-2">Expires</th>
-              <th className="px-3 py-2">Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {inviteCodes.map((row) => (
-              <tr key={row.code} className="border-t border-[var(--line-soft)]">
-                <td className="px-3 py-2 font-semibold">{row.code}</td>
-                <td className="px-3 py-2">{row.invite_type === "admin" ? "Admin" : "Analyst"}</td>
-                <td className="px-3 py-2">{row.is_active ? "Active" : "Inactive"}</td>
-                <td className="px-3 py-2">{row.used_count}{row.max_uses ? ` / ${row.max_uses}` : ""}</td>
-                <td className="px-3 py-2">{row.expires_at ? new Date(row.expires_at).toLocaleString() : "-"}</td>
-                <td className="px-3 py-2">{new Date(row.created_at).toLocaleString()}</td>
-              </tr>
-            ))}
-            {inviteCodes.length === 0 ? (
-              <tr>
-                <td className="px-3 py-3 text-[var(--ink-muted)]" colSpan={6}>No invite codes yet.</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+      {/* Quick actions */}
+      <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface-1)]">
+        <div className="border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-3 rounded-t-lg">
+          <h2 className="ff-panel-title text-xs text-[var(--ink-primary)]">Quick Actions</h2>
+        </div>
+        <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+          {[
+            { label: "Create Invite", href: "/admin/invites", icon: Ticket, color: "#ffb347" },
+            { label: "Manage Users", href: "/admin/users", icon: Users, color: "#1d9bf0" },
+            { label: "View Reports", href: "/admin/complaints", icon: Flag, color: "#ff4b55" },
+            { label: "Broadcast", href: "/admin/notifications", icon: Bell, color: "#2ecf87" },
+          ].map((action) => (
+            <Link
+              key={action.label}
+              href={action.href}
+              className="flex flex-col items-center gap-2 rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-4 text-center transition-colors hover:bg-[var(--surface-hover)]"
+            >
+              <action.icon size={20} style={{ color: action.color }} />
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)]">
+                {action.label}
+              </span>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );
