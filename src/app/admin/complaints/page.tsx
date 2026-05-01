@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock, Flag, MessageSquare, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,66 +16,11 @@ type Complaint = {
   detail: string;
   severity: ComplaintSeverity;
   status: ComplaintStatus;
-  threadUrl: string;
+  threadId?: string;
+  threadUrl?: string;
   createdAt: string;
   updatedAt: string;
 };
-
-// Mock data – wire to real API when the forum reports endpoint is built
-const MOCK_COMPLAINTS: Complaint[] = [
-  {
-    id: "cmp-001",
-    reportedUser: "@fx_spammer99",
-    reportedBy: "@macro_hawk",
-    category: "Spam",
-    summary: "Posting repeated promotional links in #FX Analysis thread",
-    detail: "User has posted the same off-site link 7 times in the past 24 hours. The links appear to be affiliate links to an unrelated product. Other members have flagged it multiple times.",
-    severity: "high",
-    status: "open",
-    threadUrl: "/forum/threads/fx-analysis-001",
-    createdAt: "2026-04-23T06:14:00Z",
-    updatedAt: "2026-04-23T06:14:00Z",
-  },
-  {
-    id: "cmp-002",
-    reportedUser: "@cryptobully22",
-    reportedBy: "@silver_trader",
-    category: "Harassment",
-    summary: "Targeted harassment towards multiple members in DM and public threads",
-    detail: "Multiple reports received from three different users about this account. The reports describe unprovoked hostile messages and public ridicule.",
-    severity: "high",
-    status: "under_review",
-    threadUrl: "/forum/threads/general-001",
-    createdAt: "2026-04-22T18:30:00Z",
-    updatedAt: "2026-04-23T05:00:00Z",
-  },
-  {
-    id: "cmp-003",
-    reportedUser: "@signal_seller",
-    reportedBy: "@pipeline_ed",
-    category: "Misinformation",
-    summary: "Posting fabricated trade signals as verified analyst content",
-    detail: "User is not a verified analyst but is presenting their posts as such, using similar formatting to the verified analyst panel.",
-    severity: "medium",
-    status: "open",
-    threadUrl: "/forum/threads/signals-010",
-    createdAt: "2026-04-22T11:20:00Z",
-    updatedAt: "2026-04-22T11:20:00Z",
-  },
-  {
-    id: "cmp-004",
-    reportedUser: "@old_troll_86",
-    reportedBy: "@admin",
-    category: "Inappropriate Content",
-    summary: "Posting off-topic political content repeatedly",
-    detail: "Account has been warned twice already. Continued posting of unrelated political commentary in trading-focused channels.",
-    severity: "low",
-    status: "resolved",
-    threadUrl: "/forum/threads/offopic-004",
-    createdAt: "2026-04-20T09:00:00Z",
-    updatedAt: "2026-04-21T10:00:00Z",
-  },
-];
 
 const STATUS_CONFIG: Record<ComplaintStatus, { label: string; color: string; bg: string; border: string; icon: React.ElementType }> = {
   open: { label: "Open", color: "#ff9ea3", bg: "#ff4b5515", border: "#ff4b5544", icon: AlertTriangle },
@@ -91,14 +36,46 @@ const SEVERITY_CONFIG: Record<ComplaintSeverity, { label: string; color: string 
 };
 
 export default function AdminComplaintsPage() {
-  const [complaints, setComplaints] = useState<Complaint[]>(MOCK_COMPLAINTS);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | ComplaintStatus>("all");
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const setStatus = (id: string, status: ComplaintStatus) => {
-    setComplaints((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status, updatedAt: new Date().toISOString() } : c))
-    );
+  const load = async () => {
+    try {
+      const res = await fetch("/api/admin/complaints", { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load complaints");
+      const data = (await res.json()) as { complaints: Complaint[] };
+      setComplaints(data.complaints ?? []);
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "Unable to load complaints.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const setStatus = async (id: string, status: ComplaintStatus) => {
+    try {
+      const res = await fetch("/api/admin/complaints", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error ?? "Unable to update complaint.");
+      }
+      setComplaints((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status, updatedAt: new Date().toISOString() } : c))
+      );
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "Unable to update complaint.");
+    }
   };
 
   const filtered = complaints.filter(
@@ -154,7 +131,17 @@ export default function AdminComplaintsPage() {
 
       {/* Complaints list */}
       <div className="space-y-2">
-        {filtered.length === 0 && (
+        {loading && (
+          <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface-1)] px-4 py-10 text-center text-sm text-[var(--ink-muted)]">
+            Loading complaints…
+          </div>
+        )}
+        {errorMsg && !loading && (
+          <div className="rounded-lg border border-[#ff4b5544] bg-[#ff4b5515] px-4 py-3 text-xs text-[#ff9ea3]">
+            {errorMsg}
+          </div>
+        )}
+        {!loading && filtered.length === 0 && (
           <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface-1)] px-4 py-10 text-center text-sm text-[var(--ink-muted)]">
             <Flag size={24} className="mx-auto mb-2 opacity-25" />
             No complaints in this category.
@@ -165,6 +152,7 @@ export default function AdminComplaintsPage() {
           const severityCfg = SEVERITY_CONFIG[complaint.severity];
           const isExpanded = expandedId === complaint.id;
           const StatusIcon = statusCfg.icon;
+          const threadLink = complaint.threadUrl ?? (complaint.threadId ? `/forum/threads/${complaint.threadId}` : null);
 
           return (
             <div
@@ -211,7 +199,13 @@ export default function AdminComplaintsPage() {
                   </div>
                   <div className="flex flex-wrap gap-3 text-[11px] text-[var(--ink-muted)]">
                     <span>Category: <strong className="text-[var(--ink-primary)]">{complaint.category}</strong></span>
-                    <span>Thread: <a href={complaint.threadUrl} className="text-[#1d9bf0] underline">{complaint.threadUrl}</a></span>
+                    <span>
+                      Thread: {threadLink ? (
+                        <a href={threadLink} className="text-[#1d9bf0] underline">{threadLink}</a>
+                      ) : (
+                        <span>—</span>
+                      )}
+                    </span>
                     <span>Last updated: {new Date(complaint.updatedAt).toLocaleString()}</span>
                   </div>
                   {/* Admin actions */}

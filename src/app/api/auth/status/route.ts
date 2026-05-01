@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { AuthStatus, UserProfile } from "@/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 
 type ProfileRow = {
   id: string;
@@ -24,12 +25,23 @@ const mapProfile = (row: ProfileRow): UserProfile => ({
   xp: row.xp,
 });
 
-export async function GET() {
-  const supabase = await createSupabaseServerClient();
+export async function GET(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
+
+  const supabase = bearer
+    ? createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
+        {
+          auth: { persistSession: false, autoRefreshToken: false },
+        }
+      )
+    : await createSupabaseServerClient();
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = bearer ? await supabase.auth.getUser(bearer) : await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ isAuthenticated: false } satisfies AuthStatus, {

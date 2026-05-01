@@ -13,7 +13,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Ticket,
   Users,
   X,
 } from "lucide-react";
@@ -22,7 +21,6 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/admin" },
   { id: "users", label: "Users & Team", icon: Users, href: "/admin/users" },
-  { id: "invites", label: "Invite Codes", icon: Ticket, href: "/admin/invites" },
   { id: "complaints", label: "Complaints", icon: Flag, href: "/admin/complaints" },
   { id: "notifications", label: "Notifications", icon: Bell, href: "/admin/notifications" },
   { id: "analytics", label: "Analytics", icon: BarChart3, href: "/admin/analytics" },

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Bell, CheckCircle2, Send, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,33 +16,6 @@ type SentNotif = {
   sentAt: string;
 };
 
-const MOCK_SENT: SentNotif[] = [
-  {
-    id: "n1",
-    title: "Scheduled Maintenance",
-    message: "The platform will undergo maintenance on Saturday 26 April at 02:00 UTC for approximately 30 minutes.",
-    audience: "all",
-    type: "warning",
-    sentAt: "2026-04-22T15:00:00Z",
-  },
-  {
-    id: "n2",
-    title: "New Feature: Event Alerts",
-    message: "You can now schedule 5-minute browser reminders for high-impact economic events from the sidebar dashboard.",
-    audience: "all",
-    type: "info",
-    sentAt: "2026-04-20T10:00:00Z",
-  },
-  {
-    id: "n3",
-    title: "Analyst Panel Guidelines Updated",
-    message: "Please review the updated content guidelines for verified analyst perspectives. New bias confidence thresholds apply.",
-    audience: "analysts",
-    type: "info",
-    sentAt: "2026-04-18T09:00:00Z",
-  },
-];
-
 const TYPE_CONFIG: Record<NotifType, { label: string; color: string; bg: string; border: string }> = {
   info: { label: "Info", color: "#8bc0ff", bg: "#1d9bf015", border: "#1d9bf044" },
   warning: { label: "Warning", color: "#ffd28e", bg: "#ffb34715", border: "#ffb34744" },
@@ -56,13 +29,40 @@ const AUDIENCE_CONFIG: Record<NotifAudience, { label: string; icon: React.Elemen
 };
 
 export default function AdminNotificationsPage() {
-  const [sent, setSent] = useState<SentNotif[]>(MOCK_SENT);
+  const [sent, setSent] = useState<SentNotif[]>([]);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [audience, setAudience] = useState<NotifAudience>("all");
   const [type, setType] = useState<NotifType>("info");
   const [busy, setBusy] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch("/api/admin/notifications", { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to load notifications");
+        const data = (await res.json()) as { notifications: Array<{ id: string; title: string; message: string; audience: NotifAudience; type: NotifType; sent_at: string }> };
+        const mapped = (data.notifications ?? []).map((notif) => ({
+          id: notif.id,
+          title: notif.title,
+          message: notif.message,
+          audience: notif.audience,
+          type: notif.type,
+          sentAt: notif.sent_at,
+        }));
+        setSent(mapped);
+      } catch (error) {
+        setErrorMsg(error instanceof Error ? error.message : "Unable to load notifications.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
+  }, []);
 
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
@@ -70,25 +70,37 @@ export default function AdminNotificationsPage() {
     setBusy(true);
     setSuccessMsg("");
 
-    // Simulate send — wire to real API when notifications backend is built
-    await new Promise((r) => setTimeout(r, 600));
-
-    const newNotif: SentNotif = {
-      id: `n${Date.now()}`,
-      title: title.trim(),
-      message: message.trim(),
-      audience,
-      type,
-      sentAt: new Date().toISOString(),
-    };
-    setSent((prev) => [newNotif, ...prev]);
-    setTitle("");
-    setMessage("");
-    setAudience("all");
-    setType("info");
-    setBusy(false);
-    setSuccessMsg("Notification broadcast successfully.");
-    setTimeout(() => setSuccessMsg(""), 4000);
+    try {
+      const res = await fetch("/api/admin/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), message: message.trim(), audience, type }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error ?? "Unable to send notification.");
+      }
+      const payload = (await res.json()) as { notification: { id: string; title: string; message: string; audience: NotifAudience; type: NotifType; sent_at: string } };
+      const newNotif: SentNotif = {
+        id: payload.notification.id,
+        title: payload.notification.title,
+        message: payload.notification.message,
+        audience: payload.notification.audience,
+        type: payload.notification.type,
+        sentAt: payload.notification.sent_at,
+      };
+      setSent((prev) => [newNotif, ...prev]);
+      setTitle("");
+      setMessage("");
+      setAudience("all");
+      setType("info");
+      setSuccessMsg("Notification broadcast successfully.");
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "Unable to send notification.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -208,6 +220,7 @@ export default function AdminNotificationsPage() {
               </span>
             )}
           </div>
+          {errorMsg && <p className="text-xs text-[#ff8f8f]">{errorMsg}</p>}
         </form>
       </div>
 
@@ -218,6 +231,12 @@ export default function AdminNotificationsPage() {
           <h2 className="ff-panel-title text-xs text-[var(--ink-primary)]">Broadcast History</h2>
         </div>
         <div className="divide-y divide-[var(--line-soft)]">
+          {loading && (
+            <p className="px-4 py-6 text-center text-xs text-[var(--ink-muted)]">Loading notifications…</p>
+          )}
+          {!loading && sent.length === 0 && (
+            <p className="px-4 py-6 text-center text-xs text-[var(--ink-muted)]">No notifications sent yet.</p>
+          )}
           {sent.map((notif) => {
             const cfg = TYPE_CONFIG[notif.type];
             const AudienceIcon = AUDIENCE_CONFIG[notif.audience].icon;

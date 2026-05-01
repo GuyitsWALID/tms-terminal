@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ElementType } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -13,64 +14,25 @@ import {
   Users,
 } from "lucide-react";
 
-type TeamMember = {
+type DashboardSummary = {
+  totalUsers: number;
+  verifiedAnalysts: number;
+  activeInvites: number;
+  openComplaints: number;
+};
+
+type GrowthBar = {
+  month: string;
+  users: number;
+};
+
+type ActivityItem = {
   id: string;
-  displayName: string;
-  role: "user" | "analyst" | "admin";
-  isVerifiedAnalyst: boolean;
-  isActive: boolean;
-  xp: number;
+  message: string;
   createdAt: string;
+  color: string;
+  type: string;
 };
-
-type InviteCode = {
-  code: string;
-  invite_type: "analyst" | "admin";
-  is_active: boolean;
-  max_uses: number | null;
-  used_count: number;
-  expires_at: string | null;
-  created_at: string;
-};
-
-const STAT_CARD_CONFIGS = [
-  {
-    key: "totalUsers",
-    label: "Total Users",
-    icon: Users,
-    color: "#1d9bf0",
-    bg: "#1d9bf015",
-    border: "#1d9bf044",
-    href: "/admin/users",
-  },
-  {
-    key: "verifiedAnalysts",
-    label: "Verified Analysts",
-    icon: BadgeCheck,
-    color: "#2ecf87",
-    bg: "#2ecf8715",
-    border: "#2ecf8744",
-    href: "/admin/users",
-  },
-  {
-    key: "activeInvites",
-    label: "Active Invites",
-    icon: Ticket,
-    color: "#ffb347",
-    bg: "#ffb34715",
-    border: "#ffb34744",
-    href: "/admin/invites",
-  },
-  {
-    key: "openComplaints",
-    label: "Open Complaints",
-    icon: Flag,
-    color: "#ff4b55",
-    bg: "#ff4b5515",
-    border: "#ff4b5544",
-    href: "/admin/complaints",
-  },
-];
 
 function StatCard({
   label,
@@ -84,7 +46,7 @@ function StatCard({
 }: {
   label: string;
   value: number | string;
-  icon: React.ElementType;
+  icon: ElementType;
   color: string;
   bg: string;
   border: string;
@@ -122,43 +84,41 @@ function StatCard({
   );
 }
 
-const RECENT_ACTIVITY_MOCK = [
-  { id: 1, type: "invite_used", message: "Invite code TMS-XK9 was redeemed by a new analyst", time: "2 mins ago", color: "#2ecf87" },
-  { id: 2, type: "complaint", message: "New forum complaint filed: Spam post in #FX Analysis", time: "14 mins ago", color: "#ff4b55" },
-  { id: 3, type: "user_join", message: "New user registered via analyst invite", time: "1 hr ago", color: "#1d9bf0" },
-  { id: 4, type: "invite_used", message: "Invite code TMS-W2R was redeemed", time: "3 hrs ago", color: "#2ecf87" },
-  { id: 5, type: "complaint", message: "Forum complaint resolved: Inappropriate language", time: "5 hrs ago", color: "#ffb347" },
-  { id: 6, type: "user_join", message: "New analyst profile verified: @macro_hawk", time: "Yesterday", color: "#1d9bf0" },
-];
-
-const GROWTH_BARS = [
-  { month: "Nov", users: 4 },
-  { month: "Dec", users: 9 },
-  { month: "Jan", users: 15 },
-  { month: "Feb", users: 23 },
-  { month: "Mar", users: 31 },
-  { month: "Apr", users: 38 },
-];
+const formatRelativeTime = (iso: string) => {
+  const value = new Date(iso).getTime();
+  const diff = Date.now() - value;
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} mins ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hrs ago`;
+  return new Date(iso).toLocaleDateString();
+};
 
 export default function AdminDashboardPage() {
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([]);
+  const [summary, setSummary] = useState<DashboardSummary>({
+    totalUsers: 0,
+    verifiedAnalysts: 0,
+    activeInvites: 0,
+    openComplaints: 0,
+  });
+  const [growth, setGrowth] = useState<GrowthBar[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [teamRes, inviteRes] = await Promise.all([
-          fetch("/api/admin/team", { cache: "no-store" }),
-          fetch("/api/admin/invite-codes", { cache: "no-store" }),
-        ]);
-        if (teamRes.ok) {
-          const d = (await teamRes.json()) as { team: TeamMember[] };
-          setTeamMembers(d.team ?? []);
-        }
-        if (inviteRes.ok) {
-          const d = (await inviteRes.json()) as { inviteCodes: InviteCode[] };
-          setInviteCodes(d.inviteCodes ?? []);
+        const dashboardRes = await fetch("/api/admin/dashboard", { cache: "no-store" });
+        if (dashboardRes.ok) {
+          const d = (await dashboardRes.json()) as {
+            summary: DashboardSummary;
+            growth: GrowthBar[];
+            recentActivity: ActivityItem[];
+          };
+          setSummary(d.summary);
+          setGrowth(d.growth ?? []);
+          setActivity(d.recentActivity ?? []);
         }
       } finally {
         setLoading(false);
@@ -167,7 +127,7 @@ export default function AdminDashboardPage() {
     void load();
   }, []);
 
-  const maxBar = Math.max(...GROWTH_BARS.map((b) => b.users));
+  const maxBar = Math.max(1, ...growth.map((b) => b.users));
 
   return (
     <div className="space-y-6">
@@ -185,7 +145,7 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Total Users"
-          value={teamMembers.length}
+          value={summary.totalUsers}
           icon={Users}
           color="#1d9bf0"
           bg="#1d9bf015"
@@ -195,7 +155,7 @@ export default function AdminDashboardPage() {
         />
         <StatCard
           label="Verified Analysts"
-          value={teamMembers.filter((m) => m.isVerifiedAnalyst).length}
+          value={summary.verifiedAnalysts}
           icon={BadgeCheck}
           color="#2ecf87"
           bg="#2ecf8715"
@@ -205,7 +165,7 @@ export default function AdminDashboardPage() {
         />
         <StatCard
           label="Active Invites"
-          value={inviteCodes.filter((c) => c.is_active).length}
+          value={summary.activeInvites}
           icon={Ticket}
           color="#ffb347"
           bg="#ffb34715"
@@ -215,13 +175,13 @@ export default function AdminDashboardPage() {
         />
         <StatCard
           label="Open Complaints"
-          value={2}
+          value={summary.openComplaints}
           icon={Flag}
           color="#ff4b55"
           bg="#ff4b5515"
           border="#ff4b5544"
           href="/admin/complaints"
-          loading={false}
+          loading={loading}
         />
       </div>
 
@@ -237,22 +197,67 @@ export default function AdminDashboardPage() {
             <span className="text-[10px] text-[var(--ink-muted)]">Cumulative registrations</span>
           </div>
           <div className="p-4">
-            <div className="flex items-end gap-3 h-36">
-              {GROWTH_BARS.map((bar) => (
-                <div key={bar.month} className="flex flex-1 flex-col items-center gap-1.5">
-                  <span className="text-[10px] font-semibold text-[var(--ink-primary)]">{bar.users}</span>
-                  <div
-                    className="w-full rounded-t transition-all"
-                    style={{
-                      height: `${(bar.users / maxBar) * 100}%`,
-                      background: "linear-gradient(180deg, #1d9bf0 0%, #1d9bf055 100%)",
-                      minHeight: 4,
-                    }}
-                  />
-                  <span className="text-[10px] text-[var(--ink-muted)]">{bar.month}</span>
+            {growth.length === 0 && !loading && (
+              <p className="text-xs text-[var(--ink-muted)]">No growth data yet.</p>
+            )}
+            {growth.length > 0 && (
+              <div className="space-y-3">
+                <div className="h-36 w-full">
+                  <svg viewBox="0 0 600 160" className="h-full w-full" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="growthLine" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#1d9bf0" stopOpacity="0.95" />
+                        <stop offset="100%" stopColor="#1d9bf0" stopOpacity="0.25" />
+                      </linearGradient>
+                    </defs>
+                    <rect x="0" y="0" width="600" height="160" fill="transparent" />
+                    {(() => {
+                      const width = 600;
+                      const height = 160;
+                      const pad = 14;
+                      const innerW = width - pad * 2;
+                      const innerH = height - pad * 2;
+                      const points = growth.map((bar, index) => {
+                        const x = pad + (growth.length === 1 ? 0 : (index / (growth.length - 1)) * innerW);
+                        const y = height - pad - (bar.users / maxBar) * innerH;
+                        return `${x},${y}`;
+                      });
+                      const line = points.join(" ");
+                      const area = `${pad},${height - pad} ${line} ${width - pad},${height - pad}`;
+                      return (
+                        <>
+                          <polyline
+                            points={area}
+                            fill="url(#growthLine)"
+                            stroke="none"
+                          />
+                          <polyline
+                            points={line}
+                            fill="none"
+                            stroke="#1d9bf0"
+                            strokeWidth="2"
+                          />
+                          {points.map((point, i) => {
+                            const [x, y] = point.split(",").map(Number);
+                            return (
+                              <circle key={growth[i].month} cx={x} cy={y} r="3" fill="#1d9bf0" />
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
+                  </svg>
                 </div>
-              ))}
-            </div>
+                <div className="grid grid-cols-6 gap-2">
+                  {growth.map((bar) => (
+                    <div key={`label-${bar.month}`} className="flex items-center justify-center gap-2 text-[10px] text-[var(--ink-muted)]">
+                      <span className="font-semibold text-[var(--ink-primary)]">{bar.users}</span>
+                      <span>{bar.month}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -265,7 +270,10 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <div className="divide-y divide-[var(--line-soft)]">
-            {RECENT_ACTIVITY_MOCK.map((item) => (
+            {activity.length === 0 && !loading && (
+              <div className="px-4 py-6 text-center text-xs text-[var(--ink-muted)]">No recent activity yet.</div>
+            )}
+            {activity.map((item) => (
               <div key={item.id} className="flex items-start gap-3 px-4 py-3">
                 <span
                   className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
@@ -273,7 +281,9 @@ export default function AdminDashboardPage() {
                 />
                 <div className="min-w-0">
                   <p className="text-xs text-[var(--ink-primary)]">{item.message}</p>
-                  <p className="mt-0.5 text-[10px] text-[var(--ink-muted)]">{item.time}</p>
+                  <p className="mt-0.5 text-[10px] text-[var(--ink-muted)]">
+                    {formatRelativeTime(item.createdAt)}
+                  </p>
                 </div>
               </div>
             ))}

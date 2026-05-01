@@ -130,6 +130,14 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Unable to update team member." }, { status: 500 });
   }
 
+  await access.supabase.from("admin_audit_logs").insert({
+    actor_id: access.user?.id ?? null,
+    action: "team_member_updated",
+    target_type: "profiles",
+    target_id: data.id,
+    payload: updatePayload,
+  });
+
   return NextResponse.json(
     {
       member: {

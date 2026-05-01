@@ -15,18 +15,17 @@ type TeamMember = {
 type InviteCode = {
   code: string;
   used_count: number;
+  max_uses: number | null;
   is_active: boolean;
   created_at: string;
 };
 
-const MONTHLY_DATA = [
-  { month: "Nov", users: 4, invitesUsed: 2, complaints: 0 },
-  { month: "Dec", users: 9, invitesUsed: 5, complaints: 1 },
-  { month: "Jan", users: 15, invitesUsed: 6, complaints: 2 },
-  { month: "Feb", users: 23, invitesUsed: 8, complaints: 1 },
-  { month: "Mar", users: 31, invitesUsed: 8, complaints: 3 },
-  { month: "Apr", users: 38, invitesUsed: 7, complaints: 2 },
-];
+type MonthlyDatum = {
+  month: string;
+  users: number;
+  invitesUsed: number;
+  complaints: number;
+};
 
 function MiniBar({ value, max, color }: { value: number; max: number; color: string }) {
   return (
@@ -46,14 +45,16 @@ function MiniBar({ value, max, color }: { value: number; max: number; color: str
 export default function AdminAnalyticsPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [invites, setInvites] = useState<InviteCode[]>([]);
+  const [monthly, setMonthly] = useState<MonthlyDatum[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [teamRes, inviteRes] = await Promise.all([
+        const [teamRes, inviteRes, analyticsRes] = await Promise.all([
           fetch("/api/admin/team", { cache: "no-store" }),
           fetch("/api/admin/invite-codes", { cache: "no-store" }),
+          fetch("/api/admin/analytics", { cache: "no-store" }),
         ]);
         if (teamRes.ok) {
           const d = (await teamRes.json()) as { team: TeamMember[] };
@@ -62,6 +63,10 @@ export default function AdminAnalyticsPage() {
         if (inviteRes.ok) {
           const d = (await inviteRes.json()) as { inviteCodes: InviteCode[] };
           setInvites(d.inviteCodes ?? []);
+        }
+        if (analyticsRes.ok) {
+          const d = (await analyticsRes.json()) as { monthly: MonthlyDatum[] };
+          setMonthly(d.monthly ?? []);
         }
       } finally {
         setLoading(false);
@@ -75,9 +80,9 @@ export default function AdminAnalyticsPage() {
   const analysts = members.filter((m) => m.isVerifiedAnalyst).length;
   const avgXp = members.length > 0 ? Math.round(members.reduce((s, m) => s + m.xp, 0) / members.length) : 0;
 
-  const maxUsers = Math.max(...MONTHLY_DATA.map((d) => d.users));
-  const maxInvites = Math.max(...MONTHLY_DATA.map((d) => d.invitesUsed));
-  const maxComplaints = Math.max(...MONTHLY_DATA.map((d) => d.complaints));
+  const maxUsers = Math.max(1, ...monthly.map((d) => d.users));
+  const maxInvites = Math.max(1, ...monthly.map((d) => d.invitesUsed));
+  const maxComplaints = Math.max(1, ...monthly.map((d) => d.complaints));
 
   const roleBreakdown = [
     { label: "Users", count: members.filter((m) => m.role === "user").length, color: "#1d9bf0" },
@@ -127,7 +132,10 @@ export default function AdminAnalyticsPage() {
           </div>
           <div className="p-4">
             <div className="grid grid-cols-6 gap-2">
-              {MONTHLY_DATA.map((d) => (
+              {monthly.length === 0 && !loading && (
+                <p className="col-span-6 text-center text-xs text-[var(--ink-muted)]">No growth data yet.</p>
+              )}
+              {monthly.map((d) => (
                 <div key={d.month} className="flex flex-col items-center gap-1.5">
                   <MiniBar value={d.users} max={maxUsers} color="#1d9bf0" />
                   <span className="text-[10px] text-[var(--ink-muted)]">{d.month}</span>
@@ -136,7 +144,7 @@ export default function AdminAnalyticsPage() {
             </div>
             {/* Multi-series legend */}
             <div className="mt-4 grid grid-cols-6 gap-2 border-t border-[var(--line-soft)] pt-3">
-              {MONTHLY_DATA.map((d) => (
+              {monthly.map((d) => (
                 <div key={`inv-${d.month}`} className="flex flex-col items-center gap-1.5">
                   <MiniBar value={d.invitesUsed} max={maxInvites} color="#ffb347" />
                   <span className="text-[10px] text-[var(--ink-muted)]">{d.month}</span>
@@ -179,7 +187,7 @@ export default function AdminAnalyticsPage() {
           <div className="border-t border-[var(--line-strong)] p-4">
             <p className="ff-panel-title text-xs text-[var(--ink-primary)] mb-3">Monthly Complaints</p>
             <div className="grid grid-cols-6 gap-1">
-              {MONTHLY_DATA.map((d) => (
+              {monthly.map((d) => (
                 <div key={`comp-${d.month}`} className="flex flex-col items-center gap-1">
                   <MiniBar value={d.complaints} max={maxComplaints} color="#ff4b55" />
                   <span className="text-[9px] text-[var(--ink-muted)]">{d.month}</span>
@@ -201,7 +209,8 @@ export default function AdminAnalyticsPage() {
             <p className="px-4 py-6 text-center text-xs text-[var(--ink-muted)]">No invite codes yet.</p>
           )}
           {invites.map((inv) => {
-            const pct = inv.used_count > 0 ? Math.min(100, (inv.used_count / (inv.used_count + 1)) * 100) : 0;
+            const denom = inv.max_uses ?? Math.max(inv.used_count, 1);
+            const pct = Math.min(100, denom > 0 ? (inv.used_count / denom) * 100 : 0);
             return (
               <div key={inv.code} className="flex items-center gap-4 px-4 py-3">
                 <span className="font-mono text-xs font-semibold text-[var(--ink-primary)] w-32 shrink-0">{inv.code}</span>

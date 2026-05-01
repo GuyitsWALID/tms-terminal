@@ -113,6 +113,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invite code consumed, but usage count update failed." }, { status: 500 });
   }
 
+  const { error: redemptionError } = await supabase.from("invite_redemptions").insert({
+    code,
+    user_id: user.id,
+    invite_type: invite.invite_type,
+  });
+
+  if (!redemptionError) {
+    await supabase.from("admin_audit_logs").insert({
+      actor_id: user.id,
+      action: "invite_redeemed",
+      target_type: "analyst_invite_codes",
+      target_id: code,
+      payload: { inviteType: invite.invite_type },
+    });
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, display_name, avatar_url, bio, timezone, specialization, favorite_market, is_active, role, is_verified_analyst, invite_code_used, rank, xp")
