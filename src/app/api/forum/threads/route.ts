@@ -5,17 +5,28 @@ type CreateThreadInput = {
   title?: string;
   content?: string;
   category?: string;
+  market?: "forex" | "crypto" | "stocks";
+  imageUrl?: string;
 };
 
-export async function GET() {
-  const supabase = await createSupabaseServerClient();
+const MARKET_VALUES = ["forex", "crypto", "stocks"] as const;
 
-  const { data: threads, error } = await supabase
+export async function GET(request: NextRequest) {
+  const supabase = await createSupabaseServerClient();
+  const market = request.nextUrl.searchParams.get("market")?.trim() ?? "";
+
+  let query = supabase
     .from("forum_threads")
-    .select("id, author_id, title, category, content, is_pinned, created_at, updated_at")
+    .select("id, author_id, title, category, market, image_url, content, is_pinned, created_at, updated_at")
     .order("is_pinned", { ascending: false })
     .order("updated_at", { ascending: false })
     .limit(50);
+
+  if (MARKET_VALUES.includes(market as (typeof MARKET_VALUES)[number])) {
+    query = query.eq("market", market);
+  }
+
+  const { data: threads, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: "Unable to load forum threads." }, { status: 500 });
@@ -44,6 +55,8 @@ export async function GET() {
         id: thread.id,
         title: thread.title,
         category: thread.category,
+        market: thread.market,
+        imageUrl: thread.image_url ?? undefined,
         content: thread.content,
         isPinned: thread.is_pinned,
         authorId: thread.author_id,
@@ -73,9 +86,28 @@ export async function POST(request: NextRequest) {
   const title = body.title?.trim();
   const content = body.content?.trim();
   const category = body.category?.trim() || "general";
+  const market = body.market?.trim() ?? "";
+  const imageUrl = body.imageUrl?.trim() || null;
+
+  if (!MARKET_VALUES.includes(market as (typeof MARKET_VALUES)[number])) {
+    return NextResponse.json({ error: "Market must be crypto, forex, or stocks." }, { status: 422 });
+  }
 
   if (!title || title.length < 5 || !content || content.length < 10) {
     return NextResponse.json({ error: "Thread title/content is too short." }, { status: 422 });
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_verified_analyst, role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const isVerifiedAnalyst = Boolean(profile?.is_verified_analyst);
+  const isAdmin = profile?.role === "admin";
+
+  if (!isVerifiedAnalyst && !isAdmin) {
+    return NextResponse.json({ error: "Verified analysts only can create threads." }, { status: 403 });
   }
 
   const { data: row, error } = await supabase
@@ -84,10 +116,12 @@ export async function POST(request: NextRequest) {
       author_id: user.id,
       title,
       category,
+      market,
+      image_url: imageUrl,
       content,
       is_pinned: false,
     })
-    .select("id, author_id, title, category, content, is_pinned, created_at, updated_at")
+    .select("id, author_id, title, category, market, image_url, content, is_pinned, created_at, updated_at")
     .single();
 
   if (error || !row) {
@@ -100,12 +134,14 @@ export async function POST(request: NextRequest) {
         id: row.id,
         title: row.title,
         category: row.category,
+        market: row.market,
+        imageUrl: row.image_url ?? undefined,
         content: row.content,
         isPinned: row.is_pinned,
         authorId: row.author_id,
         authorName: user.email ?? "Anonymous",
-        authorRole: "user",
-        authorIsVerifiedAnalyst: false,
+        authorRole: isAdmin ? "admin" : "analyst",
+        authorIsVerifiedAnalyst: isVerifiedAnalyst,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       },

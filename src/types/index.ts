@@ -1,6 +1,6 @@
 export type ImpactLevel = 'high' | 'medium' | 'low';
 
-export type MarketKey = "forex" | "crypto" | "commodities";
+export type MarketKey = "forex" | "crypto" | "commodities" | "stocks";
 
 export interface EconomicEvent {
   id: string;
