@@ -67,7 +67,7 @@ export default function ProfilePage() {
           // fallback to status.profile if available
           setProfileForm(toForm(status.profile));
         }
-      } catch (err) {
+      } catch {
         setProfileForm(toForm(status.profile));
       }
     } else {
@@ -167,9 +167,6 @@ export default function ProfilePage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <Link href="/login" className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)]">
               Login
-            </Link>
-            <Link href="/admin/login" className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)]">
-              Admin Login
             </Link>
             <Link href="/signup" className="rounded-md bg-[var(--brand-strong)] px-4 py-2 text-xs font-bold uppercase tracking-wide text-white">
               Sign Up

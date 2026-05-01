@@ -26,17 +26,15 @@ const NAV_ITEMS = [
   { id: "analytics", label: "Analytics", icon: BarChart3, href: "/admin/analytics" },
 ];
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+type SidebarProps = {
+  collapsed: boolean;
+  pathname: string;
+  onCollapseToggle: () => void;
+  onMobileClose: () => void;
+};
 
-  // Skip layout on the login page
-  if (pathname === "/admin/login") {
-    return <>{children}</>;
-  }
-
-  const SidebarContent = () => (
+function SidebarContent({ collapsed, pathname, onCollapseToggle, onMobileClose }: SidebarProps) {
+  return (
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div
@@ -64,7 +62,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link
               key={item.id}
               href={item.href}
-              onClick={() => setMobileOpen(false)}
+              onClick={onMobileClose}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors",
                 collapsed && "justify-center px-2",
@@ -84,7 +82,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Bottom actions */}
       <div className="shrink-0 border-t border-[var(--line-strong)] p-2 space-y-0.5">
         <button
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={onCollapseToggle}
           className={cn(
             "hidden w-full items-center gap-3 rounded-md px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-[var(--ink-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--ink-primary)] xl:flex",
             collapsed && "justify-center px-2"
@@ -107,6 +105,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
     </div>
   );
+}
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Skip layout on the login page
+  if (pathname === "/admin/login") {
+    return <>{children}</>;
+  }
+
+  const handleCollapseToggle = () => setCollapsed((c) => !c);
+  const handleMobileClose = () => setMobileOpen(false);
 
   return (
     <div
@@ -136,7 +148,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="absolute left-0 top-0 h-full w-64 border-r border-[var(--line-strong)] bg-[var(--surface-2)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <SidebarContent />
+            <SidebarContent
+              collapsed={collapsed}
+              pathname={pathname}
+              onCollapseToggle={handleCollapseToggle}
+              onMobileClose={handleMobileClose}
+            />
           </aside>
         </div>
       )}
@@ -150,7 +167,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           )}
           style={{ minHeight: "100vh" }}
         >
-          <SidebarContent />
+          <SidebarContent
+            collapsed={collapsed}
+            pathname={pathname}
+            onCollapseToggle={handleCollapseToggle}
+            onMobileClose={handleMobileClose}
+          />
         </aside>
 
         {/* Main content */}

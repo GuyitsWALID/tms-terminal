@@ -127,10 +127,16 @@ export async function GET() {
   });
 
   (invitesRecentRes.data ?? []).forEach((row) => {
-    const data = row as { id: string; code: string; created_at: string; user?: { display_name: string | null } | null };
+    const data = row as {
+      id: string;
+      code: string;
+      created_at: string;
+      user?: Array<{ display_name: string | null }> | null;
+    };
+    const redeemedBy = data.user?.[0]?.display_name ?? "a user";
     activities.push({
       id: `invite-${data.id}`,
-      message: `Invite code ${data.code} redeemed by ${data.user?.display_name ?? "a user"}`,
+      message: `Invite code ${data.code} redeemed by ${redeemedBy}`,
       createdAt: data.created_at,
       color: "#2ecf87",
       type: "invite_used",

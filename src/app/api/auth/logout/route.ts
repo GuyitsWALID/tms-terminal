@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export async function POST() {
@@ -10,6 +9,5 @@ export async function POST() {
   }
   await supabase.auth.signOut();
   // Clear cookies if needed
- 
   return NextResponse.json({ success: true });
 }

@@ -131,8 +131,9 @@ export default function ManageAlertsModal({ isOpen, onClose, market }: Props) {
 
   // ── cleanup timeouts on unmount ─────────────────────────────────────────
   useEffect(() => {
+    const timeouts = timeoutRefs.current;
     return () => {
-      Object.values(timeoutRefs.current).forEach(clearTimeout);
+      Object.values(timeouts).forEach(clearTimeout);
     };
   }, []);
 

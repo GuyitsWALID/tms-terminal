@@ -14,8 +14,8 @@ type ComplaintRow = {
   thread_url: string | null;
   created_at: string;
   updated_at: string;
-  reported_user_id: { id: string; display_name: string | null } | null;
-  reported_by_id: { id: string; display_name: string | null } | null;
+  reported_user_id: Array<{ id: string; display_name: string | null }> | null;
+  reported_by_id: Array<{ id: string; display_name: string | null }> | null;
 };
 
 type ComplaintUpdateInput = {
@@ -74,10 +74,13 @@ export async function GET() {
   }
 
   const rows = (data ?? []) as ComplaintRow[];
-  const complaints = rows.map((row) => ({
+  const complaints = rows.map((row) => {
+    const reportedUser = row.reported_user_id?.[0]?.display_name ?? "Unknown";
+    const reportedBy = row.reported_by_id?.[0]?.display_name ?? "Unknown";
+    return {
     id: row.id,
-    reportedUser: row.reported_user_id?.display_name ?? "Unknown",
-    reportedBy: row.reported_by_id?.display_name ?? "Unknown",
+    reportedUser,
+    reportedBy,
     category: row.category,
     summary: row.summary,
     detail: row.detail,
@@ -87,7 +90,8 @@ export async function GET() {
     threadUrl: row.thread_url ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-  }));
+    };
+  });
 
   return NextResponse.json({ complaints }, { status: 200 });
 }
