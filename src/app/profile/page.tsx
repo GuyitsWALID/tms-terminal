@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import RoleBadges from "@/components/ui/RoleBadges";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { fetchAuthStatus, redeemAnalystInviteCode } from "@/lib/api/dataService";
+import { fetchAuthStatus } from "@/lib/api/dataService";
 import type { AuthStatus, MarketKey, UserProfile } from "@/types";
 
 type EditableProfileState = {
@@ -40,7 +40,7 @@ export default function ProfilePage() {
   const [authState, setAuthState] = useState<AuthStatus>({ isAuthenticated: false });
   const [profileForm, setProfileForm] = useState<EditableProfileState>(emptyForm);
   const [profileLoaded, setProfileLoaded] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isBusy, setIsBusy] = useState(false);
@@ -102,22 +102,25 @@ export default function ProfilePage() {
     }
   };
 
-  const onRedeemInvite = async (e: FormEvent) => {
-    e.preventDefault();
-    setIsBusy(true);
-    setErrorMessage("");
-    setStatusMessage("");
-
-    try {
-      await redeemAnalystInviteCode(inviteCode);
-      setStatusMessage("Invite code accepted. Your analyst account is now verified.");
-      setInviteCode("");
-      await refreshStatus();
-    } catch (error: unknown) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to redeem invite code.");
-    } finally {
-      setIsBusy(false);
+  const uploadAvatar = async (file: File) => {
+    if (!supabase) {
+      throw new Error("Supabase is not configured.");
     }
+
+    const ext = file.name.split(".").pop() || "png";
+    const path = `avatars/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+    const { error } = await supabase.storage.from("profile-media").upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+    if (error) {
+      throw new Error("Avatar upload failed.");
+    }
+
+    const { data } = supabase.storage.from("profile-media").getPublicUrl(path);
+    return data.publicUrl;
   };
 
   const onSaveProfile = async (e: FormEvent) => {
@@ -127,12 +130,20 @@ export default function ProfilePage() {
     setStatusMessage("");
 
     try {
+      let avatarUrl = profileForm.avatarUrl;
+      if (avatarFile) {
+        avatarUrl = await uploadAvatar(avatarFile);
+      }
+
       const res = await fetch("/api/profile", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(profileForm),
+        body: JSON.stringify({
+          ...profileForm,
+          avatarUrl,
+        }),
       });
 
       if (!res.ok) {
@@ -142,6 +153,7 @@ export default function ProfilePage() {
 
       const payload = (await res.json()) as { profile: UserProfile };
       setProfileForm(toForm(payload.profile));
+      setAvatarFile(null);
       setStatusMessage("Profile updated.");
       await refreshStatus();
     } catch (error: unknown) {
@@ -158,7 +170,7 @@ export default function ProfilePage() {
       ) : null}
       <div className="ff-panel p-4 sm:p-6">
         <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none text-[var(--ink-primary)] sm:text-3xl">Profile</h1>
-        <p className="mt-2 text-sm text-[var(--ink-muted)]">Manage your account, XP profile, and analyst onboarding.</p>
+        <p className="mt-2 text-sm text-[var(--ink-muted)]">Manage your account and XP profile.</p>
       </div>
 
       {profileLoaded && !authState.isAuthenticated ? (
@@ -211,6 +223,30 @@ export default function ProfilePage() {
           <form className="ff-panel grid gap-3 p-4 sm:p-6" onSubmit={onSaveProfile}>
             <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">Profile Details</h2>
 
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="h-16 w-16 overflow-hidden rounded-full border border-[var(--line-soft)] bg-[var(--surface-1)]">
+                {profileForm.avatarUrl ? (
+                  <img src={profileForm.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs text-[var(--ink-muted)]">No avatar</div>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <input
+                  value={profileForm.avatarUrl}
+                  onChange={(e) => setProfileForm((current) => ({ ...current, avatarUrl: e.target.value }))}
+                  placeholder="Avatar image URL"
+                  className="w-full rounded border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--ink-primary)] outline-none"
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+                  className="text-xs text-[var(--ink-muted)]"
+                />
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <input
                 value={profileForm.displayName}
@@ -218,12 +254,6 @@ export default function ProfilePage() {
                 placeholder="Display name"
                 className="rounded border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--ink-primary)] outline-none"
                 required
-              />
-              <input
-                value={profileForm.avatarUrl}
-                onChange={(e) => setProfileForm((current) => ({ ...current, avatarUrl: e.target.value }))}
-                placeholder="Avatar URL"
-                className="rounded border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--ink-primary)] outline-none"
               />
               <input
                 value={profileForm.timezone}
@@ -265,26 +295,6 @@ export default function ProfilePage() {
             </button>
           </form>
 
-          {!authState.profile?.isVerifiedAnalyst ? (
-            <form className="ff-panel grid gap-2 p-4 sm:max-w-xl sm:p-6" onSubmit={onRedeemInvite}>
-              <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">Verified Analyst Access</h2>
-              <label className="text-xs uppercase tracking-[0.12em] text-[var(--ink-muted)]">Analyst invite code</label>
-              <input
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                placeholder="Enter code"
-                className="rounded border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--ink-primary)] outline-none"
-                required
-              />
-              <button
-                type="submit"
-                disabled={isBusy}
-                className="w-fit rounded-md bg-[var(--brand-strong)] px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
-              >
-                Redeem Code
-              </button>
-            </form>
-          ) : null}
         </>
       ) : null}
 

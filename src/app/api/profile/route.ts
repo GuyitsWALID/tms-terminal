@@ -13,7 +13,6 @@ type ProfileRow = {
   is_active: boolean;
   role: "user" | "analyst" | "admin";
   is_verified_analyst: boolean;
-  invite_code_used: string | null;
   rank: string;
   xp: number;
 };
@@ -38,7 +37,6 @@ const mapProfile = (row: ProfileRow): UserProfile => ({
   isActive: row.is_active,
   role: row.role,
   isVerifiedAnalyst: row.is_verified_analyst,
-  inviteCodeUsed: row.invite_code_used ?? undefined,
   rank: row.rank,
   xp: row.xp,
 });
@@ -61,7 +59,7 @@ export async function GET() {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("id, display_name, avatar_url, bio, timezone, specialization, favorite_market, is_active, role, is_verified_analyst, invite_code_used, rank, xp")
+    .select("id, display_name, avatar_url, bio, timezone, specialization, favorite_market, is_active, role, is_verified_analyst, rank, xp")
     .eq("id", user.id)
     .single();
 
@@ -97,7 +95,7 @@ export async function PATCH(request: NextRequest) {
     .from("profiles")
     .update(payload)
     .eq("id", user.id)
-    .select("id, display_name, avatar_url, bio, timezone, specialization, favorite_market, is_active, role, is_verified_analyst, invite_code_used, rank, xp")
+    .select("id, display_name, avatar_url, bio, timezone, specialization, favorite_market, is_active, role, is_verified_analyst, rank, xp")
     .single();
 
   if (error || !profile) {

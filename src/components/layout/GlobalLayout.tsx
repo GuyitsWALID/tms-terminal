@@ -301,10 +301,12 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
     setIsTimeSettingsOpen(false);
   };
 
-  const [authStatus, setAuthStatus] = useState<{ isAuthenticated: boolean } | null>(null);
+  const [authStatus, setAuthStatus] = useState<{ isAuthenticated: boolean; profile?: { role?: "user" | "analyst" | "admin" } } | null>(null);
   useEffect(() => {
     fetchAuthStatus().then(setAuthStatus);
   }, []);
+
+  const isAdminUser = authStatus?.profile?.role === "admin";
 
   if (isAuthRoute) {
     return (
@@ -689,19 +691,30 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
                 aria-expanded={isProfileMenuOpen}
                 aria-haspopup="menu"
               >
-                <User size={14} />
+                {isAdminUser ? <BarChart3 size={14} /> : <User size={14} />}
               </button>
 
               {isProfileMenuOpen ? (
                 <div className="absolute right-0 top-11 z-[70] w-48 rounded-md border border-[var(--line-strong)] bg-[var(--surface-1)] p-2 shadow-lg" role="menu" aria-label="Profile menu">
-                  <Link
-                    href="/profile"
-                    onClick={() => setIsProfileMenuOpen(false)}
-                    className="mb-2 block rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-xs text-center font-semibold uppercase tracking-wide text-[var(--ink-primary)] hover:bg-[var(--surface-hover)]"
-                    role="menuitem"
-                  >
-                    Profile
-                  </Link>
+                  {isAdminUser ? (
+                    <Link
+                      href="/admin"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                      className="mb-2 block rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-xs text-center font-semibold uppercase tracking-wide text-[var(--ink-primary)] hover:bg-[var(--surface-hover)]"
+                      role="menuitem"
+                    >
+                      Dashboard
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/profile"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                      className="mb-2 block rounded-md border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-xs text-center font-semibold uppercase tracking-wide text-[var(--ink-primary)] hover:bg-[var(--surface-hover)]"
+                      role="menuitem"
+                    >
+                      Profile
+                    </Link>
+                  )}
                   {authStatus?.isAuthenticated ? (
                     <button
                       onClick={async () => {
