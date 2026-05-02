@@ -1,15 +1,15 @@
 import { NextRequest } from "next/server";
 import { getFinancialJuiceChangesSince, getFinancialJuiceSequence, getFinancialJuiceSnapshot } from "@/lib/news/liveFinancialJuiceStore";
 import { MARKET_KEYWORDS, normalizeMarket } from "@/lib/market";
+import type { MarketKey } from "@/types";
 
 export const dynamic = "force-dynamic";
 
-type MarketParam = "forex" | "crypto" | "commodities";
-
-const filterByMarket = (headline: string, category: string, market: MarketParam) => {
+const filterByMarket = (headline: string, category: string, market: MarketKey) => {
   if (market === "forex") return true;
   const haystack = `${headline} ${category}`.toLowerCase();
-  const keywords = MARKET_KEYWORDS[market];
+  const keywordMarket: Exclude<MarketKey, "forex" | "stocks"> = market === "stocks" ? "commodities" : market;
+  const keywords = MARKET_KEYWORDS[keywordMarket];
   return keywords.some((keyword) => haystack.includes(keyword));
 };
 

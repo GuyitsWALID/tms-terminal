@@ -15,7 +15,7 @@ import type { EconomicEvent, PerspectiveBias, VerifiedPerspective } from "@/type
 
 export default function VerifiedPerspectivePanel() {
   const { market } = useMarket();
-  const [highImpactEvents, setHighImpactEvents] = useState<EconomicEvent[]>([]);
+  const [impactEvents, setImpactEvents] = useState<EconomicEvent[]>([]);
   const [selectedEventKey, setSelectedEventKey] = useState<string>("");
   const [selectedEvent, setSelectedEvent] = useState<EconomicEvent | null>(null);
   const [allPerspectives, setAllPerspectives] = useState<VerifiedPerspective[]>([]);
@@ -60,16 +60,25 @@ export default function VerifiedPerspectivePanel() {
       setPanelError("");
 
       try {
-        const result = await fetchEconomicCalendarWithMeta({ market: "forex", scope: "day", date: new Date() });
+        const now = new Date();
+        const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+          now.getDate()
+        ).padStart(2, "0")}`;
+        const result = await fetchEconomicCalendarWithMeta({ market, scope: "day", date: new Date() });
         if (!mounted) return;
 
-        const highImpact = result.events
-          .filter((event) => event.impact === "high" && event.eventKey)
+        const events = result.events
+          .filter(
+            (event) =>
+              (event.impact === "high" || event.impact === "medium") &&
+              event.eventKey &&
+              event.eventDate === todayKey
+          )
           .slice(0, 12);
 
-        setHighImpactEvents(highImpact);
+        setImpactEvents(events);
 
-        if (highImpact.length === 0) {
+        if (events.length === 0) {
           setSelectedEventKey("");
           setSelectedEvent(null);
         }
@@ -89,9 +98,9 @@ export default function VerifiedPerspectivePanel() {
   }, [market]);
 
   useEffect(() => {
-    const event = highImpactEvents.find((row) => row.eventKey === selectedEventKey) ?? null;
+    const event = impactEvents.find((row) => row.eventKey === selectedEventKey) ?? null;
     setSelectedEvent(event);
-  }, [highImpactEvents, selectedEventKey]);
+  }, [impactEvents, selectedEventKey]);
 
   useEffect(() => {
     let mounted = true;
@@ -101,7 +110,7 @@ export default function VerifiedPerspectivePanel() {
       setPanelError("");
 
       try {
-        const result = await fetchVerifiedPerspectives(undefined, "forex");
+        const result = await fetchVerifiedPerspectives(undefined, market);
         if (!mounted) return;
         setAllPerspectives(result.perspectives);
       } catch {
@@ -129,7 +138,7 @@ export default function VerifiedPerspectivePanel() {
   }, [allPerspectives, selectedEventKey]);
 
   const refreshPerspectives = async () => {
-    const result = await fetchVerifiedPerspectives(undefined, "forex");
+    const result = await fetchVerifiedPerspectives(undefined, market);
     setAllPerspectives(result.perspectives);
   };
 
@@ -162,7 +171,7 @@ export default function VerifiedPerspectivePanel() {
 
     const payload: CreateVerifiedPerspectiveInput = {
       eventKey: selectedEvent.eventKey,
-      market: "forex",
+      market,
       eventDate: selectedEvent.eventDate,
       currency: selectedEvent.currency,
       eventTitle: selectedEvent.event,
@@ -196,18 +205,18 @@ export default function VerifiedPerspectivePanel() {
 
       <div className="grid grid-cols-1 gap-2 bg-[var(--surface-2)] p-2 sm:gap-3 sm:p-3 xl:grid-cols-[200px_minmax(0,1fr)]">
         <div className="rounded border border-[var(--line-soft)] bg-[var(--surface-3)] p-2">
-          <p className="mb-2 text-[10px] uppercase tracking-[0.12em] text-[var(--ink-muted)]">High impact today</p>
+          <p className="mb-2 text-[10px] uppercase tracking-[0.12em] text-[var(--ink-muted)]">High & medium impact today</p>
           <p className="mb-2 text-[10px] text-[var(--ink-muted)]">Tap an event to filter takes.</p>
           {isEventsLoading ? (
             <div className="flex items-center gap-2 text-xs text-[var(--ink-muted)]">
               <Loader2 size={12} className="animate-spin" />
               Loading events...
             </div>
-          ) : highImpactEvents.length === 0 ? (
-            <p className="text-xs text-[var(--ink-muted)]">No high-impact events available for this market right now.</p>
+          ) : impactEvents.length === 0 ? (
+            <p className="text-xs text-[var(--ink-muted)]">No high or medium impact events available for this market right now.</p>
           ) : (
             <div className="max-h-[300px] space-y-2 overflow-auto pr-1">
-              {highImpactEvents.map((event) => (
+              {impactEvents.map((event) => (
                 <button
                   key={event.id}
                   onClick={() => onHighImpactEventClick(event)}
