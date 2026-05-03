@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 type CreateReplyInput = {
   threadId?: string;
   content?: string;
+  imageUrl?: string;
 };
 
 export async function GET(request: NextRequest) {
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("forum_replies")
-    .select("id, thread_id, author_id, content, created_at, updated_at")
+    .select("id, thread_id, author_id, content, image_url, created_at, updated_at")
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -51,6 +52,7 @@ export async function GET(request: NextRequest) {
         authorRole: profilesMap.get(reply.author_id as string)?.role ?? "user",
         authorIsVerifiedAnalyst: profilesMap.get(reply.author_id as string)?.isVerifiedAnalyst ?? false,
         content: reply.content,
+        imageUrl: reply.image_url ?? undefined,
         createdAt: reply.created_at,
         updatedAt: reply.updated_at,
       })),
@@ -73,6 +75,7 @@ export async function POST(request: NextRequest) {
   const body = (await request.json()) as CreateReplyInput;
   const threadId = body.threadId?.trim();
   const content = body.content?.trim();
+  const imageUrl = body.imageUrl?.trim() || null;
 
   if (!threadId || !content || content.length < 3) {
     return NextResponse.json({ error: "Reply payload is invalid." }, { status: 422 });
@@ -84,8 +87,9 @@ export async function POST(request: NextRequest) {
       thread_id: threadId,
       author_id: user.id,
       content,
+      image_url: imageUrl,
     })
-    .select("id, thread_id, author_id, content, created_at, updated_at")
+    .select("id, thread_id, author_id, content, image_url, created_at, updated_at")
     .single();
 
   if (error || !row) {
@@ -102,6 +106,7 @@ export async function POST(request: NextRequest) {
         authorRole: "user",
         authorIsVerifiedAnalyst: false,
         content: row.content,
+        imageUrl: row.image_url ?? undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       },

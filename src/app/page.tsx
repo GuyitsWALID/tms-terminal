@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useMarket } from "@/components/layout/MarketContext";
 import { getMarketDefinition } from "@/lib/market";
 import { MARKET_QUOTES_GROUPS, MARKET_TECHNICAL_SYMBOL } from "@/lib/tradingviewWidgets";
@@ -12,7 +13,8 @@ import NewsFeed from "@/components/news/NewsFeed";
 import FinancialJuiceLivePanel from "@/components/news/FinancialJuiceLivePanel";
 import EconomicCalendar from "@/components/calendar/EconomicCalendar";
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams();
   const { market } = useMarket();
   const marketConfig = getMarketDefinition(market);
   const [newsWidgetFailed, setNewsWidgetFailed] = useState(false);
@@ -23,6 +25,19 @@ export default function Home() {
     if (typeof window === "undefined") return "dark";
     return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
   });
+
+  useEffect(() => {
+    const code = searchParams.get("code");
+    if (!code) {
+      return;
+    }
+
+    const next = searchParams.get("next") ?? "/profile";
+    const callbackUrl = new URL("/auth/callback", window.location.origin);
+    callbackUrl.searchParams.set("code", code);
+    callbackUrl.searchParams.set("next", next);
+    window.location.replace(callbackUrl.toString());
+  }, [searchParams]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -169,5 +184,13 @@ export default function Home() {
         </TradingViewPanel>
       </section>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-6xl py-10 text-sm text-[var(--ink-muted)]">Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }

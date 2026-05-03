@@ -67,6 +67,13 @@ export const MARKET_DEFINITIONS: Record<MarketKey, MarketDefinition> = {
     tickerSymbols: STOCKS_FUTURES_INDICES_SYMBOLS.map((symbol) => symbol.compact),
     chartSymbols: STOCKS_FUTURES_INDICES_SYMBOLS,
   },
+  stocks: {
+    id: "stocks",
+    label: "Stocks",
+    description: "US index benchmarks, futures, and leading stocks.",
+    tickerSymbols: STOCKS_FUTURES_INDICES_SYMBOLS.map((symbol) => symbol.compact),
+    chartSymbols: STOCKS_FUTURES_INDICES_SYMBOLS,
+  },
 };
 
 export const MARKET_ORDER: MarketKey[] = ["forex", "crypto", "commodities"];
@@ -93,10 +100,12 @@ export const MARKET_KEYWORDS: Record<MarketKey, string[]> = {
   forex: ["forex", "fx", "usd", "eur", "gbp", "jpy", "boe", "ecb", "boj", "cad", "aud", "nzd", "chf"],
   crypto: ["crypto", "bitcoin", "btc", "ethereum", "eth", "sol", "xrp", "doge", "ada", "token", "blockchain", "defi"],
   commodities: ["stocks", "stock", "futures", "indices", "index", "equity", "nasdaq", "s&p", "spx", "dow", "russell", "earnings", "fed", "rates"],
+  stocks: ["stocks", "stock", "futures", "indices", "index", "equity", "nasdaq", "s&p", "spx", "dow", "russell", "earnings", "fed", "rates"],
 };
 
 export const MARKET_CALENDAR_CURRENCIES: Record<MarketKey, string[]> = {
   forex: ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"],
   crypto: ["USD"],
   commodities: ["USD"],
+  stocks: ["USD"],
 };

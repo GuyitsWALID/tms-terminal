@@ -92,5 +92,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unable to create invite code." }, { status: 500 });
   }
 
+  await supabase.from("admin_audit_logs").insert({
+    actor_id: user.id,
+    action: "invite_code_created",
+    target_type: "analyst_invite_codes",
+    target_id: data.code,
+    payload: { inviteType: data.invite_type, maxUses: data.max_uses, expiresAt: data.expires_at },
+  });
+
   return NextResponse.json({ inviteCode: data }, { status: 201 });
 }

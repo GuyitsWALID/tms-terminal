@@ -52,18 +52,35 @@ export const MARKET_QUOTES_GROUPS: Record<MarketKey, SymbolsGroup[]> = {
       ],
     },
   ],
+  stocks: [
+    {
+      name: "US Indices + Leaders",
+      symbols: [
+        { name: "FOREXCOM:SPXUSD", displayName: "US 500" },
+        { name: "FOREXCOM:NSXUSD", displayName: "US 100" },
+        { name: "FOREXCOM:DJI", displayName: "US 30" },
+        { name: "FOREXCOM:US2000", displayName: "US 2000" },
+        { name: "NASDAQ:AAPL", displayName: "AAPL" },
+        { name: "NASDAQ:MSFT", displayName: "MSFT" },
+        { name: "NASDAQ:NVDA", displayName: "NVDA" },
+        { name: "NASDAQ:TSLA", displayName: "TSLA" },
+      ],
+    },
+  ],
 };
 
 export const MARKET_TECHNICAL_SYMBOL: Record<MarketKey, string> = {
   forex: "FX:EURUSD",
   crypto: "BINANCE:BTCUSDT",
   commodities: "FOREXCOM:SPXUSD",
+  stocks: "FOREXCOM:SPXUSD",
 };
 
 export const MARKET_SCREENER_TYPE: Record<MarketKey, "forex" | "crypto" | "america"> = {
   forex: "forex",
   crypto: "crypto",
   commodities: "america",
+  stocks: "america",
 };
 
 export const FOREX_HEATMAP_CURRENCIES = ["EUR", "USD", "JPY", "GBP", "CHF", "AUD", "CAD", "NZD"];

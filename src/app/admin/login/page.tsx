@@ -26,22 +26,57 @@ export default function AdminLoginPage() {
     setStatusMessage("");
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      const statusRes = await fetch("/api/auth/status", { cache: "no-store" });
-      const statusPayload = (await statusRes.json()) as {
-        isAuthenticated?: boolean;
-        roles?: Array<"admin" | "va">;
-        profile?: { role?: "user" | "analyst" | "admin" };
-        error?: string;
-      };
+      // After client sign-in we need to set the server session cookie so server-side
+      // routes (createSupabaseServerClient) can see the authenticated user.
+      const session = data?.session ?? (await supabase.auth.getSession()).data?.session;
 
-      const hasAdminRole = statusPayload?.roles?.includes("admin") || statusPayload?.profile?.role === "admin";
-
-      if (!statusRes.ok || !statusPayload?.isAuthenticated || !hasAdminRole) {
+      if (!session) {
         await supabase.auth.signOut();
-        throw new Error(statusPayload?.error || "Admin role is required for this portal.");
+        throw new Error("Unable to obtain session after sign-in.");
+      }
+
+      const tokenRes = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token }),
+      });
+
+      if (!tokenRes.ok) {
+        await supabase.auth.signOut();
+        const errPayload = await tokenRes.json().catch(() => ({}));
+        throw new Error(errPayload?.error || "Failed to initialize server session.");
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        await supabase.auth.signOut();
+        throw new Error("Unable to load user after sign-in.");
+      }
+
+      const [{ data: profile, error: profileError }, { data: roleRows, error: roleError }] = await Promise.all([
+        supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", user.id),
+      ]);
+
+      if (profileError || roleError) {
+        await supabase.auth.signOut();
+        throw new Error("Unable to verify admin role.");
+      }
+
+      const roles = (roleRows ?? []).map((row) => row.role);
+      const hasAdminRole = roles.includes("admin") || profile?.role === "admin";
+
+      if (!hasAdminRole) {
+        await supabase.auth.signOut();
+        const roleList = roles.length ? roles.join(", ") : "none";
+        const profileRole = profile?.role ?? "none";
+        throw new Error(`Admin role is required for this portal. (roles: ${roleList}; profile: ${profileRole})`);
       }
 
       setStatusMessage("Access granted. Redirecting...");

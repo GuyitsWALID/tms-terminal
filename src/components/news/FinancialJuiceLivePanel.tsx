@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { MarketKey } from "@/types";
 import type { NewsItem } from "@/types/api";
 import { useMarket } from "@/components/layout/MarketContext";
 import { cn } from "@/lib/utils";
@@ -21,8 +22,9 @@ const dedupeById = (items: NewsItem[]) => {
 
 const isFinancialJuiceItem = (item: NewsItem) => item.source.toLowerCase().includes(SOURCE_KEYWORD);
 
-const fetchFinancialJuiceFeed = async (market: "forex" | "crypto" | "commodities") => {
-  const response = await fetch(`/api/news/financialjuice?market=${market}`, { cache: "no-store" });
+const fetchFinancialJuiceFeed = async (market: MarketKey) => {
+  const apiMarket = market === "stocks" ? "commodities" : market;
+  const response = await fetch(`/api/news/financialjuice?market=${apiMarket}`, { cache: "no-store" });
   if (!response.ok) {
     throw new Error("FinancialJuice fetch failed");
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizeMarket } from "@/lib/market";
+import type { MarketKey } from "@/types";
 
 type UiTickerSymbol = string;
 
@@ -50,10 +51,11 @@ const SYMBOL_MAP: Record<string, string> = {
   TSLA: "TSLA",
 };
 
-const MARKET_SYMBOLS: Record<"forex" | "crypto" | "commodities", UiTickerSymbol[]> = {
+const MARKET_SYMBOLS: Record<MarketKey, UiTickerSymbol[]> = {
   forex: ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD"],
   crypto: ["BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ADAUSD", "DOGEUSD"],
   commodities: ["SPXUSD", "NSXUSD", "DJI", "US2000", "AAPL", "MSFT", "NVDA", "TSLA"],
+  stocks: ["SPXUSD", "NSXUSD", "DJI", "US2000", "AAPL", "MSFT", "NVDA", "TSLA"],
 };
 
 const parseNumberish = (value: unknown): number | null => {
