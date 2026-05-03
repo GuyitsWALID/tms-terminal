@@ -1,38 +1,91 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TMS Terminal
 
-## Getting Started
+A lightweight **trading & macro “terminal”** built with **Next.js**.
 
-First, run the development server:
+TMS Terminal aggregates market information (quotes/tickers) and a live economic calendar into a single web UI, exposing data through simple API routes that the frontend can consume.
+
+> This repository is a Next.js application. The UI lives in the `app/` directory and data is provided by server-side routes under `app/api/*`.
+
+---
+
+## Why this exists (Purpose)
+
+Most retail trading workflows require multiple tabs/tools:
+
+- a quote tool for quick prices
+- an economic calendar site for macro events
+- a custom dashboard/watchlist to glue it together
+
+**TMS Terminal** aims to reduce that context-switching by providing a single app that:
+
+- exposes a **Live Economic Calendar** feed
+- exposes **Live Tickers/Quotes** via a Python `yfinance` pipeline
+
+The goal is to keep the data plumbing inside the app so the UI can stay simple.
+
+---
+
+## What the app provides
+
+### 1) Live Economic Calendar
+
+- Endpoint: `GET /api/calendar`
+- Source: the app’s internal scraper pipeline
+
+This endpoint returns economic calendar data that the UI (or any client) can render.
+
+### 2) Live Tickers (Python `yfinance`)
+
+- Endpoint: `GET /api/tickers`
+- Source: **Python `yfinance` only**
+
+Important behavior:
+
+- **No mock/fake values** are returned when upstream data fails.
+- If `yfinance` fails or returns nothing, the API returns an error/empty response rather than fabricated prices.
+
+---
+
+## Tech stack
+
+- **Next.js (App Router)**
+- **Node.js**
+- **Python 3.10+** (required for the tickers pipeline)
+
+---
+
+## Getting started (local development)
+
+### Prerequisites
+
+- Node.js (recommended: latest LTS)
+- Python 3.10+
+
+### 1) Install Node dependencies
 
 ```bash
-npm run dev
+npm install
 # or
-yarn dev
+yarn
 # or
-pnpm dev
+pnpm install
 # or
-bun dev
+bun install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2) Install Python dependencies
 
-## Live Economic Calendar Setup
-
-The calendar endpoint is served from `GET /api/calendar` using the app's internal scraper pipeline.
-
-## Live Ticker Setup (yfinance)
-
-Tickers are served from `GET /api/tickers` and sourced only from Python `yfinance`.
-No mock ticker values are returned when upstream data fails.
-
-1. Install Python 3.10+.
-2. Install Python dependencies from the project root:
+From the project root:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. (Optional) Create `.env.local` to override Python runner settings:
+> If you use virtual environments, activate your venv before installing.
+
+### 3) Optional configuration (`.env.local`)
+
+Create `.env.local` to override Python runner settings:
 
 ```bash
 # Optional: absolute path to Python executable.
@@ -45,21 +98,69 @@ PYTHON_EXECUTABLE=
 YFINANCE_SCRIPT_PATH=
 ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4) Run the dev server
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
-## Learn More
+Open http://localhost:3000
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## API reference
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### `GET /api/calendar`
 
-## Deploy on Vercel
+Fetch the economic calendar data.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+curl http://localhost:3000/api/calendar
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### `GET /api/tickers`
+
+Fetch tickers/quotes sourced from Python `yfinance`.
+
+```bash
+curl http://localhost:3000/api/tickers
+```
+
+---
+
+## Editing the UI
+
+Start editing the page at:
+
+- `app/page.tsx`
+
+The page auto-updates during development.
+
+---
+
+## Troubleshooting
+
+### `/api/tickers` fails locally
+
+Check:
+
+1. Python is installed and accessible.
+2. `pip install -r requirements.txt` ran successfully.
+3. Any `.env.local` overrides point to valid paths.
+
+### No fallback prices
+
+This project intentionally does **not** return fake prices when upstream data fails.
+If you need fallbacks, implement them in your client/UI or extend the API behavior.
+
+---
+
+## License
+
+No license is specified yet. Add a `LICENSE` file if you want to make licensing explicit.
