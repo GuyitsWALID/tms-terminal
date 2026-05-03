@@ -38,6 +38,16 @@ const SYMBOLS_BY_MARKET = {
     "NASDAQ:NVDA",
     "NASDAQ:TSLA",
   ],
+  stocks: [
+    "FOREXCOM:SPXUSD",
+    "FOREXCOM:NSXUSD",
+    "FOREXCOM:DJI",
+    "FOREXCOM:US2000",
+    "NASDAQ:AAPL",
+    "NASDAQ:MSFT",
+    "NASDAQ:NVDA",
+    "NASDAQ:TSLA",
+  ],
 } as const;
 
 type TradingViewTickerTapeProps = {
@@ -54,6 +64,10 @@ const MARKET_TICKER_THEME = {
     light: { bg: "#f3e8ff", border: "#c6a9ec", tint: "rgba(168, 119, 245, 0.16)", buttonBg: "#f8f0ff", buttonText: "#5a358c", buttonBorder: "#d8bdf7" },
   },
   commodities: {
+    dark: { bg: "#0f2418", border: "#3f7e5e", tint: "rgba(70, 161, 106, 0.16)", buttonBg: "#173524", buttonText: "#e6f8ec", buttonBorder: "#5fa37d" },
+    light: { bg: "#e8f7ec", border: "#a7cfb4", tint: "rgba(114, 186, 138, 0.15)", buttonBg: "#f3fbf5", buttonText: "#24543b", buttonBorder: "#b9dec4" },
+  },
+  stocks: {
     dark: { bg: "#0f2418", border: "#3f7e5e", tint: "rgba(70, 161, 106, 0.16)", buttonBg: "#173524", buttonText: "#e6f8ec", buttonBorder: "#5fa37d" },
     light: { bg: "#e8f7ec", border: "#a7cfb4", tint: "rgba(114, 186, 138, 0.15)", buttonBg: "#f3fbf5", buttonText: "#24543b", buttonBorder: "#b9dec4" },
   },

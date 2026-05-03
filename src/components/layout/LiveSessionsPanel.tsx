@@ -43,6 +43,7 @@ const MARKET_BASE_TRADERS: Record<MarketKey, number> = {
   forex: 18500,
   crypto: 23100,
   commodities: 14200,
+  stocks: 14200,
 };
 
 const toUtcMinutes = (date: Date) => date.getUTCHours() * 60 + date.getUTCMinutes();
