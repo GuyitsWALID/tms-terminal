@@ -16,6 +16,7 @@ import type { EconomicEvent, PerspectiveBias, VerifiedPerspective } from "@/type
 export default function VerifiedPerspectivePanel() {
   const { market } = useMarket();
   const [impactEvents, setImpactEvents] = useState<EconomicEvent[]>([]);
+  const [todayKey, setTodayKey] = useState("");
   const [selectedEventKey, setSelectedEventKey] = useState<string>("");
   const [selectedEvent, setSelectedEvent] = useState<EconomicEvent | null>(null);
   const [allPerspectives, setAllPerspectives] = useState<VerifiedPerspective[]>([]);
@@ -61,9 +62,10 @@ export default function VerifiedPerspectivePanel() {
 
       try {
         const now = new Date();
-        const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+        const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
           now.getDate()
         ).padStart(2, "0")}`;
+        setTodayKey(dateKey);
         const result = await fetchEconomicCalendarWithMeta({ market, scope: "day", date: new Date() });
         if (!mounted) return;
 
@@ -72,7 +74,7 @@ export default function VerifiedPerspectivePanel() {
             (event) =>
               (event.impact === "high" || event.impact === "medium") &&
               event.eventKey &&
-              event.eventDate === todayKey
+              event.eventDate === dateKey
           )
           .slice(0, 12);
 
@@ -112,7 +114,10 @@ export default function VerifiedPerspectivePanel() {
       try {
         const result = await fetchVerifiedPerspectives(undefined, market);
         if (!mounted) return;
-        setAllPerspectives(result.perspectives);
+        const dailyPerspectives = todayKey
+          ? result.perspectives.filter((row) => row.eventDate === todayKey)
+          : result.perspectives;
+        setAllPerspectives(dailyPerspectives);
       } catch {
         if (!mounted) return;
         setPanelError("Unable to load verified analyst perspectives.");
@@ -126,7 +131,7 @@ export default function VerifiedPerspectivePanel() {
     return () => {
       mounted = false;
     };
-  }, [market]);
+  }, [market, todayKey]);
 
   useEffect(() => {
     if (!selectedEventKey) {
@@ -139,7 +144,10 @@ export default function VerifiedPerspectivePanel() {
 
   const refreshPerspectives = async () => {
     const result = await fetchVerifiedPerspectives(undefined, market);
-    setAllPerspectives(result.perspectives);
+    const dailyPerspectives = todayKey
+      ? result.perspectives.filter((row) => row.eventDate === todayKey)
+      : result.perspectives;
+    setAllPerspectives(dailyPerspectives);
   };
 
   const onHighImpactEventClick = (event: EconomicEvent) => {

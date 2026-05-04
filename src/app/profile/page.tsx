@@ -91,10 +91,34 @@ export default function ProfilePage() {
     setStatusMessage("");
 
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut({ scope: "global" });
       if (error) throw error;
+      await fetch("/api/auth/session", { method: "DELETE", credentials: "include", cache: "no-store" });
+      if (typeof window !== "undefined") {
+        const keys = Object.keys(window.localStorage);
+        keys.forEach((key) => {
+          if (key.startsWith("sb-") || key.startsWith("supabase.auth")) {
+            window.localStorage.removeItem(key);
+          }
+        });
+        const sessionKeys = Object.keys(window.sessionStorage);
+        sessionKeys.forEach((key) => {
+          if (key.startsWith("sb-") || key.startsWith("supabase.auth")) {
+            window.sessionStorage.removeItem(key);
+          }
+        });
+        document.cookie.split(";").forEach((cookie) => {
+          const name = cookie.split("=")[0]?.trim();
+          if (name && name.startsWith("sb-")) {
+            document.cookie = `${name}=; Max-Age=0; path=/;`;
+          }
+        });
+      }
+      setAuthState({ isAuthenticated: false });
+      setProfileForm(emptyForm);
       setStatusMessage("Signed out.");
-      await refreshStatus();
+      window.location.href = "/api/auth/logout";
+      return;
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to sign out.");
     } finally {
@@ -110,7 +134,7 @@ export default function ProfilePage() {
     const ext = file.name.split(".").pop() || "png";
     const path = `avatars/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-    const { error } = await supabase.storage.from("profile-media").upload(path, file, {
+    const { error } = await supabase.storage.from("avatars").upload(path, file, {
       cacheControl: "3600",
       upsert: false,
     });
@@ -119,7 +143,7 @@ export default function ProfilePage() {
       throw new Error("Avatar upload failed.");
     }
 
-    const { data } = supabase.storage.from("profile-media").getPublicUrl(path);
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
     return data.publicUrl;
   };
 

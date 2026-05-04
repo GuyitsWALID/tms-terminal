@@ -1,13 +1,31 @@
 import { NextResponse } from "next/server";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export async function POST() {
-  // This must be called from the browser, so we use the browser client
-  const supabase = createSupabaseBrowserClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase client not configured" }, { status: 500 });
+export async function GET(request: Request) {
+  try {
+    const supabase = await createSupabaseServerClient();
+    await supabase.auth.signOut();
+
+    const response = NextResponse.redirect(new URL("/login?logged_out=1", request.url));
+    const cookieStore = await cookies();
+    const hostname = new URL(request.url).hostname;
+    const domainVariants = hostname.includes(".") ? [hostname, `.${hostname}`] : [hostname];
+
+    cookieStore.getAll().forEach((cookie) => {
+      response.cookies.set({ name: cookie.name, value: "", maxAge: 0, path: "/" });
+      domainVariants.forEach((domain) => {
+        response.cookies.set({ name: cookie.name, value: "", maxAge: 0, path: "/", domain });
+      });
+    });
+
+    response.headers.set("Clear-Site-Data", '"cookies", "storage"');
+    return response;
+  } catch {
+    return NextResponse.redirect(new URL("/login?logged_out=1", request.url));
   }
-  await supabase.auth.signOut();
-  // Clear cookies if needed
-  return NextResponse.json({ success: true });
+}
+
+export async function POST(request: Request) {
+  return GET(request);
 }
