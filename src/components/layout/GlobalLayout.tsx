@@ -338,11 +338,11 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
           <div className="flex min-w-0 items-center gap-2 sm:gap-4 xl:gap-5">
             <Link href="/" className="flex shrink-0 items-center gap-2 border-r border-[var(--line-soft)] pr-3 xl:pr-4">
               <Image
-                src="/TMSLOGO.png"
-                alt="TMS Logo"
-                width={36}
-                height={36}
-                className="h-8 w-8 rounded-md object-cover sm:h-9 sm:w-9"
+                src="/finacialvibe2.png"
+                alt="Financial Vibe Logo"
+                width={40}
+                height={40}
+                
                 priority
               />
               <div className="hidden sm:block">
