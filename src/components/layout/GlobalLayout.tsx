@@ -346,8 +346,8 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
                 priority
               />
               <div className="hidden sm:block">
-                <p className="font-rajdhani text-xl font-bold uppercase leading-none tracking-wide">TMS Terminal</p>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">The Market Syndicate</p>
+                <p className="font-rajdhani text-xl font-bold uppercase leading-none tracking-wide">Financial Vibe</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">Feel the Market. Act on Data</p>
               </div>
             </Link>
 
