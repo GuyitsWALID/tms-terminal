@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ArrowUpRight } from "lucide-react";
 import type { MarketKey } from "@/types";
 import type { NewsItem } from "@/types/api";
 import { useMarket } from "@/components/layout/MarketContext";
@@ -42,6 +43,7 @@ export default function FinancialJuiceLivePanel() {
   const [loading, setLoading] = useState(true);
   const [delayed, setDelayed] = useState(false);
   const [timePreferences, setTimePreferences] = useState(HYDRATION_SAFE_TIME_PREFERENCES);
+  const [copyStatus, setCopyStatus] = useState("");
 
   useEffect(() => {
     setTimePreferences(readTimePreferences());
@@ -112,6 +114,26 @@ export default function FinancialJuiceLivePanel() {
     };
   }, [market]);
 
+  const onFindArticle = async (item: NewsItem) => {
+    const exactHeadline = item.headline.trim();
+    const fallbackText = `${item.headline}\n${item.source}\n${item.publishedAt ?? item.timestamp}`;
+
+    try {
+      await navigator.clipboard.writeText(exactHeadline || fallbackText);
+      setCopyStatus("Headline copied. Opening Google search...");
+      window.setTimeout(() => setCopyStatus(""), 2200);
+    } catch {
+      setCopyStatus("Opening Google search...");
+      window.setTimeout(() => setCopyStatus(""), 2200);
+    }
+
+    const query = exactHeadline
+      ? exactHeadline
+      : `${item.source} ${item.timestamp}`;
+    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+    window.open(googleUrl, "_blank", "noopener,noreferrer");
+  };
+
   useEffect(() => {
     const streamUrl = `/api/news/live?market=${market}`;
     const eventSource = new EventSource(streamUrl);
@@ -145,8 +167,8 @@ export default function FinancialJuiceLivePanel() {
     <section className="ff-panel overflow-hidden">
       <div className="flex items-center justify-between gap-2 border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-2">
         <div>
-          <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">FinancialJuice Live Wire</h2>
-          <p className="text-[11px] text-[var(--ink-muted)]">Direct FinancialJuice feed with automatic Telegram fallback.</p>
+          <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">Live News</h2>
+          <p className="text-[11px] text-[var(--ink-muted)]">Direct and live news in minutes</p>
         </div>
       </div>
 
@@ -164,28 +186,39 @@ export default function FinancialJuiceLivePanel() {
         ) : (
           items.map((item) => (
             <article key={item.id} className="border-b border-[var(--line-soft)] px-4 py-3">
-              <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase text-[var(--ink-muted)]">
-                <span>{formatItemTimestamp(item)}</span>
-                <span>|</span>
-                <span>{item.category}</span>
-                <span
-                  className={cn(
-                    "rounded px-1.5 py-0.5 font-bold",
-                    item.impact === "high"
-                      ? "bg-[#ff4b55] text-white"
-                      : item.impact === "medium"
-                        ? "bg-[#ff9d2d] text-[#161616]"
-                        : "bg-[#ffe27a] text-[#161616]"
-                  )}
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase text-[var(--ink-muted)]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>{formatItemTimestamp(item)}</span>
+                  <span>|</span>
+                  <span>{item.category}</span>
+                  <span
+                    className={cn(
+                      "rounded px-1.5 py-0.5 font-bold",
+                      item.impact === "high"
+                        ? "bg-[#ff4b55] text-white"
+                        : item.impact === "medium"
+                          ? "bg-[#ff9d2d] text-[#161616]"
+                          : "bg-[#ffe27a] text-[#161616]"
+                    )}
+                  >
+                    {item.impact}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void onFindArticle(item)}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded border border-[var(--line-soft)] bg-[var(--surface-1)] text-[var(--ink-primary)]"
+                  aria-label="Find related article"
                 >
-                  {item.impact}
-                </span>
+                  <ArrowUpRight size={12} />
+                </button>
               </div>
               <p className="mt-1 text-sm font-semibold text-[var(--ink-primary)]">{item.headline}</p>
             </article>
           ))
         )}
       </div>
+      {copyStatus ? <p className="border-t border-[var(--line-soft)] px-4 py-2 text-xs text-[var(--ink-muted)]">{copyStatus}</p> : null}
     </section>
   );
 }
