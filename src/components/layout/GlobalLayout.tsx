@@ -269,6 +269,49 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (pathname !== "/") return;
+
+    const widgetElementId = "rosetta_translate_widget";
+    const scriptId = "rosetta-widget-script";
+    const win = window as unknown as {
+      au5ton?: {
+        translateWidget: (config: Record<string, unknown>, elementId: string) => void;
+      };
+    };
+
+    const initWidget = () => {
+      if (!win.au5ton || !document.getElementById(widgetElementId)) return;
+      win.au5ton.translateWidget(
+        {
+          pageLanguage: "en",
+          chunkSize: 10,
+          attributionImageUrl: "https://cdn.jsdelivr.net/gh/au5ton/rosetta@0.5.1/dist/google-translate.svg",
+          preferredSupportedLanguages: ["en", "es", "fr", "de", "ar", "am", "zh"],
+          showBanner: false,
+          endpoints: {
+            supportedLanguages: "https://rosetta-demo-server.vercel.app/api/v3/supportedLanguages",
+            translate: "https://rosetta-demo-server.vercel.app/api/v3/translate",
+          },
+        },
+        widgetElementId
+      );
+    };
+
+    const existingScript = document.getElementById(scriptId) as HTMLScriptElement | null;
+    if (existingScript) {
+      initWidget();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = scriptId;
+    script.src = "https://cdn.jsdelivr.net/gh/au5ton/rosetta@0.5.1/dist/index.js";
+    script.async = true;
+    script.onload = initWidget;
+    document.body.appendChild(script);
+  }, [pathname]);
+
+  useEffect(() => {
     const onHotkey = async (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
@@ -370,7 +413,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
 
         <div className="min-w-0">
           <header className="ff-topbar sticky top-0 z-50">
-            <div className="mx-auto flex h-16 w-full max-w-[1460px] items-center justify-between gap-4 px-3 md:px-6">
+            <div className="flex h-16 w-full items-center justify-between gap-2 px-2 md:px-4 xl:px-5 2xl:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-4 xl:gap-5">
             <Link href="/" className="flex shrink-0 items-center gap-2 border-r border-[var(--line-soft)] pr-3 xl:pr-4">
               <Image
@@ -407,13 +450,13 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
               Order Flow
             </Link>
 
-            <nav className="mr-1 hidden min-w-0 items-center gap-1.5 xl:mr-2 2xl:mr-3 lg:flex">
+            <nav className="mr-1 hidden min-w-0 items-center gap-2 xl:mr-2 2xl:mr-3 lg:flex">
               {menuItems.map((item) => (
                 <Link
                   key={item.id}
                   href={item.path}
                   className={cn(
-                    "shrink-0 whitespace-nowrap rounded-md px-2 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors 2xl:px-2.5",
+                    "shrink-0 whitespace-nowrap rounded-md px-2 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors",
                     pathname === item.path
                       ? "bg-[var(--surface-hover)] text-[var(--ink-primary)]"
                       : "text-[var(--ink-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink-primary)]"
@@ -425,7 +468,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 xl:gap-2">
             <div className="relative hidden xl:block" ref={searchMenuRef}>
               <button
                 type="button"
@@ -656,7 +699,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
             <div className="relative hidden sm:block" ref={timeMenuRef}>
               <button
                 onClick={() => setIsTimeSettingsOpen((open) => !open)}
-                className="w-[132px] xl:w-[170px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-3 py-1.5 text-left"
+                className="w-[120px] xl:w-[158px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-2.5 py-1.5 text-left"
                 aria-expanded={isTimeSettingsOpen}
                 aria-haspopup="dialog"
                 aria-label="Open time settings"
@@ -723,7 +766,13 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
               ) : null}
             </div>
 
-            <div className="relative" ref={profileMenuRef}>
+            <div className="relative flex items-center gap-2" ref={profileMenuRef}>
+              {pathname === "/" ? (
+                <div
+                  id="rosetta_translate_widget"
+                  className="hidden min-w-[170px] rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-1 xl:block"
+                />
+              ) : null}
               <button
                 onClick={() => setIsProfileMenuOpen((open) => !open)}
                 className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--ink-primary)] sm:p-2"
