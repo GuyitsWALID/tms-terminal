@@ -16,7 +16,7 @@ type ComplaintRow = {
   updated_at: string;
   reported_user_id: Array<{ id: string; display_name: string | null }> | null;
   reported_by_id: Array<{ id: string; display_name: string | null }> | null;
-  forum_threads?: { id: string; title: string; author_id: string } | null;
+  forum_threads?: Array<{ id: string; title: string; author_id: string }> | { id: string; title: string; author_id: string } | null;
 };
 
 type ComplaintUpdateInput = {
@@ -86,6 +86,7 @@ export async function GET() {
 
   const rows = (data ?? []) as ComplaintRow[];
   const complaints = rows.map((row) => {
+    const threadMeta = Array.isArray(row.forum_threads) ? row.forum_threads[0] : row.forum_threads ?? null;
     const reportedUser = row.reported_user_id?.[0]?.display_name ?? "Unknown";
     const reportedBy = row.reported_by_id?.[0]?.display_name ?? "Unknown";
     return {
@@ -98,8 +99,8 @@ export async function GET() {
     severity: row.severity,
     status: row.status,
     threadId: row.thread_id ?? undefined,
-    threadTitle: row.forum_threads?.title ?? "Unknown Thread",
-    threadAuthorId: row.forum_threads?.author_id ?? undefined,
+    threadTitle: threadMeta?.title ?? "Unknown Thread",
+    threadAuthorId: threadMeta?.author_id ?? undefined,
     threadUrl: row.thread_url ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
