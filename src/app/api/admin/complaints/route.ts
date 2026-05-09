@@ -16,6 +16,7 @@ type ComplaintRow = {
   updated_at: string;
   reported_user_id: Array<{ id: string; display_name: string | null }> | null;
   reported_by_id: Array<{ id: string; display_name: string | null }> | null;
+  forum_threads?: { id: string; title: string; author_id: string } | null;
 };
 
 type ComplaintUpdateInput = {
@@ -23,7 +24,7 @@ type ComplaintUpdateInput = {
   status?: ComplaintStatus;
 };
 
-const ensureAdmin = async () => {
+const ensurePortalAccess = async () => {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -33,41 +34,51 @@ const ensureAdmin = async () => {
     return { supabase, user: null, authorized: false, status: 401 as const, error: "Authentication required." };
   }
 
-  const { data: adminRole } = await supabase
+  const { data: roleRows } = await supabase
     .from("user_roles")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .eq("role", "admin")
+    .select("role")
+    .eq("user_id", user.id);
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, is_verified_analyst")
+    .eq("id", user.id)
     .maybeSingle();
 
-  if (!adminRole) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
+  const roles = (roleRows ?? []).map((row) => row.role);
+  const isAdmin = roles.includes("admin") || profile?.role === "admin";
+  const isVa = roles.includes("va") || profile?.is_verified_analyst === true || profile?.role === "analyst";
+  const authorized = isAdmin || isVa;
 
-    if (profile?.role !== "admin") {
-      return { supabase, user, authorized: false, status: 403 as const, error: "Admin role required." };
-    }
+  if (!authorized) {
+    return { supabase, user, authorized: false, status: 403 as const, error: "Admin or VA role required." };
   }
 
-  return { supabase, user, authorized: true as const };
+  return { supabase, user, authorized: true as const, isAdmin };
 };
 
 export async function GET() {
-  const access = await ensureAdmin();
+  const access = await ensurePortalAccess();
   if (!access.authorized) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
 
-  const { data, error } = await access.supabase
+  let query = access.supabase
     .from("forum_complaints")
     .select(
-      "id, category, summary, detail, severity, status, thread_id, thread_url, created_at, updated_at, reported_user_id (id, display_name), reported_by_id (id, display_name)"
+      "id, category, summary, detail, severity, status, thread_id, thread_url, created_at, updated_at, reported_user_id (id, display_name), reported_by_id (id, display_name), forum_threads:thread_id (id, title, author_id)"
     )
     .order("created_at", { ascending: false })
     .limit(200);
+
+  if (!access.isAdmin) {
+    const { data: ownThreads } = await access.supabase.from("forum_threads").select("id").eq("author_id", access.user?.id ?? "");
+    const ids = (ownThreads ?? []).map((t) => t.id);
+    if (ids.length === 0) return NextResponse.json({ complaints: [] }, { status: 200 });
+    query = query.in("thread_id", ids);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: "Unable to load complaints." }, { status: 500 });
@@ -87,6 +98,8 @@ export async function GET() {
     severity: row.severity,
     status: row.status,
     threadId: row.thread_id ?? undefined,
+    threadTitle: row.forum_threads?.title ?? "Unknown Thread",
+    threadAuthorId: row.forum_threads?.author_id ?? undefined,
     threadUrl: row.thread_url ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -97,9 +110,12 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
-  const access = await ensureAdmin();
+  const access = await ensurePortalAccess();
   if (!access.authorized) {
     return NextResponse.json({ error: access.error }, { status: access.status });
+  }
+  if (!access.isAdmin) {
+    return NextResponse.json({ error: "Only admin can update complaint status." }, { status: 403 });
   }
 
   const input = (await request.json()) as ComplaintUpdateInput;

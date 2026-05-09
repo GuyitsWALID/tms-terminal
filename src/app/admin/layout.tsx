@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -10,30 +10,47 @@ import {
   ChevronLeft,
   ChevronRight,
   Flag,
+  FilePenLine,
+  Link2,
   LayoutDashboard,
   LogOut,
   Menu,
+  Moon,
+  Sun,
   Users,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const NAV_ITEMS = [
+const FULL_NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/admin" },
+  { id: "create-thread", label: "Create Thread", icon: FilePenLine, href: "/admin/create-thread" },
   { id: "users", label: "Users & Team", icon: Users, href: "/admin/users" },
   { id: "complaints", label: "Complaints", icon: Flag, href: "/admin/complaints" },
   { id: "notifications", label: "Notifications", icon: Bell, href: "/admin/notifications" },
+  { id: "orderflow-links", label: "Orderflow Links", icon: Link2, href: "/admin/orderflow-links" },
   { id: "analytics", label: "Analytics", icon: BarChart3, href: "/admin/analytics" },
 ];
 
 type SidebarProps = {
   collapsed: boolean;
   pathname: string;
+  isAdmin: boolean;
+  isVa: boolean;
   onCollapseToggle: () => void;
   onMobileClose: () => void;
 };
 
-function SidebarContent({ collapsed, pathname, onCollapseToggle, onMobileClose }: SidebarProps) {
+function SidebarContent({ collapsed, pathname, isAdmin, isVa, onCollapseToggle, onMobileClose }: SidebarProps) {
+  const navItems = isAdmin
+    ? FULL_NAV_ITEMS
+    : isVa
+      ? [
+          { id: "create-thread", label: "Create Thread", icon: FilePenLine, href: "/admin/create-thread" },
+          { id: "complaints", label: "Complaints", icon: Flag, href: "/admin/complaints" },
+        ]
+      : [];
+
   return (
     <div className="flex h-full flex-col">
       {/* Logo */}
@@ -56,7 +73,7 @@ function SidebarContent({ collapsed, pathname, onCollapseToggle, onMobileClose }
 
       {/* Nav */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-2 pt-3">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const isActive = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
           return (
             <Link
@@ -111,6 +128,36 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [accessLevel, setAccessLevel] = useState<"admin" | "va" | "none">("none");
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window === "undefined") return "dark";
+    const storedTheme = window.localStorage.getItem("tms-theme");
+    if (storedTheme === "dark" || storedTheme === "light") return storedTheme;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/auth/status", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          roles?: Array<"admin" | "va">;
+          profile?: { role?: "user" | "analyst" | "admin"; isVerifiedAnalyst?: boolean };
+        };
+        const roles = data.roles ?? [];
+        const isAdmin = roles.includes("admin") || data.profile?.role === "admin";
+        const isVa = roles.includes("va") || data.profile?.isVerifiedAnalyst === true || data.profile?.role === "analyst";
+        setAccessLevel(isAdmin ? "admin" : isVa ? "va" : "none");
+      } catch {
+        setAccessLevel("none");
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
   // Skip layout on the login page
   if (pathname === "/admin/login") {
@@ -119,13 +166,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const handleCollapseToggle = () => setCollapsed((c) => !c);
   const handleMobileClose = () => setMobileOpen(false);
+  const toggleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    document.documentElement.setAttribute("data-theme", nextTheme);
+    window.localStorage.setItem("tms-theme", nextTheme);
+  };
+  const onLogout = () => {
+    window.location.href = "/api/auth/logout";
+  };
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: "var(--bg-main)", color: "var(--ink-primary)" }}
-      data-theme="dark"
-    >
+    <div className="min-h-screen" style={{ background: "var(--bg-main)", color: "var(--ink-primary)" }}>
       {/* Mobile top bar */}
       <header className="flex h-14 items-center justify-between border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 xl:hidden">
         <div className="flex items-center gap-2">
@@ -151,6 +203,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <SidebarContent
               collapsed={collapsed}
               pathname={pathname}
+              isAdmin={accessLevel === "admin"}
+              isVa={accessLevel === "va"}
               onCollapseToggle={handleCollapseToggle}
               onMobileClose={handleMobileClose}
             />
@@ -170,13 +224,39 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <SidebarContent
             collapsed={collapsed}
             pathname={pathname}
+            isAdmin={accessLevel === "admin"}
+            isVa={accessLevel === "va"}
             onCollapseToggle={handleCollapseToggle}
             onMobileClose={handleMobileClose}
           />
         </aside>
 
         {/* Main content */}
-        <main className="min-w-0 flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+        <main className="min-w-0 flex-1 p-4 md:p-6 lg:p-8">
+          <div className="mb-4 flex items-center justify-between rounded-md border border-[var(--line-strong)] bg-[var(--surface-header)] px-3 py-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-muted)]">Admin Control Header</p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="inline-flex items-center gap-1.5 rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)]"
+                aria-label="Toggle admin theme"
+              >
+                {theme === "dark" ? <Sun size={13} /> : <Moon size={13} />}
+                Theme
+              </button>
+              <button
+                type="button"
+                onClick={onLogout}
+                className="inline-flex items-center gap-1.5 rounded-md border border-[#ff4b5544] bg-[#ff4b5515] px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide text-[#ff9ea3]"
+              >
+                <LogOut size={13} />
+                Logout
+              </button>
+            </div>
+          </div>
+          {children}
+        </main>
       </div>
     </div>
   );

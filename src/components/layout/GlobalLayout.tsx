@@ -268,6 +268,42 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    const onHotkey = async (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return;
+      }
+
+      // Team-only shortcut: Ctrl + Shift + M
+      if (!(event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "m")) return;
+      event.preventDefault();
+
+      const code = window.prompt("Team access code");
+      if (!code) return;
+
+      try {
+        const res = await fetch("/api/admin/unlock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        });
+
+        if (!res.ok) {
+          window.alert("Access code is invalid.");
+          return;
+        }
+
+        window.location.href = "/admin/login";
+      } catch {
+        window.alert("Unable to unlock admin access right now.");
+      }
+    };
+
+    window.addEventListener("keydown", onHotkey);
+    return () => window.removeEventListener("keydown", onHotkey);
+  }, []);
+
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
@@ -822,12 +858,19 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
       <footer className="w-full border-t border-[var(--line-strong)] bg-[var(--surface-2)] py-6 mt-8">
         <div className="mx-auto max-w-6xl flex flex-col md:flex-row items-center justify-between gap-4 px-4 text-xs text-[var(--ink-muted)]">
           <div className="flex items-center gap-2">
-            <Image src="/TMSLOGO.png" alt="TMS Logo" width={28} height={28} className="h-7 w-7 rounded object-cover" />
-            <span className="font-bold text-[var(--ink-primary)]">TMS Terminal</span>
-            <span className="hidden md:inline">| The Market Syndicate</span>
+            <Image src="/finacialvibe2.png" alt="Financial Vibe Logo" width={28} height={28} className="h-7 w-7 rounded object-cover" />
+            <span className="font-bold text-[var(--ink-primary)]">Financial Vibe</span>
           </div>
           <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4">
-            <span>&copy; {new Date().getFullYear()} TMS Terminal. All rights reserved.</span>
+            <span>&copy; {new Date().getFullYear()} Financial Vibe. All rights reserved.</span>
+            <a
+              href="https://t.me/TMS_help_bot"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:underline text-[var(--ink-primary)] text-center"
+            >
+              &quot;if you want to join an elite high quality academy and community join us&quot;
+            </a>
             <Link href="/about" className="hover:underline text-[var(--ink-primary)]">About</Link>
             <Link href="/privacy" className="hover:underline text-[var(--ink-primary)]">Privacy Policy</Link>
             <Link href="/contact" className="hover:underline text-[var(--ink-primary)]">Contact</Link>

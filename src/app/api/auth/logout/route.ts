@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const supabase = await createSupabaseServerClient();
     await supabase.auth.signOut();
 
-    const response = NextResponse.redirect(new URL("/login?logged_out=1", request.url));
+    const response = NextResponse.redirect(new URL("/?logged_out=1", request.url));
     const cookieStore = await cookies();
     const hostname = new URL(request.url).hostname;
     const domainVariants = hostname.includes(".") ? [hostname, `.${hostname}`] : [hostname];
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     response.headers.set("Clear-Site-Data", '"cookies", "storage"');
     return response;
   } catch {
-    return NextResponse.redirect(new URL("/login?logged_out=1", request.url));
+    return NextResponse.redirect(new URL("/?logged_out=1", request.url));
   }
 }
 

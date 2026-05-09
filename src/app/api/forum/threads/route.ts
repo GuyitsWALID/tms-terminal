@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("forum_threads")
-    .select("id, author_id, title, category, market, image_url, content, is_pinned, created_at, updated_at")
+    .select("id, author_id, title, category, market, image_url, content, is_pinned, is_archived, created_at, updated_at")
+    .eq("is_archived", false)
     .order("is_pinned", { ascending: false })
     .order("updated_at", { ascending: false })
     .limit(50);

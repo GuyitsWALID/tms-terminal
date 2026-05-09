@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+supabase/migrations/20260509_000001_admin_orderflow_links.sql
+.gitignore
+supabase/migrations/20260509_000002_add_bitcoin_orderflow_links.sql

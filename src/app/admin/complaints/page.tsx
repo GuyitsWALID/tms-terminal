@@ -17,6 +17,8 @@ type Complaint = {
   severity: ComplaintSeverity;
   status: ComplaintStatus;
   threadId?: string;
+  threadTitle?: string;
+  threadAuthorId?: string;
   threadUrl?: string;
   createdAt: string;
   updatedAt: string;
@@ -39,8 +41,11 @@ export default function AdminComplaintsPage() {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | ComplaintStatus>("all");
+  const [query, setQuery] = useState("");
+  const [threadFilter, setThreadFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const [canModerate, setCanModerate] = useState(false);
 
   const load = async () => {
     try {
@@ -57,6 +62,21 @@ export default function AdminComplaintsPage() {
 
   useEffect(() => {
     void load();
+  }, []);
+
+  useEffect(() => {
+    const loadAccess = async () => {
+      try {
+        const res = await fetch("/api/auth/status", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { roles?: Array<"admin" | "va">; profile?: { role?: "user" | "analyst" | "admin" } };
+        const isAdmin = (data.roles ?? []).includes("admin") || data.profile?.role === "admin";
+        setCanModerate(isAdmin);
+      } catch {
+        setCanModerate(false);
+      }
+    };
+    void loadAccess();
   }, []);
 
   const setStatus = async (id: string, status: ComplaintStatus) => {
@@ -78,12 +98,20 @@ export default function AdminComplaintsPage() {
     }
   };
 
-  const filtered = complaints.filter(
-    (c) => statusFilter === "all" || c.status === statusFilter
-  );
+  const threadOptions = Array.from(new Set(complaints.map((c) => c.threadTitle).filter(Boolean))) as string[];
+
+  const filtered = complaints.filter((c) => {
+    const byStatus = statusFilter === "all" || c.status === statusFilter;
+    const byThread = threadFilter === "all" || c.threadTitle === threadFilter;
+    const q = query.trim().toLowerCase();
+    const hay = `${c.summary} ${c.detail} ${c.category} ${c.threadTitle ?? ""}`.toLowerCase();
+    const byQuery = !q || hay.includes(q);
+    return byStatus && byThread && byQuery;
+  });
 
   const openCount = complaints.filter((c) => c.status === "open").length;
   const reviewCount = complaints.filter((c) => c.status === "under_review").length;
+  const totalCount = complaints.length;
 
   return (
     <div className="space-y-5">
@@ -97,6 +125,9 @@ export default function AdminComplaintsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <span className="rounded border border-[var(--line-soft)] bg-[var(--surface-2)] px-2.5 py-1 text-xs text-[var(--ink-primary)]">
+            {totalCount} Total
+          </span>
           {openCount > 0 && (
             <span className="rounded border border-[#ff4b5544] bg-[#ff4b5515] px-2.5 py-1 text-xs text-[#ff9ea3]">
               {openCount} Open
@@ -108,6 +139,25 @@ export default function AdminComplaintsPage() {
             </span>
           )}
         </div>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search complaints or thread..."
+          className="h-9 rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-3 text-xs text-[var(--ink-primary)] outline-none"
+        />
+        <select
+          value={threadFilter}
+          onChange={(e) => setThreadFilter(e.target.value)}
+          className="h-9 rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-3 text-xs text-[var(--ink-primary)] outline-none"
+        >
+          <option value="all">All Threads</option>
+          {threadOptions.map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
       </div>
 
       {/* Status filter */}
@@ -177,6 +227,9 @@ export default function AdminComplaintsPage() {
                   <p className="mt-0.5 text-[10px] text-[var(--ink-muted)]">
                     {complaint.reportedUser} · reported by {complaint.reportedBy} · {new Date(complaint.createdAt).toLocaleDateString()}
                   </p>
+                  <p className="mt-0.5 text-[10px] text-[var(--ink-muted)]">
+                    Thread: {complaint.threadTitle ?? "Unknown Thread"}
+                  </p>
                 </div>
                 <span
                   className="shrink-0 flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold uppercase"
@@ -209,44 +262,50 @@ export default function AdminComplaintsPage() {
                     <span>Last updated: {new Date(complaint.updatedAt).toLocaleString()}</span>
                   </div>
                   {/* Admin actions */}
-                  <div className="flex flex-wrap items-center gap-2 border-t border-[var(--line-soft)] pt-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-muted)] mr-2">
-                      <MessageSquare size={10} className="inline mr-1" />
-                      Action:
-                    </p>
-                    {complaint.status !== "under_review" && (
-                      <button
-                        onClick={() => setStatus(complaint.id, "under_review")}
-                        className="rounded border border-[#ffb34744] bg-[#ffb34715] px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#ffd28e] transition-colors hover:bg-[#ffb34730]"
-                      >
-                        Mark In Review
-                      </button>
-                    )}
-                    {complaint.status !== "resolved" && (
-                      <button
-                        onClick={() => setStatus(complaint.id, "resolved")}
-                        className="rounded border border-[#2ecf8744] bg-[#2ecf8715] px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#5de6a7] transition-colors hover:bg-[#2ecf8730]"
-                      >
-                        Mark Resolved
-                      </button>
-                    )}
-                    {complaint.status !== "dismissed" && (
-                      <button
-                        onClick={() => setStatus(complaint.id, "dismissed")}
-                        className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-muted)] transition-colors hover:bg-[var(--surface-hover)]"
-                      >
-                        Dismiss
-                      </button>
-                    )}
-                    {complaint.status !== "open" && (
-                      <button
-                        onClick={() => setStatus(complaint.id, "open")}
-                        className="rounded border border-[#ff4b5544] bg-[#ff4b5515] px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#ff9ea3] transition-colors hover:bg-[#ff4b5530]"
-                      >
-                        Re-open
-                      </button>
-                    )}
-                  </div>
+                  {canModerate ? (
+                    <div className="flex flex-wrap items-center gap-2 border-t border-[var(--line-soft)] pt-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-muted)] mr-2">
+                        <MessageSquare size={10} className="inline mr-1" />
+                        Action:
+                      </p>
+                      {complaint.status !== "under_review" && (
+                        <button
+                          onClick={() => setStatus(complaint.id, "under_review")}
+                          className="rounded border border-[#ffb34744] bg-[#ffb34715] px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#ffd28e] transition-colors hover:bg-[#ffb34730]"
+                        >
+                          Mark In Review
+                        </button>
+                      )}
+                      {complaint.status !== "resolved" && (
+                        <button
+                          onClick={() => setStatus(complaint.id, "resolved")}
+                          className="rounded border border-[#2ecf8744] bg-[#2ecf8715] px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#5de6a7] transition-colors hover:bg-[#2ecf8730]"
+                        >
+                          Mark Resolved
+                        </button>
+                      )}
+                      {complaint.status !== "dismissed" && (
+                        <button
+                          onClick={() => setStatus(complaint.id, "dismissed")}
+                          className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-muted)] transition-colors hover:bg-[var(--surface-hover)]"
+                        >
+                          Dismiss
+                        </button>
+                      )}
+                      {complaint.status !== "open" && (
+                        <button
+                          onClick={() => setStatus(complaint.id, "open")}
+                          className="rounded border border-[#ff4b5544] bg-[#ff4b5515] px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#ff9ea3] transition-colors hover:bg-[#ff4b5530]"
+                        >
+                          Re-open
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="border-t border-[var(--line-soft)] pt-3">
+                      <p className="text-[11px] text-[var(--ink-muted)]">View-only access for VA users.</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

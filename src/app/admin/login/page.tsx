@@ -60,7 +60,7 @@ export default function AdminLoginPage() {
       }
 
       const [{ data: profile, error: profileError }, { data: roleRows, error: roleError }] = await Promise.all([
-        supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+        supabase.from("profiles").select("role, is_verified_analyst").eq("id", user.id).maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", user.id),
       ]);
 
@@ -71,16 +71,18 @@ export default function AdminLoginPage() {
 
       const roles = (roleRows ?? []).map((row) => row.role);
       const hasAdminRole = roles.includes("admin") || profile?.role === "admin";
+      const hasVaRole = roles.includes("va") || profile?.role === "analyst" || profile?.is_verified_analyst === true;
+      const hasPortalRole = hasAdminRole || hasVaRole;
 
-      if (!hasAdminRole) {
+      if (!hasPortalRole) {
         await supabase.auth.signOut();
         const roleList = roles.length ? roles.join(", ") : "none";
         const profileRole = profile?.role ?? "none";
-        throw new Error(`Admin role is required for this portal. (roles: ${roleList}; profile: ${profileRole})`);
+        throw new Error(`Admin or VA role is required for this portal. (roles: ${roleList}; profile: ${profileRole})`);
       }
 
       setStatusMessage("Access granted. Redirecting...");
-      router.push("/admin");
+      router.push(hasAdminRole ? "/admin" : "/admin/create-thread");
       router.refresh();
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to sign in.");
