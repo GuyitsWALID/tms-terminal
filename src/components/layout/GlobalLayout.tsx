@@ -361,10 +361,14 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
 
             <Link
               href="/tools"
-              aria-label="Tools"
-              className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] text-[var(--ink-primary)] transition-colors hover:bg-[var(--surface-hover)] lg:flex"
+              className={cn(
+                "hidden shrink-0 whitespace-nowrap rounded-md px-2 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors 2xl:px-2.5 lg:flex",
+                pathname === "/tools"
+                  ? "bg-[var(--surface-hover)] text-[var(--ink-primary)]"
+                  : "text-[var(--ink-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink-primary)]"
+              )}
             >
-              <Wrench size={16} />
+              Order Flow
             </Link>
 
             <nav className="mr-1 hidden min-w-0 items-center gap-1.5 xl:mr-2 2xl:mr-3 lg:flex">
