@@ -16,7 +16,15 @@ type Thread = {
   updatedAt: string;
 };
 
-const EMPTY_FORM = { title: "", category: "general", market: "forex" as const, content: "", imageUrl: "" };
+type ThreadForm = {
+  title: string;
+  category: string;
+  market: "forex" | "crypto" | "stocks";
+  content: string;
+  imageUrl: string;
+};
+
+const EMPTY_FORM: ThreadForm = { title: "", category: "general", market: "forex", content: "", imageUrl: "" };
 
 export default function AdminCreateThreadPage() {
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -24,7 +32,7 @@ export default function AdminCreateThreadPage() {
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [statusMsg, setStatusMsg] = useState("");
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState<ThreadForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const load = async () => {
