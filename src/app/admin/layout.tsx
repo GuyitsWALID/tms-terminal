@@ -60,11 +60,11 @@ function SidebarContent({ collapsed, pathname, isAdmin, isVa, onCollapseToggle, 
           collapsed ? "justify-center" : "gap-3"
         )}
       >
-        <Image src="/TMSLOGO.png" alt="TMS" width={32} height={32} className="h-8 w-8 shrink-0 rounded-md object-cover" />
+        <Image src="/finacialvibe2.png" alt="Financial Vibe" width={32} height={32} className="h-8 w-8 shrink-0 rounded-md object-contain" />
         {!collapsed && (
           <div>
             <p className="font-rajdhani text-sm font-bold uppercase leading-none tracking-wide text-[var(--ink-primary)]">
-              TMS Admin
+              Financial Vibe Admin
             </p>
             <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">Control Panel</p>
           </div>
@@ -181,8 +181,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Mobile top bar */}
       <header className="flex h-14 items-center justify-between border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 xl:hidden">
         <div className="flex items-center gap-2">
-          <Image src="/TMSLOGO.png" alt="TMS" width={28} height={28} className="h-7 w-7 rounded object-cover" />
-          <span className="font-rajdhani text-sm font-bold uppercase tracking-wide text-[var(--ink-primary)]">TMS Admin</span>
+          <Image src="/finacialvibe2.png" alt="Financial Vibe" width={28} height={28} className="h-7 w-7 rounded object-contain" />
+          <span className="font-rajdhani text-sm font-bold uppercase tracking-wide text-[var(--ink-primary)]">Financial Vibe Admin</span>
         </div>
         <button
           onClick={() => setMobileOpen((o) => !o)}

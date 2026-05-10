@@ -34,6 +34,7 @@ export default function AdminCreateThreadPage() {
   const [statusMsg, setStatusMsg] = useState("");
   const [form, setForm] = useState<ThreadForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Thread | null>(null);
 
   const load = async () => {
     try {
@@ -105,8 +106,6 @@ export default function AdminCreateThreadPage() {
   };
 
   const onDelete = async (thread: Thread) => {
-    const ok = window.confirm(`Delete thread "${thread.title}"?`);
-    if (!ok) return;
     const res = await fetch(`/api/admin/threads?id=${encodeURIComponent(thread.id)}`, { method: "DELETE" });
     if (res.ok) await load();
   };
@@ -158,13 +157,45 @@ export default function AdminCreateThreadPage() {
                 <div className="flex gap-2">
                   <button onClick={() => onEdit(thread)} className="rounded border border-[var(--line-soft)] px-2 py-1 text-[11px]">Edit</button>
                   <button onClick={() => onArchiveToggle(thread)} className="rounded border border-[var(--line-soft)] px-2 py-1 text-[11px]">{thread.isArchived ? "Unarchive" : "Archive"}</button>
-                  <button onClick={() => onDelete(thread)} className="rounded border border-[#ff4b5544] bg-[#ff4b5515] px-2 py-1 text-[11px] text-[#ff9ea3]">Delete</button>
+                  <button onClick={() => setPendingDelete(thread)} className="rounded border border-[#ff4b5544] bg-[#ff4b5515] px-2 py-1 text-[11px] text-[#ff9ea3]">Delete</button>
                 </div>
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {pendingDelete ? (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-lg border border-[var(--line-strong)] bg-[var(--surface-1)] p-4">
+            <h3 className="font-rajdhani text-xl font-bold uppercase text-[var(--ink-primary)]">Delete Thread</h3>
+            <p className="mt-2 text-sm text-[var(--ink-muted)]">
+              Are you sure you want to delete <span className="font-semibold text-[var(--ink-primary)]">{pendingDelete.title}</span>?
+              This action cannot be undone.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingDelete(null)}
+                className="rounded border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const target = pendingDelete;
+                  setPendingDelete(null);
+                  if (target) await onDelete(target);
+                }}
+                className="rounded border border-[#ff4b5544] bg-[#ff4b5515] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[#ff9ea3]"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
