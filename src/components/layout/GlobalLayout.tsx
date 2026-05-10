@@ -70,6 +70,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   const [isTimeSettingsOpen, setIsTimeSettingsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isTranslateOpen, setIsTranslateOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchScope, setSearchScope] = useState<HeaderSearchScope>("all");
@@ -86,6 +87,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   const timeMenuRef = useRef<HTMLDivElement | null>(null);
   const searchMenuRef = useRef<HTMLDivElement | null>(null);
   const notificationsMenuRef = useRef<HTMLDivElement | null>(null);
+  const translateMenuRef = useRef<HTMLDivElement | null>(null);
   const { market, setMarket } = useMarket();
 
   const timezoneLabel = getTimeZoneLabel(timePreferences.timeZone);
@@ -241,16 +243,20 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
       if (notificationsMenuRef.current && !notificationsMenuRef.current.contains(target)) {
         setIsNotificationsOpen(false);
       }
+
+      if (translateMenuRef.current && !translateMenuRef.current.contains(target)) {
+        setIsTranslateOpen(false);
+      }
     };
 
-    if (isProfileMenuOpen || isTimeSettingsOpen || isSearchOpen || isNotificationsOpen) {
+    if (isProfileMenuOpen || isTimeSettingsOpen || isSearchOpen || isNotificationsOpen || isTranslateOpen) {
       window.addEventListener("mousedown", handleOutside);
     }
 
     return () => {
       window.removeEventListener("mousedown", handleOutside);
     };
-  }, [isProfileMenuOpen, isTimeSettingsOpen, isSearchOpen, isNotificationsOpen]);
+  }, [isProfileMenuOpen, isTimeSettingsOpen, isSearchOpen, isNotificationsOpen, isTranslateOpen]);
 
   useEffect(() => {
     const handleTvPermissionRejection = (event: PromiseRejectionEvent) => {
@@ -310,6 +316,30 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
     script.onload = initWidget;
     document.body.appendChild(script);
   }, [pathname]);
+
+  useEffect(() => {
+    if (pathname !== "/" || !isTranslateOpen) return;
+    const win = window as unknown as {
+      au5ton?: {
+        translateWidget: (config: Record<string, unknown>, elementId: string) => void;
+      };
+    };
+    if (!win.au5ton || !document.getElementById("rosetta_translate_widget")) return;
+    win.au5ton.translateWidget(
+      {
+        pageLanguage: "en",
+        chunkSize: 10,
+        attributionImageUrl: "https://cdn.jsdelivr.net/gh/au5ton/rosetta@0.5.1/dist/google-translate.svg",
+        preferredSupportedLanguages: ["en", "es", "fr", "de", "ar", "am", "zh"],
+        showBanner: false,
+        endpoints: {
+          supportedLanguages: "https://rosetta-demo-server.vercel.app/api/v3/supportedLanguages",
+          translate: "https://rosetta-demo-server.vercel.app/api/v3/translate",
+        },
+      },
+      "rosetta_translate_widget"
+    );
+  }, [pathname, isTranslateOpen]);
 
   useEffect(() => {
     const onHotkey = async (event: KeyboardEvent) => {
@@ -766,13 +796,33 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
               ) : null}
             </div>
 
+            {pathname === "/" ? (
+              <div className="relative" ref={translateMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTranslateOpen((open) => !open);
+                    setIsProfileMenuOpen(false);
+                    setIsSearchOpen(false);
+                    setIsNotificationsOpen(false);
+                  }}
+                  className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--ink-primary)] sm:p-2"
+                  aria-label="Open translate menu"
+                  aria-expanded={isTranslateOpen}
+                  aria-haspopup="dialog"
+                >
+                  <Globe size={14} />
+                </button>
+
+                {isTranslateOpen ? (
+                  <div className="absolute right-0 top-11 z-[70] w-[min(20rem,86vw)] rounded-md border border-[var(--line-strong)] bg-[var(--surface-1)] p-2 shadow-lg" role="dialog" aria-label="Translate">
+                    <div id="rosetta_translate_widget" className="min-h-9 rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-1" />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="relative flex items-center gap-2" ref={profileMenuRef}>
-              {pathname === "/" ? (
-                <div
-                  id="rosetta_translate_widget"
-                  className="hidden min-w-[170px] rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-1 xl:block"
-                />
-              ) : null}
               <button
                 onClick={() => setIsProfileMenuOpen((open) => !open)}
                 className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--ink-primary)] sm:p-2"
