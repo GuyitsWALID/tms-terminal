@@ -70,6 +70,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   const [isTimeSettingsOpen, setIsTimeSettingsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isTranslateOpen, setIsTranslateOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchScope, setSearchScope] = useState<HeaderSearchScope>("all");
@@ -86,6 +87,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   const timeMenuRef = useRef<HTMLDivElement | null>(null);
   const searchMenuRef = useRef<HTMLDivElement | null>(null);
   const notificationsMenuRef = useRef<HTMLDivElement | null>(null);
+  const translateMenuRef = useRef<HTMLDivElement | null>(null);
   const { market, setMarket } = useMarket();
 
   const timezoneLabel = getTimeZoneLabel(timePreferences.timeZone);
@@ -241,16 +243,20 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
       if (notificationsMenuRef.current && !notificationsMenuRef.current.contains(target)) {
         setIsNotificationsOpen(false);
       }
+
+      if (translateMenuRef.current && !translateMenuRef.current.contains(target)) {
+        setIsTranslateOpen(false);
+      }
     };
 
-    if (isProfileMenuOpen || isTimeSettingsOpen || isSearchOpen || isNotificationsOpen) {
+    if (isProfileMenuOpen || isTimeSettingsOpen || isSearchOpen || isNotificationsOpen || isTranslateOpen) {
       window.addEventListener("mousedown", handleOutside);
     }
 
     return () => {
       window.removeEventListener("mousedown", handleOutside);
     };
-  }, [isProfileMenuOpen, isTimeSettingsOpen, isSearchOpen, isNotificationsOpen]);
+  }, [isProfileMenuOpen, isTimeSettingsOpen, isSearchOpen, isNotificationsOpen, isTranslateOpen]);
 
   useEffect(() => {
     const handleTvPermissionRejection = (event: PromiseRejectionEvent) => {
@@ -266,6 +272,109 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener("unhandledrejection", handleTvPermissionRejection);
     };
+  }, []);
+
+  useEffect(() => {
+    if (pathname !== "/") return;
+
+    const widgetElementId = "rosetta_translate_widget";
+    const scriptId = "rosetta-widget-script";
+    const win = window as unknown as {
+      au5ton?: {
+        translateWidget: (config: Record<string, unknown>, elementId: string) => void;
+      };
+    };
+
+    const initWidget = () => {
+      if (!win.au5ton || !document.getElementById(widgetElementId)) return;
+      win.au5ton.translateWidget(
+        {
+          pageLanguage: "en",
+          chunkSize: 10,
+          attributionImageUrl: "https://cdn.jsdelivr.net/gh/au5ton/rosetta@0.5.1/dist/google-translate.svg",
+          preferredSupportedLanguages: ["en", "es", "fr", "de", "ar", "am", "zh"],
+          showBanner: false,
+          endpoints: {
+            supportedLanguages: "https://rosetta-demo-server.vercel.app/api/v3/supportedLanguages",
+            translate: "https://rosetta-demo-server.vercel.app/api/v3/translate",
+          },
+        },
+        widgetElementId
+      );
+    };
+
+    const existingScript = document.getElementById(scriptId) as HTMLScriptElement | null;
+    if (existingScript) {
+      initWidget();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = scriptId;
+    script.src = "https://cdn.jsdelivr.net/gh/au5ton/rosetta@0.5.1/dist/index.js";
+    script.async = true;
+    script.onload = initWidget;
+    document.body.appendChild(script);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (pathname !== "/" || !isTranslateOpen) return;
+    const win = window as unknown as {
+      au5ton?: {
+        translateWidget: (config: Record<string, unknown>, elementId: string) => void;
+      };
+    };
+    if (!win.au5ton || !document.getElementById("rosetta_translate_widget")) return;
+    win.au5ton.translateWidget(
+      {
+        pageLanguage: "en",
+        chunkSize: 10,
+        attributionImageUrl: "https://cdn.jsdelivr.net/gh/au5ton/rosetta@0.5.1/dist/google-translate.svg",
+        preferredSupportedLanguages: ["en", "es", "fr", "de", "ar", "am", "zh"],
+        showBanner: false,
+        endpoints: {
+          supportedLanguages: "https://rosetta-demo-server.vercel.app/api/v3/supportedLanguages",
+          translate: "https://rosetta-demo-server.vercel.app/api/v3/translate",
+        },
+      },
+      "rosetta_translate_widget"
+    );
+  }, [pathname, isTranslateOpen]);
+
+  useEffect(() => {
+    const onHotkey = async (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return;
+      }
+
+      // Team-only shortcut: Ctrl + Shift + M
+      if (!(event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "m")) return;
+      event.preventDefault();
+
+      const code = window.prompt("Team access code");
+      if (!code) return;
+
+      try {
+        const res = await fetch("/api/admin/unlock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        });
+
+        if (!res.ok) {
+          window.alert("Access code is invalid.");
+          return;
+        }
+
+        window.location.href = "/admin/login";
+      } catch {
+        window.alert("Unable to unlock admin access right now.");
+      }
+    };
+
+    window.addEventListener("keydown", onHotkey);
+    return () => window.removeEventListener("keydown", onHotkey);
   }, []);
 
   const toggleTheme = () => {
@@ -334,20 +443,20 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
 
         <div className="min-w-0">
           <header className="ff-topbar sticky top-0 z-50">
-            <div className="mx-auto flex h-16 w-full max-w-[1460px] items-center justify-between gap-4 px-3 md:px-6">
+            <div className="flex h-16 w-full items-center justify-between gap-2 px-2 md:px-4 xl:px-5 2xl:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-4 xl:gap-5">
             <Link href="/" className="flex shrink-0 items-center gap-2 border-r border-[var(--line-soft)] pr-3 xl:pr-4">
               <Image
-                src="/TMSLOGO.png"
-                alt="TMS Logo"
-                width={36}
-                height={36}
-                className="h-8 w-8 rounded-md object-cover sm:h-9 sm:w-9"
+                src="/finacialvibe2.png"
+                alt="Financial Vibe Logo"
+                width={40}
+                height={40}
+                
                 priority
               />
               <div className="hidden sm:block">
-                <p className="font-rajdhani text-xl font-bold uppercase leading-none tracking-wide">TMS Terminal</p>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">The Market Syndicate</p>
+                <p className="font-rajdhani text-xl font-bold uppercase leading-none tracking-wide">Financial Vibe</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">Feel the Market. Act on Data</p>
               </div>
             </Link>
 
@@ -361,19 +470,23 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
 
             <Link
               href="/tools"
-              aria-label="Tools"
-              className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] text-[var(--ink-primary)] transition-colors hover:bg-[var(--surface-hover)] lg:flex"
+              className={cn(
+                "hidden shrink-0 whitespace-nowrap rounded-md px-2 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors 2xl:px-2.5 lg:flex",
+                pathname === "/tools"
+                  ? "bg-[var(--surface-hover)] text-[var(--ink-primary)]"
+                  : "text-[var(--ink-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink-primary)]"
+              )}
             >
-              <Wrench size={16} />
+              Order Flow
             </Link>
 
-            <nav className="mr-1 hidden min-w-0 items-center gap-1.5 xl:mr-2 2xl:mr-3 lg:flex">
+            <nav className="mr-1 hidden min-w-0 items-center gap-2 xl:mr-2 2xl:mr-3 lg:flex">
               {menuItems.map((item) => (
                 <Link
                   key={item.id}
                   href={item.path}
                   className={cn(
-                    "shrink-0 whitespace-nowrap rounded-md px-2 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors 2xl:px-2.5",
+                    "shrink-0 whitespace-nowrap rounded-md px-2 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors",
                     pathname === item.path
                       ? "bg-[var(--surface-hover)] text-[var(--ink-primary)]"
                       : "text-[var(--ink-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink-primary)]"
@@ -385,7 +498,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 xl:gap-2">
             <div className="relative hidden xl:block" ref={searchMenuRef}>
               <button
                 type="button"
@@ -616,7 +729,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
             <div className="relative hidden sm:block" ref={timeMenuRef}>
               <button
                 onClick={() => setIsTimeSettingsOpen((open) => !open)}
-                className="w-[132px] xl:w-[170px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-3 py-1.5 text-left"
+                className="w-[120px] xl:w-[158px] shrink-0 rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] px-2.5 py-1.5 text-left"
                 aria-expanded={isTimeSettingsOpen}
                 aria-haspopup="dialog"
                 aria-label="Open time settings"
@@ -683,7 +796,33 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
               ) : null}
             </div>
 
-            <div className="relative" ref={profileMenuRef}>
+            {pathname === "/" ? (
+              <div className="relative" ref={translateMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTranslateOpen((open) => !open);
+                    setIsProfileMenuOpen(false);
+                    setIsSearchOpen(false);
+                    setIsNotificationsOpen(false);
+                  }}
+                  className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--ink-primary)] sm:p-2"
+                  aria-label="Open translate menu"
+                  aria-expanded={isTranslateOpen}
+                  aria-haspopup="dialog"
+                >
+                  <Globe size={14} />
+                </button>
+
+                {isTranslateOpen ? (
+                  <div className="absolute right-0 top-11 z-[70] w-[min(20rem,86vw)] rounded-md border border-[var(--line-strong)] bg-[var(--surface-1)] p-2 shadow-lg" role="dialog" aria-label="Translate">
+                    <div id="rosetta_translate_widget" className="min-h-9 rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 py-1" />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="relative flex items-center gap-2" ref={profileMenuRef}>
               <button
                 onClick={() => setIsProfileMenuOpen((open) => !open)}
                 className="rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-1.5 text-[var(--ink-primary)] sm:p-2"
@@ -818,12 +957,19 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
       <footer className="w-full border-t border-[var(--line-strong)] bg-[var(--surface-2)] py-6 mt-8">
         <div className="mx-auto max-w-6xl flex flex-col md:flex-row items-center justify-between gap-4 px-4 text-xs text-[var(--ink-muted)]">
           <div className="flex items-center gap-2">
-            <Image src="/TMSLOGO.png" alt="TMS Logo" width={28} height={28} className="h-7 w-7 rounded object-cover" />
-            <span className="font-bold text-[var(--ink-primary)]">TMS Terminal</span>
-            <span className="hidden md:inline">| The Market Syndicate</span>
+            <Image src="/finacialvibe2.png" alt="Financial Vibe Logo" width={28} height={28} className="h-7 w-7 rounded object-cover" />
+            <span className="font-bold text-[var(--ink-primary)]">Financial Vibe</span>
           </div>
           <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4">
-            <span>&copy; {new Date().getFullYear()} TMS Terminal. All rights reserved.</span>
+            <span>&copy; {new Date().getFullYear()} Financial Vibe. All rights reserved.</span>
+            <a
+              href="https://t.me/TMS_help_bot"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:underline text-[var(--ink-primary)] text-center"
+            >
+              &quot;if you want to join an elite high quality academy and community join us&quot;
+            </a>
             <Link href="/about" className="hover:underline text-[var(--ink-primary)]">About</Link>
             <Link href="/privacy" className="hover:underline text-[var(--ink-primary)]">Privacy Policy</Link>
             <Link href="/contact" className="hover:underline text-[var(--ink-primary)]">Contact</Link>

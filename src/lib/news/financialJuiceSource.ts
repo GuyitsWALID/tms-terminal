@@ -61,6 +61,32 @@ type FinancialJuiceStartupPayload = {
   }>;
 };
 
+const inferFinancialJuiceImpact = ({
+  headline,
+  breaking,
+  typeId,
+}: {
+  headline: string;
+  breaking?: boolean;
+  typeId?: string;
+}): "high" | "medium" | "low" => {
+  const text = headline.toLowerCase();
+  if (breaking) return "high";
+
+  // FinancialJuice TypeID buckets are not fully documented publicly, but 1/2 commonly
+  // map to top-tier macro/event alerts in the startup payload.
+  if (typeId === "1" || typeId === "2") return "high";
+  if (typeId === "3" || typeId === "4") return "medium";
+
+  if (/\b(fomc|nfp|cpi|ppi|ecb|boe|boj|fed decision|rate decision|interest rate decision)\b/.test(text)) {
+    return "high";
+  }
+  if (/\b(pmi|jobless claims|retail sales|consumer confidence|speech|minutes)\b/.test(text)) {
+    return "medium";
+  }
+  return inferImpactFromText(headline);
+};
+
 const decodeXmlEntities = (value: string) =>
   value
     .replace(/&quot;/g, '"')
@@ -138,7 +164,11 @@ const parseFinancialJuiceHome = async (): Promise<FinancialJuiceNewsItem[]> => {
         }).format(new Date(publishedAt)),
       publishedAt,
       headline,
-      impact: inferImpactFromText(headline),
+      impact: inferFinancialJuiceImpact({
+        headline,
+        breaking: Boolean(entry.Breaking),
+        typeId: entry.TypeID,
+      }),
       sentiment,
       sentimentScore: score,
       source: "Financial Juice",
@@ -194,7 +224,7 @@ const parseFinancialJuiceTelegram = async (): Promise<FinancialJuiceNewsItem[]> 
       }).format(new Date(publishedAt)),
       publishedAt,
       headline: text,
-      impact: inferImpactFromText(text),
+      impact: inferFinancialJuiceImpact({ headline: text }),
       sentiment,
       sentimentScore: score,
       source: "Financial Juice Telegram",

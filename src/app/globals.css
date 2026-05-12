@@ -260,6 +260,43 @@ body {
   }
 }
 
+/* Rosetta / Google translate hardening */
+#rosetta_translate_widget {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+}
+
+#rosetta_translate_widget select {
+  max-width: 100%;
+}
+
+[data-theme="dark"] #rosetta_translate_widget {
+  background: var(--surface-1);
+  color: var(--ink-primary);
+}
+
+[data-theme="dark"] #rosetta_translate_widget select,
+[data-theme="dark"] #rosetta_translate_widget button,
+[data-theme="dark"] #rosetta_translate_widget input {
+  background: var(--surface-1) !important;
+  color: var(--ink-primary) !important;
+  border-color: var(--line-soft) !important;
+}
+
+[data-theme="dark"] #rosetta_translate_widget img {
+  filter: brightness(0.95) saturate(0.9);
+}
+
+/* Prevent legacy Google banner from pushing content down */
+iframe.goog-te-banner-frame {
+  display: none !important;
+}
+
+body {
+  top: 0 !important;
+}
+
 @layer base {
   .theme {
     --font-heading: var(--font-sans);

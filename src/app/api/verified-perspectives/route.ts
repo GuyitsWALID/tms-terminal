@@ -4,7 +4,7 @@ import { buildCalendarEventKey } from "@/lib/calendarEventKey";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const isMarket = (value: string): value is MarketKey => {
-  return value === "forex" || value === "crypto" || value === "commodities";
+  return value === "forex" || value === "crypto" || value === "commodities" || value === "stocks";
 };
 
 const isImpact = (value: string): value is ImpactLevel => {

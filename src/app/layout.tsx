@@ -20,7 +20,7 @@ const rajdhani = Rajdhani({
 });
 
 export const metadata: Metadata = {
-  title: "TMS Terminal | Forex Intelligence Grid",
+  title: "Financial Vibe | Feel the Market. Act on Data",
   description: "High-density economic calendar, live market news, analyst opinions, and trader community signals.",
 };
 
