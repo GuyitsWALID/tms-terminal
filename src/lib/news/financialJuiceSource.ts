@@ -35,6 +35,7 @@ declare global {
 const TELEGRAM_URL = process.env.FINANCIAL_JUICE_TELEGRAM_URL ?? "https://t.me/s/FinancialJuice";
 const FJ_HOME_URL = process.env.FINANCIAL_JUICE_HOME_URL ?? "https://www.financialjuice.com/home";
 const DIRECT_COOLDOWN_MS = Number(process.env.FINANCIAL_JUICE_DIRECT_COOLDOWN_MS ?? 60000);
+const MAX_SOURCE_ITEMS = Number(process.env.FINANCIAL_JUICE_MAX_SOURCE_ITEMS ?? 500);
 
 const getSourceState = (): SourceState => {
   if (!globalThis.__tmsFinancialJuiceSourceState) {
@@ -242,7 +243,7 @@ export const fetchFinancialJuiceWithFallback = async (_market: MarketKey): Promi
   const now = Date.now();
 
   const applyMarket = (items: FinancialJuiceNewsItem[]) => ({
-    items: items.slice(0, 40),
+    items: items.slice(0, MAX_SOURCE_ITEMS),
     usedGenericFallback: false,
   });
 

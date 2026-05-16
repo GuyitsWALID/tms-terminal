@@ -11,6 +11,14 @@ import { TIME_PREFERENCES_EVENT, formatDateWithPreferences, readTimePreferences,
 const HYDRATION_SAFE_TIME_PREFERENCES: TimePreferences = { timeZone: "UTC", timeFormat: "ampm" };
 
 const SOURCE_KEYWORD = "financial juice";
+const FULL_DAY_MS = 24 * 60 * 60 * 1000;
+
+const isWithinLast24Hours = (publishedAt: string | undefined, nowMs: number) => {
+  if (!publishedAt) return false;
+  const publishedMs = new Date(publishedAt).getTime();
+  if (Number.isNaN(publishedMs)) return false;
+  return publishedMs >= nowMs - FULL_DAY_MS && publishedMs <= nowMs;
+};
 
 const dedupeById = (items: NewsItem[]) => {
   const seen = new Set<string>();
@@ -84,11 +92,13 @@ export default function FinancialJuiceLivePanel() {
         const response = await fetchFinancialJuiceFeed(market);
         if (!mounted) return;
 
-        const latest = response.rows.filter(isFinancialJuiceItem).slice(0, 12);
+        const nowMs = Date.now();
+        const latest = response.rows.filter((item) => isFinancialJuiceItem(item) && isWithinLast24Hours(item.publishedAt, nowMs));
         if (latest.length > 0) {
-          setItems((prev) => dedupeById([...latest, ...prev]).slice(0, 12));
+          setItems((prev) => dedupeById([...latest, ...prev]).filter((item) => isWithinLast24Hours(item.publishedAt, nowMs)));
           setDelayed(false);
         } else {
+          setItems([]);
           setDelayed(true);
         }
       } catch {
@@ -144,10 +154,11 @@ export default function FinancialJuiceLivePanel() {
         const incoming = payload.items;
         if (!Array.isArray(incoming) || incoming.length === 0) return;
 
-        const liveItems = incoming.filter(isFinancialJuiceItem);
+        const nowMs = Date.now();
+        const liveItems = incoming.filter((item) => isFinancialJuiceItem(item) && isWithinLast24Hours(item.publishedAt, nowMs));
         if (liveItems.length === 0) return;
 
-        setItems((prev) => dedupeById([...liveItems, ...prev]).slice(0, 12));
+        setItems((prev) => dedupeById([...liveItems, ...prev]).filter((item) => isWithinLast24Hours(item.publishedAt, nowMs)));
         setDelayed(false);
       } catch {
         // Ignore malformed events to keep stream alive.

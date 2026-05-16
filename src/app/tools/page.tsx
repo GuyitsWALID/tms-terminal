@@ -37,14 +37,6 @@ type Category = { id: string; title: string; instruments: Instrument[] };
 
 const isValidUrl = (value: string | null) => !!value && /^https?:\/\//i.test(value);
 
-const toYoutubeEmbedUrl = (url: string) => {
-  const liveMatch = url.match(/youtube\.com\/live\/([^?&/]+)/i);
-  if (liveMatch?.[1]) return `https://www.youtube.com/embed/${liveMatch[1]}`;
-  const watchMatch = url.match(/[?&]v=([^?&/]+)/i);
-  if (watchMatch?.[1]) return `https://www.youtube.com/embed/${watchMatch[1]}`;
-  return url;
-};
-
 function LinkButton({ action, instrumentTitle, onOpen }: { action: LinkAction; instrumentTitle: string; onOpen: (stream: SelectedStream) => void }) {
   return (
     <button
@@ -60,7 +52,7 @@ function LinkButton({ action, instrumentTitle, onOpen }: { action: LinkAction; i
 export default function ToolsPage() {
   const [links, setLinks] = useState<OrderflowLinks>(EMPTY_LINKS);
   const [loading, setLoading] = useState(true);
-  const [selectedStream, setSelectedStream] = useState<SelectedStream | null>(null);
+  const [status, setStatus] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -77,6 +69,17 @@ export default function ToolsPage() {
     };
     void load();
   }, []);
+
+
+  const onOpenStream = (stream: SelectedStream) => {
+    if (!isValidUrl(stream.url)) {
+      setStatus(`${stream.instrument} ${stream.view} link is not set yet.`);
+      return;
+    }
+
+    setStatus("");
+    window.open(stream.url as string, "_blank", "noopener,noreferrer");
+  };
 
   const categories: Category[] = [
     {
@@ -161,7 +164,7 @@ export default function ToolsPage() {
                           key={`${instrument.id}-${action.label}`}
                           action={action}
                           instrumentTitle={instrument.title}
-                          onOpen={setSelectedStream}
+                          onOpen={onOpenStream}
                         />
                       ))}
                     </div>
@@ -171,32 +174,7 @@ export default function ToolsPage() {
             </div>
           ))}
           {loading ? <p className="text-xs text-[var(--ink-muted)]">Loading links...</p> : null}
-
-          {selectedStream ? (
-            <div className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] p-3">
-              <p className="text-sm font-semibold text-[var(--ink-primary)]">
-                {selectedStream.instrument} | {selectedStream.view}
-              </p>
-              <div className="mt-3 overflow-hidden rounded border border-[var(--line-strong)] bg-black/70">
-                {isValidUrl(selectedStream.url) ? (
-                  <iframe
-                    title={`${selectedStream.instrument} ${selectedStream.view}`}
-                    src={toYoutubeEmbedUrl(selectedStream.url as string)}
-                    className="h-[240px] w-full sm:h-[320px] md:h-[460px]"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                  />
-                ) : (
-                  <div className="flex h-[240px] w-full items-center justify-center px-4 text-center sm:h-[320px] md:h-[460px]">
-                    <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
-                      Live stream starts in a minute
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : null}
+          {status ? <p className="text-xs text-[#ff6b6b]">{status}</p> : null}
         </div>
       </section>
     </div>

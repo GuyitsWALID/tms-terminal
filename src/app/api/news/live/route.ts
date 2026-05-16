@@ -4,6 +4,8 @@ import { MARKET_KEYWORDS, normalizeMarket } from "@/lib/market";
 import type { MarketKey } from "@/types";
 
 export const dynamic = "force-dynamic";
+const FULL_DAY_MS = 24 * 60 * 60 * 1000;
+const STREAM_LIMIT = Number(process.env.FINANCIAL_JUICE_STREAM_LIMIT ?? 500);
 
 const filterByMarket = (headline: string, category: string, market: MarketKey) => {
   if (market === "forex") return true;
@@ -11,6 +13,13 @@ const filterByMarket = (headline: string, category: string, market: MarketKey) =
   const keywordMarket: Exclude<MarketKey, "forex" | "stocks"> = market === "stocks" ? "commodities" : market;
   const keywords = MARKET_KEYWORDS[keywordMarket];
   return keywords.some((keyword) => haystack.includes(keyword));
+};
+
+const isWithinLast24Hours = (publishedAt: string | undefined, nowMs: number) => {
+  if (!publishedAt) return false;
+  const publishedMs = new Date(publishedAt).getTime();
+  if (Number.isNaN(publishedMs)) return false;
+  return publishedMs >= nowMs - FULL_DAY_MS && publishedMs <= nowMs;
 };
 
 export async function GET(request: NextRequest) {
@@ -25,7 +34,10 @@ export async function GET(request: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
       };
 
-      const initialSnapshot = getFinancialJuiceSnapshot(30).filter((row) => filterByMarket(row.headline, row.category, market));
+      const nowMs = Date.now();
+      const initialSnapshot = getFinancialJuiceSnapshot(STREAM_LIMIT).filter(
+        (row) => filterByMarket(row.headline, row.category, market) && isWithinLast24Hours(row.publishedAt, nowMs)
+      );
       send({
         type: "snapshot",
         source: "financialjuice-telegram-live",
@@ -33,11 +45,14 @@ export async function GET(request: NextRequest) {
       });
 
       const interval = setInterval(() => {
-        const { sequence, items } = getFinancialJuiceChangesSince(lastSequence, 30);
+        const { sequence, items } = getFinancialJuiceChangesSince(lastSequence, STREAM_LIMIT);
 
         if (sequence !== lastSequence) {
           lastSequence = sequence;
-          const filtered = items.filter((row) => filterByMarket(row.headline, row.category, market));
+          const intervalNowMs = Date.now();
+          const filtered = items.filter(
+            (row) => filterByMarket(row.headline, row.category, market) && isWithinLast24Hours(row.publishedAt, intervalNowMs)
+          );
 
           if (filtered.length > 0) {
             send({

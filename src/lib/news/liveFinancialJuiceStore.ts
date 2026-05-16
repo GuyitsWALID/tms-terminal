@@ -14,7 +14,7 @@ type FinancialJuiceStoreState = {
   sequence: number;
 };
 
-const MAX_ITEMS = 300;
+const MAX_ITEMS = Number(process.env.FINANCIAL_JUICE_STORE_MAX_ITEMS ?? 2000);
 
 declare global {
   var __tmsFinancialJuiceStore: FinancialJuiceStoreState | undefined;
