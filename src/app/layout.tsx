@@ -40,6 +40,9 @@ export default function RootLayout({
       className={cn("h-full", "antialiased", plexSans.variable, rajdhani.variable, "font-sans", geist.variable)}
     >
       <head>
+        <link rel="icon" href="/finacialvibe2.png" type="image/png" />
+        <link rel="shortcut icon" href="/finacialvibe2.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/finacialvibe2.png" />
         <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9409595544624618"
