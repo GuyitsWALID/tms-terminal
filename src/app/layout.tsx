@@ -22,6 +22,11 @@ const rajdhani = Rajdhani({
 export const metadata: Metadata = {
   title: "Financial Vibe | Feel the Market. Act on Data",
   description: "High-density economic calendar, live market news, analyst opinions, and trader community signals.",
+  icons: {
+    icon: "/finacialvibe2.png",
+    shortcut: "/finacialvibe2.png",
+    apple: "/finacialvibe2.png",
+  },
 };
 
 export default function RootLayout({

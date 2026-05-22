@@ -3,32 +3,10 @@
 import { useEffect, useState } from "react";
 import { Wrench } from "lucide-react";
 
-type OrderflowLinks = {
-  gold_heat_map_url: string | null;
-  gold_foot_print_url: string | null;
-  bitcoin_heat_map_url: string | null;
-  bitcoin_foot_print_url: string | null;
-  index_nasdaq_heat_map_url: string | null;
-  index_nasdaq_foot_print_url: string | null;
-  index_es_heat_map_url: string | null;
-  index_es_foot_print_url: string | null;
-};
-
 type SelectedStream = {
   instrument: string;
   view: string;
   url: string | null;
-};
-
-const EMPTY_LINKS: OrderflowLinks = {
-  gold_heat_map_url: null,
-  gold_foot_print_url: null,
-  bitcoin_heat_map_url: null,
-  bitcoin_foot_print_url: null,
-  index_nasdaq_heat_map_url: null,
-  index_nasdaq_foot_print_url: null,
-  index_es_heat_map_url: null,
-  index_es_foot_print_url: null,
 };
 
 type LinkAction = { label: string; url: string | null };
@@ -36,6 +14,17 @@ type Instrument = { id: string; title: string; actions: LinkAction[] };
 type Category = { id: string; title: string; instruments: Instrument[] };
 
 const isValidUrl = (value: string | null) => !!value && /^https?:\/\//i.test(value);
+const toYouTubeSearchUrl = (query: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+
+const GOLD_YOUTUBE_SEARCH_URL = toYouTubeSearchUrl(
+  "Bookmap Live Gold | GOLD FUTURES | GC - XAUUSD | Heatmap | Live Liquidity & Footprints 24/7"
+);
+const NQ_YOUTUBE_SEARCH_URL = toYouTubeSearchUrl(
+  "Bookmap Live NQ | Nasdaq FUTURES | NQ - Nasdaq | Heatmap | Live Liquidity & Footprints 24/7"
+);
+const ES_YOUTUBE_SEARCH_URL = toYouTubeSearchUrl(
+  "Bookmap Live ES | S&P 500 FUTURES | ES - S&P 500 | Heatmap | Live Liquidity & Footprints 24/7"
+);
 
 function LinkButton({ action, instrumentTitle, onOpen }: { action: LinkAction; instrumentTitle: string; onOpen: (stream: SelectedStream) => void }) {
   return (
@@ -50,24 +39,11 @@ function LinkButton({ action, instrumentTitle, onOpen }: { action: LinkAction; i
 }
 
 export default function ToolsPage() {
-  const [links, setLinks] = useState<OrderflowLinks>(EMPTY_LINKS);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch("/api/orderflow-links", { cache: "no-store" });
-        if (!res.ok) throw new Error();
-        const data = (await res.json()) as { links: OrderflowLinks | null };
-        setLinks(data.links ?? EMPTY_LINKS);
-      } catch {
-        setLinks(EMPTY_LINKS);
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
+    setLoading(false);
   }, []);
 
 
@@ -90,22 +66,7 @@ export default function ToolsPage() {
           id: "xauusd",
           title: "XAU/USD",
           actions: [
-            { label: "Heat Map", url: links.gold_heat_map_url },
-            { label: "Foot Print", url: links.gold_foot_print_url },
-          ],
-        },
-      ],
-    },
-    {
-      id: "bitcoin",
-      title: "Bitcoin",
-      instruments: [
-        {
-          id: "btcusd",
-          title: "BTC/USD",
-          actions: [
-            { label: "Heat Map", url: links.bitcoin_heat_map_url },
-            { label: "Foot Print", url: links.bitcoin_foot_print_url },
+            { label: "Order Flow", url: GOLD_YOUTUBE_SEARCH_URL },
           ],
         },
       ],
@@ -118,16 +79,14 @@ export default function ToolsPage() {
           id: "nasdaq",
           title: "Nasdaq",
           actions: [
-            { label: "Heat Map", url: links.index_nasdaq_heat_map_url },
-            { label: "Foot Print", url: links.index_nasdaq_foot_print_url },
+            { label: "Order Flow", url: NQ_YOUTUBE_SEARCH_URL },
           ],
         },
         {
           id: "es",
           title: "ES",
           actions: [
-            { label: "Heat Map", url: links.index_es_heat_map_url },
-            { label: "Foot Print", url: links.index_es_foot_print_url },
+            { label: "Order Flow", url: ES_YOUTUBE_SEARCH_URL },
           ],
         },
       ],
