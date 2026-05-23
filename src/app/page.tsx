@@ -11,7 +11,7 @@ import TradingViewPanel from "@/components/tradingview/TradingViewPanel";
 import TradingViewWidget from "@/components/tradingview/TradingViewWidget";
 import NewsFeed from "@/components/news/NewsFeed";
 import FinancialJuiceLivePanel from "@/components/news/FinancialJuiceLivePanel";
-import EarningsReport from "@/components/news/EarningsReport";
+import EarningsReport from "@/components/calendar/EarningsReport";
 import EconomicCalendar from "@/components/calendar/EconomicCalendar";
 
 // In development / Replit preview environment, TradingView widgets are unreliable
