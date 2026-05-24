@@ -3,7 +3,6 @@
 // we implement this as a server-side utility or a proxy fetch.
 
 import type { EconomicEvent } from "@/types";
-import type { NewsItem } from "@/types/api";
 import type { MarketKey } from "@/types";
 import type { PerspectiveBias, PerspectiveConsensus, VerifiedPerspective } from "@/types";
 import type { AuthStatus } from "@/types";
@@ -37,13 +36,6 @@ export type EconomicCalendarFetchOptions = {
   date?: Date;
   scope?: "week" | "day" | "month";
   market?: MarketKey;
-};
-
-export type NewsFeedResponse = {
-  news: NewsItem[];
-  source: string;
-  cache: string;
-  fallbackReason: string;
 };
 
 export type VerifiedPerspectivesResponse = {
@@ -98,27 +90,6 @@ export async function fetchEconomicCalendarWithMeta(options?: EconomicCalendarFe
 export async function fetchEconomicCalendar(date?: Date) {
   const result = await fetchEconomicCalendarWithMeta({ date });
   return result.events;
-}
-
-export async function fetchNewsFeedWithMeta(market: MarketKey = "forex"): Promise<NewsFeedResponse> {
-  const url = new URL("/api/news", window.location.origin);
-  url.searchParams.set("market", market);
-
-  const res = await fetch(url.toString(), { cache: "no-store" });
-  if (!res.ok) throw new Error("News fetch failed");
-  const news = (await res.json()) as NewsItem[];
-
-  return {
-    news,
-    source: res.headers.get("x-news-source") ?? "unknown",
-    cache: res.headers.get("x-news-cache") ?? "unknown",
-    fallbackReason: res.headers.get("x-news-fallback-reason") ?? "",
-  };
-}
-
-export async function fetchNewsFeed(market: MarketKey = "forex") {
-  const result = await fetchNewsFeedWithMeta(market);
-  return result.news;
 }
 
 export async function fetchLiveTickersWithMeta(market: MarketKey = "forex"): Promise<LiveTickerResponse> {

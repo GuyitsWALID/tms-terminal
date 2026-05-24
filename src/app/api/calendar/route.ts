@@ -42,6 +42,8 @@ type ExportCalendarEvent = CalendarApiEvent & { dateKey: string };
 
 const FOREX_FACTORY_EXPORT_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml";
 const CACHE_VERSION = "v3";
+const CDN_CACHE_CONTROL = "public, s-maxage=60, stale-while-revalidate=300";
+const CDN_CACHE_CONTROL_SHORT = "public, s-maxage=30, stale-while-revalidate=120";
 const CACHE = new Map<string, CacheRecord<CalendarApiEvent[]>>();
 const EXPORT_CACHE = new Map<string, CacheRecord<ExportCalendarEvent[]>>();
 const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -305,7 +307,7 @@ export async function GET(request: NextRequest) {
   if (cached && isCacheFresh(cached)) {
     return NextResponse.json(cached.data, {
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": CDN_CACHE_CONTROL,
         "x-calendar-cache": "HIT",
         "x-calendar-source": cached.source,
       },
@@ -321,7 +323,7 @@ export async function GET(request: NextRequest) {
         CACHE.set(cacheKey, makeCacheRecord(marketRows, "forexfactory-playwright-month"));
         return NextResponse.json(marketRows, {
           headers: {
-            "Cache-Control": "no-store",
+            "Cache-Control": CDN_CACHE_CONTROL,
             "x-calendar-cache": "MISS",
             "x-calendar-source": "forexfactory-playwright-month",
             "x-calendar-market": market,
@@ -336,7 +338,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([], {
         status: 202,
         headers: {
-          "Cache-Control": "no-store",
+          "Cache-Control": CDN_CACHE_CONTROL_SHORT,
           "x-calendar-cache": "MISS",
           "x-calendar-source": "forexfactory-playwright-month",
           "x-calendar-fallback-reason": "month-job-pending",
@@ -356,7 +358,7 @@ export async function GET(request: NextRequest) {
       CACHE.set(cacheKey, makeCacheRecord(marketRows, "forexfactory-export"));
       return NextResponse.json(marketRows, {
         headers: {
-          "Cache-Control": "no-store",
+          "Cache-Control": CDN_CACHE_CONTROL,
           "x-calendar-cache": "MISS",
           "x-calendar-source": "forexfactory-export",
           "x-calendar-market": market,
@@ -367,7 +369,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json([], {
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": CDN_CACHE_CONTROL_SHORT,
         "x-calendar-cache": "MISS",
         "x-calendar-source": "forexfactory-export",
         "x-calendar-market": market,
@@ -386,7 +388,7 @@ export async function GET(request: NextRequest) {
         {
           status: 503,
           headers: {
-            "Cache-Control": "no-store",
+            "Cache-Control": CDN_CACHE_CONTROL_SHORT,
             "x-calendar-cache": "MISS",
             "x-calendar-source": "forexfactory-playwright-month",
             "x-calendar-fallback-reason": "month-job-failed",
@@ -399,7 +401,7 @@ export async function GET(request: NextRequest) {
     if (cached) {
       return NextResponse.json(cached.data, {
         headers: {
-          "Cache-Control": "no-store",
+          "Cache-Control": CDN_CACHE_CONTROL,
           "x-calendar-cache": "STALE",
           "x-calendar-source": cached.source,
           "x-calendar-fallback-reason": "stale-cache",
@@ -413,7 +415,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(fallback, {
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": CDN_CACHE_CONTROL_SHORT,
         "x-calendar-cache": "MISS",
         "x-calendar-source": "local-fallback",
         "x-calendar-fallback-reason": "forexfactory-export-unavailable",

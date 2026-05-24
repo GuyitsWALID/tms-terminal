@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import type { EarningsEntry } from "@/types/api";
 
-export const dynamic = "force-dynamic";
-
 const CACHE_TTL_MS = 8 * 60 * 1000; // 8 min
+const CDN_CACHE_CONTROL = "public, s-maxage=60, stale-while-revalidate=300";
 
 type CacheRecord = { data: EarningsEntry[]; createdAt: number };
 const CACHE = new Map<string, CacheRecord>();
@@ -235,7 +234,7 @@ export async function GET() {
   if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
     return NextResponse.json(cached.data, {
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": CDN_CACHE_CONTROL,
         "x-earnings-cache": "HIT",
         "x-earnings-date": dateStr,
       },
@@ -257,7 +256,7 @@ export async function GET() {
 
     return NextResponse.json(data, {
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": CDN_CACHE_CONTROL,
         "x-earnings-cache": "MISS",
         "x-earnings-date": dateStr,
         "x-earnings-count": String(data.length),
@@ -269,13 +268,13 @@ export async function GET() {
 
     if (cached) {
       return NextResponse.json(cached.data, {
-        headers: { "Cache-Control": "no-store", "x-earnings-cache": "STALE" },
+        headers: { "Cache-Control": CDN_CACHE_CONTROL, "x-earnings-cache": "STALE" },
       });
     }
 
     return NextResponse.json([], {
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": "public, s-maxage=10, stale-while-revalidate=60",
         "x-earnings-cache": "MISS",
         "x-earnings-error": msg,
       },

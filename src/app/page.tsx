@@ -9,26 +9,18 @@ import { MARKET_QUOTES_GROUPS, MARKET_TECHNICAL_SYMBOL } from "@/lib/tradingview
 import TradingViewSymbolInfoCard from "@/components/charts/TradingViewSymbolInfoCard";
 import TradingViewPanel from "@/components/tradingview/TradingViewPanel";
 import TradingViewWidget from "@/components/tradingview/TradingViewWidget";
-import NewsFeed from "@/components/news/NewsFeed";
 import FinancialJuiceLivePanel from "@/components/news/FinancialJuiceLivePanel";
 import EarningsReport from "@/components/calendar/EarningsReport";
-import EconomicCalendar from "@/components/calendar/EconomicCalendar";
-
-// In development / Replit preview environment, TradingView widgets are unreliable
-// due to the proxy + HMR cycle. Skip them here and use local components directly.
-// In production they work fine and the fallback fires only if they genuinely fail.
-const IS_DEV = process.env.NODE_ENV === "development";
 
 function HomeContent() {
   const searchParams = useSearchParams();
   const { market } = useMarket();
   const marketConfig = getMarketDefinition(market);
 
-  // Initialise as "already failed" in dev so local components render immediately
-  const [newsWidgetFailed, setNewsWidgetFailed] = useState(IS_DEV);
-  const [calendarWidgetFailed, setCalendarWidgetFailed] = useState(IS_DEV);
-  const [marketDataWidgetFailed, setMarketDataWidgetFailed] = useState(IS_DEV);
-  const [technicalWidgetFailed, setTechnicalWidgetFailed] = useState(IS_DEV);
+  const [newsWidgetFailed, setNewsWidgetFailed] = useState(false);
+  const [calendarWidgetFailed, setCalendarWidgetFailed] = useState(false);
+  const [marketDataWidgetFailed, setMarketDataWidgetFailed] = useState(false);
+  const [technicalWidgetFailed, setTechnicalWidgetFailed] = useState(false);
 
   const [widgetTheme, setWidgetTheme] = useState<"dark" | "light">(() => {
     if (typeof window === "undefined") return "dark";
@@ -136,21 +128,23 @@ function HomeContent() {
 
       {/* ── News + Economic Calendar ───────────────────────────── */}
       <section className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        <TradingViewPanel title="News / Top Stories" bodyClassName="p-0">
-          <div className="h-[340px] sm:h-[500px]">
-            {!newsWidgetFailed ? (
+        {!newsWidgetFailed ? (
+          <TradingViewPanel title="News / Top Stories" bodyClassName="p-0">
+            <div className="h-[340px] sm:h-[500px]">
               <TradingViewWidget
                 scriptName="embed-widget-timeline.js"
                 config={newsConfig}
                 onError={() => setNewsWidgetFailed(true)}
               />
-            ) : (
-              <div className="h-full overflow-y-auto p-2 sm:p-3">
-                <NewsFeed />
-              </div>
-            )}
-          </div>
-        </TradingViewPanel>
+            </div>
+          </TradingViewPanel>
+        ) : (
+          <TradingViewPanel title="News / Top Stories" bodyClassName="p-0">
+            <div className="flex h-[340px] items-center justify-center p-4 text-center text-xs text-[var(--ink-muted)] sm:h-[500px] sm:text-sm">
+              News widget unavailable in this environment.
+            </div>
+          </TradingViewPanel>
+        )}
 
         <TradingViewPanel title="Economic Calendar" bodyClassName="p-0">
           <div className="h-[340px] sm:h-[500px]">
@@ -161,8 +155,8 @@ function HomeContent() {
                 onError={() => setCalendarWidgetFailed(true)}
               />
             ) : (
-              <div className="h-full overflow-y-auto p-2 sm:p-3">
-                <EconomicCalendar />
+              <div className="flex h-full items-center justify-center p-4 text-center text-xs text-[var(--ink-muted)] sm:text-sm">
+                Economic Calendar widget unavailable in this environment.
               </div>
             )}
           </div>

@@ -17,6 +17,7 @@ type CacheRecord = {
 };
 
 const DETAIL_CACHE = new Map<string, CacheRecord>();
+const CDN_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=1800";
 
 const normalize = (value: string | null | undefined) => (value ?? "").replace(/\s+/g, " ").trim();
 
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
   if (cached && cached.expiresAt > Date.now()) {
     return NextResponse.json(cached.data, {
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": CDN_CACHE_CONTROL,
         "x-calendar-detail-cache": "HIT",
       },
     });
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(detail, {
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": CDN_CACHE_CONTROL,
         "x-calendar-detail-cache": "MISS",
       },
     });
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
       } satisfies EventDetailPayload,
       {
         headers: {
-          "Cache-Control": "no-store",
+          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
           "x-calendar-detail-cache": "MISS",
         },
       }

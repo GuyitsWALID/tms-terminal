@@ -50,6 +50,7 @@ export default function FinancialJuiceLivePanel() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [delayed, setDelayed] = useState(false);
+  const [streamConnected, setStreamConnected] = useState(false);
   const [timePreferences, setTimePreferences] = useState(HYDRATION_SAFE_TIME_PREFERENCES);
   const [copyStatus, setCopyStatus] = useState("");
 
@@ -81,7 +82,6 @@ export default function FinancialJuiceLivePanel() {
 
   useEffect(() => {
     let mounted = true;
-    let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const refresh = async (isInitial = false) => {
       if (isInitial) {
@@ -112,17 +112,41 @@ export default function FinancialJuiceLivePanel() {
     };
 
     void refresh(true);
-    intervalId = setInterval(() => {
-      void refresh(false);
+
+    return () => {
+      mounted = false;
+    };
+  }, [market]);
+
+  useEffect(() => {
+    if (streamConnected) return;
+
+    let mounted = true;
+    const intervalId = setInterval(() => {
+      if (!mounted) return;
+      void fetchFinancialJuiceFeed(market)
+        .then((response) => {
+          if (!mounted) return;
+          const nowMs = Date.now();
+          const latest = response.rows.filter((item) => isFinancialJuiceItem(item) && isWithinLast24Hours(item.publishedAt, nowMs));
+          if (latest.length > 0) {
+            setItems((prev) => dedupeById([...latest, ...prev]).filter((item) => isWithinLast24Hours(item.publishedAt, nowMs)));
+            setDelayed(false);
+          } else {
+            setDelayed(true);
+          }
+        })
+        .catch(() => {
+          if (!mounted) return;
+          setDelayed(true);
+        });
     }, 12000);
 
     return () => {
       mounted = false;
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      clearInterval(intervalId);
     };
-  }, [market]);
+  }, [market, streamConnected]);
 
   const onFindArticle = async (item: NewsItem) => {
     const exactHeadline = item.headline.trim();
@@ -147,6 +171,12 @@ export default function FinancialJuiceLivePanel() {
   useEffect(() => {
     const streamUrl = `/api/news/live?market=${market}`;
     const eventSource = new EventSource(streamUrl);
+    setStreamConnected(false);
+
+    eventSource.onopen = () => {
+      setStreamConnected(true);
+      setDelayed(false);
+    };
 
     eventSource.onmessage = (event) => {
       try {
@@ -166,10 +196,12 @@ export default function FinancialJuiceLivePanel() {
     };
 
     eventSource.onerror = () => {
+      setStreamConnected(false);
       setDelayed(true);
     };
 
     return () => {
+      setStreamConnected(false);
       eventSource.close();
     };
   }, [market]);

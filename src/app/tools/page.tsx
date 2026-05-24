@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Wrench } from "lucide-react";
 
 type SelectedStream = {
@@ -39,12 +39,8 @@ function LinkButton({ action, instrumentTitle, onOpen }: { action: LinkAction; i
 }
 
 export default function ToolsPage() {
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const [status, setStatus] = useState("");
-
-  useEffect(() => {
-    setLoading(false);
-  }, []);
 
 
   const onOpenStream = (stream: SelectedStream) => {

@@ -12,7 +12,9 @@ type HookResult = {
   isLoading: boolean;
 };
 
-export function useLiveTickers(intervalMs = 1000, market: MarketKey = "forex"): HookResult {
+const HIDDEN_INTERVAL_MS = 60_000;
+
+export function useLiveTickers(intervalMs = 15_000, market: MarketKey = "forex"): HookResult {
   const [tickers, setTickers] = useState<LiveTicker[]>([]);
   const [source, setSource] = useState("none");
   const [cache, setCache] = useState("none");
@@ -26,8 +28,9 @@ export function useLiveTickers(intervalMs = 1000, market: MarketKey = "forex"): 
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     const load = async () => {
+      const nextIntervalMs = document.hidden ? HIDDEN_INTERVAL_MS : intervalMs;
       if (document.hidden) {
-        timer = setTimeout(load, intervalMs);
+        timer = setTimeout(load, nextIntervalMs);
         return;
       }
 
@@ -54,7 +57,7 @@ export function useLiveTickers(intervalMs = 1000, market: MarketKey = "forex"): 
       } finally {
         if (mounted) {
           setIsLoading(false);
-          timer = setTimeout(load, intervalMs);
+          timer = setTimeout(load, nextIntervalMs);
         }
       }
     };

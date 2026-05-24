@@ -84,6 +84,10 @@ const segmentStyle = (startMin: number, endMin: number) => {
 };
 
 const HYDRATION_SAFE_TIME_PREFERENCES: TimePreferences = { timeZone: "UTC", timeFormat: "ampm" };
+const getInitialTimePreferences = () => {
+  if (typeof window === "undefined") return HYDRATION_SAFE_TIME_PREFERENCES;
+  return readTimePreferences();
+};
 
 const formatSessionRange = (startHour: number, endHour: number, preferences: TimePreferences, referenceDate: Date) => {
   const baseUtcDate = new Date(
@@ -106,11 +110,7 @@ export default function LiveSessionsPanel({
   className,
 }: LiveSessionsPanelProps) {
   const [now, setNow] = useState(() => new Date());
-  const [timePreferences, setTimePreferences] = useState<TimePreferences>(HYDRATION_SAFE_TIME_PREFERENCES);
-  const [usersOnline, setUsersOnline] = useState<number | null>(null);
-  const [usersSource, setUsersSource] = useState<"provider" | "fallback">("fallback");
-  const [usersSetupState, setUsersSetupState] = useState<"ok" | "unconfigured" | "provider-error">("unconfigured");
-  const [deployedOnVercel, setDeployedOnVercel] = useState(false);
+  const [timePreferences, setTimePreferences] = useState<TimePreferences>(getInitialTimePreferences);
 
   const timeZoneLabel = getTimeZoneLabel(timePreferences.timeZone);
 
@@ -123,8 +123,6 @@ export default function LiveSessionsPanel({
   }, []);
 
   useEffect(() => {
-    setTimePreferences(readTimePreferences());
-
     const onTimePreferencesChange = () => {
       setTimePreferences(readTimePreferences());
       setNow(new Date());
@@ -136,60 +134,6 @@ export default function LiveSessionsPanel({
       window.removeEventListener(TIME_PREFERENCES_EVENT, onTimePreferencesChange as EventListener);
     };
   }, []);
-
-  useEffect(() => {
-    if (!showTraders) {
-      return;
-    }
-
-    let mounted = true;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    const loadUsersOnline = async () => {
-      try {
-        const response = await fetch("/api/analytics/users-online", { cache: "no-store" });
-        if (!mounted) return;
-
-        if (!response.ok) {
-          setUsersOnline(null);
-          setUsersSource("fallback");
-        } else {
-          const data = (await response.json()) as {
-            usersOnline: number | null;
-            source?: string;
-            deployedOnVercel?: boolean;
-          };
-          setDeployedOnVercel(Boolean(data.deployedOnVercel));
-          if (typeof data.usersOnline === "number" && Number.isFinite(data.usersOnline)) {
-            setUsersOnline(Math.max(0, Math.round(data.usersOnline)));
-            setUsersSource("provider");
-            setUsersSetupState("ok");
-          } else {
-            setUsersOnline(null);
-            setUsersSource("fallback");
-            setUsersSetupState(data.source === "provider-error" ? "provider-error" : "unconfigured");
-          }
-        }
-      } catch {
-        if (!mounted) return;
-        setUsersOnline(null);
-        setUsersSource("fallback");
-        setUsersSetupState("provider-error");
-        setDeployedOnVercel(false);
-      } finally {
-        if (mounted) {
-          timer = setTimeout(loadUsersOnline, 15_000);
-        }
-      }
-    };
-
-    void loadUsersOnline();
-
-    return () => {
-      mounted = false;
-      if (timer) clearTimeout(timer);
-    };
-  }, [showTraders]);
 
   const currentMinutes = toUtcMinutes(now);
 
@@ -216,8 +160,6 @@ export default function LiveSessionsPanel({
     return Math.round(base * sessionFactor * (1 + dailyWave));
   }, [market, activeWeight, currentMinutes]);
 
-  const displayedUsersOnline = usersOnline ?? estimatedTraderCount;
-
   return (
     <div className={cn("rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] p-3", className)}>
       <div className="mb-2 flex items-center justify-between">
@@ -228,19 +170,10 @@ export default function LiveSessionsPanel({
       {showTraders ? (
         <div className="mb-3 rounded border border-[var(--line-soft)] bg-[var(--surface-2)] p-2.5">
           <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--ink-muted)]">Active Traders</p>
-          <p className="mt-1 font-rajdhani text-3xl font-bold leading-none text-[var(--ink-primary)]">{displayedUsersOnline.toLocaleString()}</p>
+          <p className="mt-1 font-rajdhani text-3xl font-bold leading-none text-[var(--ink-primary)]">{estimatedTraderCount.toLocaleString()}</p>
           <p className="mt-1 text-[11px] text-[var(--ink-muted)]">
-            {activeCount} session{activeCount === 1 ? "" : "s"} open | {usersSource === "provider" ? "Vercel Analytics online users" : "session-based live estimate"}
+            {activeCount} session{activeCount === 1 ? "" : "s"} open | session-based live estimate
           </p>
-          {usersSetupState !== "ok" ? (
-            <p className="mt-1 text-[10px] text-[#ffb38f]">
-              {usersSetupState === "unconfigured"
-                ? deployedOnVercel
-                  ? "Vercel Analytics tracking is enabled. Configure VERCEL_ANALYTICS_USERS_ONLINE_URL and VERCEL_ACCESS_TOKEN to show true live users here."
-                  : "Local/dev mode: analytics tracking integration is present. Set VERCEL_ANALYTICS_USERS_ONLINE_URL and VERCEL_ACCESS_TOKEN to show true live users."
-                : "Vercel users endpoint unreachable. Showing fallback estimate."}
-            </p>
-          ) : null}
         </div>
       ) : null}
 

@@ -32,11 +32,9 @@ function SymbolFallbackCard({ symbol, title }: { symbol: string; title: string }
   );
 }
 
-const IS_DEV = process.env.NODE_ENV === "development";
-
 function TradingViewSymbolInfoCard({ symbol, title, theme }: TradingViewSymbolInfoCardProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [failed, setFailed] = useState(IS_DEV);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -64,13 +62,13 @@ function TradingViewSymbolInfoCard({ symbol, title, theme }: TradingViewSymbolIn
     container.appendChild(widgetHost);
     container.appendChild(script);
 
-    // If no iframe appears after 2.5s → show fallback
+    // If no iframe appears after a short grace period, show fallback.
     const t = setTimeout(() => {
       const iframe = container.querySelector("iframe") as HTMLIFrameElement | null;
       if (!iframe || iframe.clientHeight < 20) {
         setFailed(true);
       }
-    }, 2500);
+    }, 6000);
 
     return () => {
       clearTimeout(t);

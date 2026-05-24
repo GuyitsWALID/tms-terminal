@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { EpsHistoryPoint } from "@/types/api";
 
-export const dynamic = "force-dynamic";
+const CDN_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=1800";
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 type CacheRecord = { data: EpsHistoryPoint[]; createdAt: number };
@@ -41,7 +41,7 @@ export async function GET(
   const cached = CACHE.get(sym);
   if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
     return NextResponse.json(cached.data, {
-      headers: { "Cache-Control": "no-store", "x-eps-cache": "HIT" },
+      headers: { "Cache-Control": CDN_CACHE_CONTROL, "x-eps-cache": "HIT" },
     });
   }
 
@@ -101,7 +101,7 @@ export async function GET(
 
     return NextResponse.json(points, {
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": CDN_CACHE_CONTROL,
         "x-eps-cache": "MISS",
         "x-eps-count": String(points.length),
       },
@@ -110,11 +110,11 @@ export async function GET(
     const msg = err instanceof Error ? err.message : "unknown";
     if (cached) {
       return NextResponse.json(cached.data, {
-        headers: { "Cache-Control": "no-store", "x-eps-cache": "STALE" },
+        headers: { "Cache-Control": CDN_CACHE_CONTROL, "x-eps-cache": "STALE" },
       });
     }
     return NextResponse.json([], {
-      headers: { "Cache-Control": "no-store", "x-eps-error": msg },
+      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120", "x-eps-error": msg },
     });
   }
 }
