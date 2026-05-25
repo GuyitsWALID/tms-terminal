@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import type { EpsHistoryPoint } from "@/types/api";
 
-const CDN_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=1800";
+const CDN_CACHE_CONTROL = "public, s-maxage=600, stale-while-revalidate=3600";
 
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
+const CACHE_TTL_MS = 60 * 60 * 1000; // 60 min
 type CacheRecord = { data: EpsHistoryPoint[]; createdAt: number };
 const CACHE = new Map<string, CacheRecord>();
 

@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import type { EarningsEntry, EpsHistoryPoint } from "@/types/api";
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const EPS_HISTORY_CACHE_TTL_MS = 15 * 60 * 1000;
+const EPS_HISTORY_CLIENT_CACHE = new Map<string, { data: EpsHistoryPoint[] | null; createdAt: number }>();
 
 // ─── Formatters ────────────────────────────────────────────────────────────
 const fmtEps = (v: number | null) => {
@@ -111,11 +113,23 @@ function EpsSparkline({ symbol }: { symbol: string }) {
     fetched.current = true;
     void (async () => {
       try {
-        const res = await fetch(`/api/earnings/history/${encodeURIComponent(symbol)}`, { cache: "no-store" });
+        const cacheKey = symbol.toUpperCase();
+        const cached = EPS_HISTORY_CLIENT_CACHE.get(cacheKey);
+        if (cached && Date.now() - cached.createdAt < EPS_HISTORY_CACHE_TTL_MS) {
+          setPoints(cached.data);
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(`/api/earnings/history/${encodeURIComponent(symbol)}`);
         if (!res.ok) throw new Error(`${res.status}`);
         const data = (await res.json()) as EpsHistoryPoint[];
-        setPoints(Array.isArray(data) && data.length > 0 ? data : null);
-      } catch { setPoints(null); }
+        const normalized = Array.isArray(data) && data.length > 0 ? data : null;
+        EPS_HISTORY_CLIENT_CACHE.set(cacheKey, { data: normalized, createdAt: Date.now() });
+        setPoints(normalized);
+      } catch {
+        setPoints(null);
+      }
       finally { setLoading(false); }
     })();
   }, [symbol]);

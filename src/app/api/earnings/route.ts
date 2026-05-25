@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { EarningsEntry } from "@/types/api";
 
-const CACHE_TTL_MS = 8 * 60 * 1000; // 8 min
-const CDN_CACHE_CONTROL = "public, s-maxage=60, stale-while-revalidate=300";
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 min
+const CDN_CACHE_CONTROL = "public, s-maxage=120, stale-while-revalidate=600";
 
 type CacheRecord = { data: EarningsEntry[]; createdAt: number };
 const CACHE = new Map<string, CacheRecord>();

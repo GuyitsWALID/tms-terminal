@@ -12,7 +12,8 @@ const HYDRATION_SAFE_TIME_PREFERENCES: TimePreferences = { timeZone: "UTC", time
 
 const SOURCE_KEYWORD = "financial juice";
 const FULL_DAY_MS = 24 * 60 * 60 * 1000;
-const FALLBACK_POLL_MS = 12_000;
+const FALLBACK_POLL_BASE_MS = 15_000;
+const FALLBACK_POLL_CAP_MS = 45_000;
 const RECONNECT_BASE_MS = 700;
 const RECONNECT_CAP_MS = 8_000;
 
@@ -131,30 +132,49 @@ export default function FinancialJuiceLivePanel() {
     if (streamConnected) return;
 
     let mounted = true;
-    const intervalId = setInterval(() => {
-      if (document.hidden) return;
-      if (!mounted) return;
-      void fetchFinancialJuiceFeed(market)
-        .then((response) => {
-          if (!mounted) return;
-          const nowMs = Date.now();
-          const latest = response.rows.filter((item) => isFinancialJuiceItem(item) && isWithinLast24Hours(item.publishedAt, nowMs));
-          if (latest.length > 0) {
-            setItems((prev) => dedupeById([...latest, ...prev]).filter((item) => isWithinLast24Hours(item.publishedAt, nowMs)));
-            setDelayed(false);
-          } else {
-            setDelayed(true);
-          }
-        })
-        .catch(() => {
-          if (!mounted) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let attempt = 0;
+
+    const scheduleNext = () => {
+      if (!mounted || streamConnected) return;
+      const delay = Math.min(FALLBACK_POLL_CAP_MS, FALLBACK_POLL_BASE_MS * (2 ** Math.min(attempt, 3)));
+      timer = setTimeout(runPoll, delay);
+    };
+
+    const runPoll = async () => {
+      if (!mounted || streamConnected) return;
+      if (document.hidden) {
+        scheduleNext();
+        return;
+      }
+
+      try {
+        const response = await fetchFinancialJuiceFeed(market);
+        if (!mounted) return;
+        const nowMs = Date.now();
+        const latest = response.rows.filter((item) => isFinancialJuiceItem(item) && isWithinLast24Hours(item.publishedAt, nowMs));
+        if (latest.length > 0) {
+          setItems((prev) => dedupeById([...latest, ...prev]).filter((item) => isWithinLast24Hours(item.publishedAt, nowMs)));
+          setDelayed(false);
+          attempt = 0;
+        } else {
           setDelayed(true);
-        });
-    }, FALLBACK_POLL_MS);
+          attempt += 1;
+        }
+      } catch {
+        if (!mounted) return;
+        setDelayed(true);
+        attempt += 1;
+      } finally {
+        scheduleNext();
+      }
+    };
+
+    scheduleNext();
 
     return () => {
       mounted = false;
-      clearInterval(intervalId);
+      if (timer) clearTimeout(timer);
     };
   }, [market, streamConnected]);
 
