@@ -21,6 +21,7 @@ function HomeContent() {
   const [calendarWidgetFailed, setCalendarWidgetFailed] = useState(false);
   const [marketDataWidgetFailed, setMarketDataWidgetFailed] = useState(false);
   const [technicalWidgetFailed, setTechnicalWidgetFailed] = useState(false);
+  const [selectedTechnicalSymbol, setSelectedTechnicalSymbol] = useState(MARKET_TECHNICAL_SYMBOL[market]);
 
   const [widgetTheme, setWidgetTheme] = useState<"dark" | "light">(() => {
     if (typeof window === "undefined") return "dark";
@@ -45,6 +46,23 @@ function HomeContent() {
     observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    setSelectedTechnicalSymbol(MARKET_TECHNICAL_SYMBOL[market]);
+  }, [market]);
+
+  const technicalSymbolOptions = useMemo(() => {
+    const marketPairs = marketConfig.chartSymbols.map((pair) => ({
+      label: pair.display,
+      value: pair.tradingView,
+    }));
+    const existing = new Set(marketPairs.map((pair) => pair.value));
+    const fallback =
+      !existing.has(MARKET_TECHNICAL_SYMBOL[market])
+        ? [{ label: MARKET_TECHNICAL_SYMBOL[market].split(":")[1] ?? "Default", value: MARKET_TECHNICAL_SYMBOL[market] }]
+        : [];
+    return [...marketPairs, ...fallback];
+  }, [market, marketConfig.chartSymbols]);
 
   const marketDataConfig = useMemo(
     () => ({
@@ -79,7 +97,7 @@ function HomeContent() {
 
   const technicalConfig = useMemo(
     () => ({
-      symbol: MARKET_TECHNICAL_SYMBOL[market],
+      symbol: selectedTechnicalSymbol,
       interval: "1h",
       displayMode: "single",
       showIntervalTabs: true,
@@ -87,7 +105,7 @@ function HomeContent() {
       width: "100%",
       height: 560,
     }),
-    [market]
+    [selectedTechnicalSymbol]
   );
 
   return (
@@ -165,8 +183,12 @@ function HomeContent() {
 
       {/* ── FinancialJuice live feed + Earnings Report ─────────── */}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        <FinancialJuiceLivePanel />
-        <EarningsReport />
+        <div className="xl:h-[620px]">
+          <FinancialJuiceLivePanel />
+        </div>
+        <div className="xl:h-[620px]">
+          <EarningsReport />
+        </div>
       </div>
 
       {/* ── Market Data + Technical Analysis ──────────────────── */}
@@ -191,7 +213,24 @@ function HomeContent() {
           </div>
         </TradingViewPanel>
 
-        <TradingViewPanel title="Technical Analysis" bodyClassName="p-0">
+        <TradingViewPanel
+          title="Technical Analysis"
+          headerRight={
+            <select
+              value={selectedTechnicalSymbol}
+              onChange={(event) => setSelectedTechnicalSymbol(event.target.value)}
+              className="h-7 rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-primary)] outline-none sm:h-8 sm:text-[11px]"
+              aria-label="Select technical analysis pair"
+            >
+              {technicalSymbolOptions.map((pair) => (
+                <option key={pair.value} value={pair.value}>
+                  {pair.label}
+                </option>
+              ))}
+            </select>
+          }
+          bodyClassName="p-0"
+        >
           <div className="h-[360px] sm:h-[500px] lg:h-[560px]">
             {!technicalWidgetFailed ? (
               <TradingViewWidget

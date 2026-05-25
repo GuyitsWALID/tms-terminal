@@ -534,7 +534,7 @@ export default function EarningsReport() {
   });
 
   return (
-    <section className="ff-panel overflow-hidden">
+    <section className="ff-panel flex h-full min-h-0 flex-col overflow-hidden">
 
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-3 py-2 sm:px-4">
@@ -596,9 +596,9 @@ export default function EarningsReport() {
       <div
         id="earnings-body"
         style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
-        className="grid transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
+        className="grid min-h-0 flex-1 transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
       >
-        <div className="overflow-hidden">
+        <div className="flex min-h-0 flex-col overflow-hidden">
           {/* Tabs */}
           <div className="flex border-b border-[var(--line-strong)] bg-[var(--surface-1)]">
             {TABS.map((tab) => {
@@ -626,7 +626,7 @@ export default function EarningsReport() {
           {!loading && !error && <BeatRateBanner entries={filtered} />}
 
           {/* Card list */}
-          <div className="ff-scroll max-h-[520px] overflow-y-auto bg-[var(--surface-2)]">
+          <div className="ff-scroll min-h-0 flex-1 overflow-y-auto bg-[var(--surface-2)]">
             {loading ? (
               <div className="flex flex-col gap-0">
                 {Array.from({ length: 3 }).map((_, i) => (
