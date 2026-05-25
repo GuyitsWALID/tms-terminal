@@ -84,10 +84,6 @@ const segmentStyle = (startMin: number, endMin: number) => {
 };
 
 const HYDRATION_SAFE_TIME_PREFERENCES: TimePreferences = { timeZone: "UTC", timeFormat: "ampm" };
-const getInitialTimePreferences = () => {
-  if (typeof window === "undefined") return HYDRATION_SAFE_TIME_PREFERENCES;
-  return readTimePreferences();
-};
 
 const formatSessionRange = (startHour: number, endHour: number, preferences: TimePreferences, referenceDate: Date) => {
   const baseUtcDate = new Date(
@@ -110,9 +106,17 @@ export default function LiveSessionsPanel({
   className,
 }: LiveSessionsPanelProps) {
   const [now, setNow] = useState(() => new Date());
-  const [timePreferences, setTimePreferences] = useState<TimePreferences>(getInitialTimePreferences);
+  const [timePreferences, setTimePreferences] = useState<TimePreferences>(HYDRATION_SAFE_TIME_PREFERENCES);
 
   const timeZoneLabel = getTimeZoneLabel(timePreferences.timeZone);
+
+  useEffect(() => {
+    const syncPrefs = window.setTimeout(() => {
+      setTimePreferences(readTimePreferences());
+    }, 0);
+
+    return () => window.clearTimeout(syncPrefs);
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
