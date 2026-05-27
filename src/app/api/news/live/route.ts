@@ -6,7 +6,7 @@ import type { MarketKey } from "@/types";
 export const dynamic = "force-dynamic";
 const FULL_DAY_MS = 24 * 60 * 60 * 1000;
 const STREAM_LIMIT = Number(process.env.FINANCIAL_JUICE_STREAM_LIMIT ?? 500);
-const SESSION_MAX_MS = Number(process.env.FINANCIAL_JUICE_SSE_SESSION_MS ?? 60_000);
+const SESSION_MAX_MS = Number(process.env.FINANCIAL_JUICE_SSE_SESSION_MS ?? 180_000);
 const UPDATE_INTERVAL_MS = 1500;
 const HEARTBEAT_INTERVAL_MS = 20_000;
 
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   const encoder = new TextEncoder();
   const sessionId = crypto.randomUUID();
   const sessionStartedAt = Date.now();
-  const sessionClass = SESSION_MAX_MS <= 45_000 ? "short" : SESSION_MAX_MS <= 90_000 ? "balanced" : "long";
+  const sessionClass = SESSION_MAX_MS <= 90_000 ? "short" : SESSION_MAX_MS <= 240_000 ? "balanced" : "long";
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -123,6 +123,8 @@ export async function GET(request: NextRequest) {
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
+      "X-Live-Source": "financialjuice-telegram-live",
+      "X-Live-Update-Interval-Ms": String(UPDATE_INTERVAL_MS),
       "X-Live-Session-Class": sessionClass,
       "X-Live-Session-Max-Ms": String(SESSION_MAX_MS),
       "X-Live-Session-Id": sessionId,

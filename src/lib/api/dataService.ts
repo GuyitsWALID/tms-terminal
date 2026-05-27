@@ -75,7 +75,7 @@ export async function fetchEconomicCalendarWithMeta(options?: EconomicCalendarFe
     url.searchParams.set("day", String(date.getDate()));
   }
 
-  const res = await fetch(url.toString(), { cache: "no-store" });
+  const res = await fetch(url.toString());
   if (!res.ok) throw new Error("Calendar fetch failed");
   const events = (await res.json()) as EconomicEvent[];
 

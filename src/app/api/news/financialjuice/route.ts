@@ -22,8 +22,11 @@ export async function GET(request: Request) {
     const nowMs = Date.now();
     const scopedByDay = resolved.items.filter((item) => isWithinLast24Hours(item.publishedAt, nowMs));
     const scoped = scopedByDay.length > 0 ? scopedByDay : resolved.items.slice(0, FALLBACK_MAX_ITEMS);
+    const seededForLiveStore = [...scoped].sort(
+      (a, b) => new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime()
+    );
 
-    scoped.forEach((item) => {
+    seededForLiveStore.forEach((item) => {
       addFinancialJuiceLiveItem({
         ...item,
         rawText: item.headline,
@@ -33,7 +36,10 @@ export async function GET(request: Request) {
 
     return NextResponse.json(scoped, {
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": resolved.usedFallback
+          ? "public, s-maxage=30, stale-while-revalidate=120"
+          : "no-store",
+        "x-financialjuice-cache": resolved.usedFallback ? "MISS" : "BYPASS",
         "x-financialjuice-source": resolved.source,
         "x-financialjuice-fallback": resolved.usedFallback ? "1" : "0",
         ...(resolved.fallbackReason ? { "x-financialjuice-fallback-reason": resolved.fallbackReason } : {}),
@@ -45,7 +51,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json([], {
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
+        "x-financialjuice-cache": "MISS",
         "x-financialjuice-source": "none",
         "x-financialjuice-fallback": "1",
         "x-financialjuice-fallback-reason": "fetch-failed",

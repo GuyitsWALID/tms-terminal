@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   TrendingUp, TrendingDown, Minus, RefreshCw, Clock,
   BarChart2, Users, ChevronDown, Activity, Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { EarningsEntry, EpsHistoryPoint } from "@/types/api";
+import type { EarningsEntry, EpsHistoryBatchResponse, EpsHistoryPoint } from "@/types/api";
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const EPS_HISTORY_CACHE_TTL_MS = 15 * 60 * 1000;
@@ -103,37 +103,7 @@ const STATUS_COLORS: Record<EpsHistoryPoint["status"], string> = {
 };
 
 // ─── EPS Sparkline ─────────────────────────────────────────────────────────
-function EpsSparkline({ symbol }: { symbol: string }) {
-  const [points, setPoints] = useState<EpsHistoryPoint[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const fetched = useRef(false);
-
-  useEffect(() => {
-    if (fetched.current) return;
-    fetched.current = true;
-    void (async () => {
-      try {
-        const cacheKey = symbol.toUpperCase();
-        const cached = EPS_HISTORY_CLIENT_CACHE.get(cacheKey);
-        if (cached && Date.now() - cached.createdAt < EPS_HISTORY_CACHE_TTL_MS) {
-          setPoints(cached.data);
-          setLoading(false);
-          return;
-        }
-
-        const res = await fetch(`/api/earnings/history/${encodeURIComponent(symbol)}`);
-        if (!res.ok) throw new Error(`${res.status}`);
-        const data = (await res.json()) as EpsHistoryPoint[];
-        const normalized = Array.isArray(data) && data.length > 0 ? data : null;
-        EPS_HISTORY_CLIENT_CACHE.set(cacheKey, { data: normalized, createdAt: Date.now() });
-        setPoints(normalized);
-      } catch {
-        setPoints(null);
-      }
-      finally { setLoading(false); }
-    })();
-  }, [symbol]);
-
+function EpsSparkline({ points, loading }: { points: EpsHistoryPoint[] | null; loading: boolean }) {
   if (loading) return <div className="mt-2 h-[62px] w-full animate-pulse rounded bg-[var(--surface-3)]" />;
   if (!points || points.length < 2) return null;
 
@@ -288,7 +258,15 @@ function FiftyTwoWeekBar({ price, low, high }: { price: number; low: number; hig
 }
 
 // ─── Earnings Card ─────────────────────────────────────────────────────────
-function EarningsCard({ entry }: { entry: EarningsEntry }) {
+function EarningsCard({
+  entry,
+  epsPoints,
+  epsLoading,
+}: {
+  entry: EarningsEntry;
+  epsPoints: EpsHistoryPoint[] | null;
+  epsLoading: boolean;
+}) {
   const cfg = STATUS_CONFIG[entry.status];
   const Icon = cfg.icon;
   const rtInfo = REPORT_TIME[entry.reportTime] ?? REPORT_TIME.TNS;
@@ -491,7 +469,7 @@ function EarningsCard({ entry }: { entry: EarningsEntry }) {
       )}
 
       {/* ── Row 5: EPS Sparkline ── */}
-      <EpsSparkline symbol={entry.symbol} />
+      <EpsSparkline points={epsPoints} loading={epsLoading} />
     </article>
   );
 }
@@ -512,12 +490,14 @@ export default function EarningsReport() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [isOpen, setIsOpen] = useState(true);
+  const [epsBySymbol, setEpsBySymbol] = useState<Record<string, EpsHistoryPoint[] | null>>({});
+  const [epsLoading, setEpsLoading] = useState(false);
 
   const fetchEarnings = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
     setError(false);
     try {
-      const res = await fetch("/api/earnings", { cache: "no-store" });
+      const res = await fetch("/api/earnings");
       if (!res.ok) throw new Error(`Status ${res.status}`);
       const data = (await res.json()) as EarningsEntry[];
       setEntries(Array.isArray(data) ? data : []);
@@ -531,6 +511,64 @@ export default function EarningsReport() {
     const id = setInterval(() => void fetchEarnings(false), REFRESH_INTERVAL_MS);
     return () => clearInterval(id);
   }, [fetchEarnings]);
+
+  useEffect(() => {
+    const symbols = Array.from(new Set(entries.map((entry) => entry.symbol.toUpperCase().trim()).filter(Boolean)));
+    if (symbols.length === 0) {
+      setEpsBySymbol({});
+      return;
+    }
+
+    const now = Date.now();
+    const fromCache: Record<string, EpsHistoryPoint[] | null> = {};
+    const missing: string[] = [];
+
+    for (const symbol of symbols) {
+      const cached = EPS_HISTORY_CLIENT_CACHE.get(symbol);
+      if (cached && now - cached.createdAt < EPS_HISTORY_CACHE_TTL_MS) {
+        fromCache[symbol] = cached.data;
+      } else {
+        missing.push(symbol);
+      }
+    }
+
+    setEpsBySymbol((prev) => ({ ...prev, ...fromCache }));
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    setEpsLoading(true);
+
+    void (async () => {
+      try {
+        const params = new URLSearchParams();
+        for (const symbol of missing) params.append("symbol", symbol);
+        const res = await fetch(`/api/earnings/history?${params.toString()}`);
+        if (!res.ok) throw new Error(`Status ${res.status}`);
+        const data = (await res.json()) as EpsHistoryBatchResponse;
+        if (cancelled) return;
+
+        const fresh: Record<string, EpsHistoryPoint[] | null> = {};
+        for (const symbol of missing) {
+          const points = data[symbol];
+          const normalized = Array.isArray(points) && points.length > 0 ? points : null;
+          fresh[symbol] = normalized;
+          EPS_HISTORY_CLIENT_CACHE.set(symbol, { data: normalized, createdAt: Date.now() });
+        }
+        setEpsBySymbol((prev) => ({ ...prev, ...fresh }));
+      } catch {
+        if (cancelled) return;
+        const fallback: Record<string, EpsHistoryPoint[] | null> = {};
+        for (const symbol of missing) fallback[symbol] = null;
+        setEpsBySymbol((prev) => ({ ...prev, ...fallback }));
+      } finally {
+        if (!cancelled) setEpsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [entries]);
 
   const filtered = entries.filter((e) =>
     activeTab === "bmo" ? e.reportTime === "BMO"
@@ -683,7 +721,12 @@ export default function EarningsReport() {
                 </p>
               </div>
             ) : (
-              filtered.map((entry) => <EarningsCard key={entry.id} entry={entry} />)
+              filtered.map((entry) => {
+                const symbol = entry.symbol.toUpperCase().trim();
+                const points = epsBySymbol[symbol] ?? null;
+                const isPointsLoading = epsLoading && points == null;
+                return <EarningsCard key={entry.id} entry={entry} epsPoints={points} epsLoading={isPointsLoading} />;
+              })
             )}
           </div>
 

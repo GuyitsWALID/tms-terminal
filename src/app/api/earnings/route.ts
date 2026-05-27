@@ -236,6 +236,7 @@ export async function GET() {
       headers: {
         "Cache-Control": CDN_CACHE_CONTROL,
         "x-earnings-cache": "HIT",
+        "x-earnings-source": "nasdaq+yahoo",
         "x-earnings-date": dateStr,
       },
     });
@@ -258,6 +259,7 @@ export async function GET() {
       headers: {
         "Cache-Control": CDN_CACHE_CONTROL,
         "x-earnings-cache": "MISS",
+        "x-earnings-source": "nasdaq+yahoo",
         "x-earnings-date": dateStr,
         "x-earnings-count": String(data.length),
       },
@@ -268,14 +270,19 @@ export async function GET() {
 
     if (cached) {
       return NextResponse.json(cached.data, {
-        headers: { "Cache-Control": CDN_CACHE_CONTROL, "x-earnings-cache": "STALE" },
+        headers: {
+          "Cache-Control": CDN_CACHE_CONTROL,
+          "x-earnings-cache": "STALE",
+          "x-earnings-source": "nasdaq+yahoo",
+        },
       });
     }
 
     return NextResponse.json([], {
       headers: {
-        "Cache-Control": "public, s-maxage=10, stale-while-revalidate=60",
+        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
         "x-earnings-cache": "MISS",
+        "x-earnings-source": "nasdaq+yahoo",
         "x-earnings-error": msg,
       },
     });

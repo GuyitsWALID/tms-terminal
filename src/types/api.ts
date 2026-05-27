@@ -8,6 +8,8 @@ export interface EpsHistoryPoint {
   status: "beat" | "miss" | "inline" | "upcoming";
 }
 
+export type EpsHistoryBatchResponse = Record<string, EpsHistoryPoint[]>;
+
 export interface EarningsEntry {
   id: string;
   symbol: string;

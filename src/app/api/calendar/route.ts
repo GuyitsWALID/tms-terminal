@@ -43,7 +43,7 @@ type ExportCalendarEvent = CalendarApiEvent & { dateKey: string };
 const FOREX_FACTORY_EXPORT_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml";
 const CACHE_VERSION = "v3";
 const CDN_CACHE_CONTROL = "public, s-maxage=60, stale-while-revalidate=300";
-const CDN_CACHE_CONTROL_SHORT = "public, s-maxage=30, stale-while-revalidate=120";
+const CDN_CACHE_CONTROL_SHORT = "public, s-maxage=60, stale-while-revalidate=300";
 const CACHE = new Map<string, CacheRecord<CalendarApiEvent[]>>();
 const EXPORT_CACHE = new Map<string, CacheRecord<ExportCalendarEvent[]>>();
 const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

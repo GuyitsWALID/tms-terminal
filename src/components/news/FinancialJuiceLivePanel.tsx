@@ -12,10 +12,11 @@ const HYDRATION_SAFE_TIME_PREFERENCES: TimePreferences = { timeZone: "UTC", time
 
 const SOURCE_KEYWORD = "financial juice";
 const FULL_DAY_MS = 24 * 60 * 60 * 1000;
-const FALLBACK_POLL_BASE_MS = 15_000;
-const FALLBACK_POLL_CAP_MS = 45_000;
-const RECONNECT_BASE_MS = 700;
-const RECONNECT_CAP_MS = 8_000;
+const FALLBACK_POLL_BASE_MS = 30_000;
+const FALLBACK_POLL_CAP_MS = 120_000;
+const RECONNECT_BASE_MS = 1_200;
+const RECONNECT_CAP_MS = 10_000;
+const STREAM_HEALTHY_STREAK_THRESHOLD = 2;
 
 const isWithinLast24Hours = (publishedAt: string | undefined, nowMs: number) => {
   if (!publishedAt) return false;
@@ -37,7 +38,7 @@ const isFinancialJuiceItem = (item: NewsItem) => item.source.toLowerCase().inclu
 
 const fetchFinancialJuiceFeed = async (market: MarketKey) => {
   const apiMarket = market === "stocks" ? "commodities" : market;
-  const response = await fetch(`/api/news/financialjuice?market=${apiMarket}`, { cache: "no-store" });
+  const response = await fetch(`/api/news/financialjuice?market=${apiMarket}`);
   if (!response.ok) {
     throw new Error("FinancialJuice fetch failed");
   }
@@ -63,6 +64,7 @@ export default function FinancialJuiceLivePanel() {
   const streamGenerationRef = useRef(0);
   const latestSequenceRef = useRef(0);
   const isHiddenRef = useRef(false);
+  const streamHealthyStreakRef = useRef(0);
 
   useEffect(() => {
     setTimePreferences(readTimePreferences());
@@ -129,20 +131,20 @@ export default function FinancialJuiceLivePanel() {
   }, [market]);
 
   useEffect(() => {
-    if (streamConnected) return;
+    if (streamConnected && streamHealthyStreakRef.current >= STREAM_HEALTHY_STREAK_THRESHOLD) return;
 
     let mounted = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let attempt = 0;
 
     const scheduleNext = () => {
-      if (!mounted || streamConnected) return;
+      if (!mounted || (streamConnected && streamHealthyStreakRef.current >= STREAM_HEALTHY_STREAK_THRESHOLD)) return;
       const delay = Math.min(FALLBACK_POLL_CAP_MS, FALLBACK_POLL_BASE_MS * (2 ** Math.min(attempt, 3)));
       timer = setTimeout(runPoll, delay);
     };
 
     const runPoll = async () => {
-      if (!mounted || streamConnected) return;
+      if (!mounted || (streamConnected && streamHealthyStreakRef.current >= STREAM_HEALTHY_STREAK_THRESHOLD)) return;
       if (document.hidden) {
         scheduleNext();
         return;
@@ -246,6 +248,7 @@ export default function FinancialJuiceLivePanel() {
       eventSource.onopen = () => {
         if (!mounted || localGeneration !== streamGenerationRef.current) return;
         reconnectAttemptRef.current = 0;
+        streamHealthyStreakRef.current = 0;
         setStreamConnected(true);
         setDelayed(false);
       };
@@ -273,6 +276,7 @@ export default function FinancialJuiceLivePanel() {
           const liveItems = incoming.filter((item) => isFinancialJuiceItem(item) && isWithinLast24Hours(item.publishedAt, nowMs));
           if (liveItems.length === 0) return;
 
+          streamHealthyStreakRef.current += 1;
           setItems((prev) => dedupeById([...liveItems, ...prev]).filter((item) => isWithinLast24Hours(item.publishedAt, nowMs)));
           setDelayed(false);
         } catch {
@@ -282,6 +286,7 @@ export default function FinancialJuiceLivePanel() {
 
       eventSource.onerror = () => {
         if (!mounted || localGeneration !== streamGenerationRef.current) return;
+        streamHealthyStreakRef.current = 0;
         closeStream();
         setDelayed(true);
         scheduleReconnect();
