@@ -26,17 +26,22 @@ const mapProfile = (row: ProfileRow): UserProfile => ({
 });
 
 export async function GET(request: Request) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return NextResponse.json({ isAuthenticated: false } satisfies AuthStatus, {
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
   const authHeader = request.headers.get("authorization");
   const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
 
   const supabase = bearer
-    ? createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
-        {
-          auth: { persistSession: false, autoRefreshToken: false },
-        }
-      )
+    ? createClient(supabaseUrl, supabaseKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
     : await createSupabaseServerClient();
 
   const {

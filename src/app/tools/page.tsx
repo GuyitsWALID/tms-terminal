@@ -1,18 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Wrench } from "lucide-react";
-
-type OrderflowLinks = {
-  gold_heat_map_url: string | null;
-  gold_foot_print_url: string | null;
-  bitcoin_heat_map_url: string | null;
-  bitcoin_foot_print_url: string | null;
-  index_nasdaq_heat_map_url: string | null;
-  index_nasdaq_foot_print_url: string | null;
-  index_es_heat_map_url: string | null;
-  index_es_foot_print_url: string | null;
-};
 
 type SelectedStream = {
   instrument: string;
@@ -20,30 +9,22 @@ type SelectedStream = {
   url: string | null;
 };
 
-const EMPTY_LINKS: OrderflowLinks = {
-  gold_heat_map_url: null,
-  gold_foot_print_url: null,
-  bitcoin_heat_map_url: null,
-  bitcoin_foot_print_url: null,
-  index_nasdaq_heat_map_url: null,
-  index_nasdaq_foot_print_url: null,
-  index_es_heat_map_url: null,
-  index_es_foot_print_url: null,
-};
-
 type LinkAction = { label: string; url: string | null };
 type Instrument = { id: string; title: string; actions: LinkAction[] };
 type Category = { id: string; title: string; instruments: Instrument[] };
 
 const isValidUrl = (value: string | null) => !!value && /^https?:\/\//i.test(value);
+const toYouTubeSearchUrl = (query: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 
-const toYoutubeEmbedUrl = (url: string) => {
-  const liveMatch = url.match(/youtube\.com\/live\/([^?&/]+)/i);
-  if (liveMatch?.[1]) return `https://www.youtube.com/embed/${liveMatch[1]}`;
-  const watchMatch = url.match(/[?&]v=([^?&/]+)/i);
-  if (watchMatch?.[1]) return `https://www.youtube.com/embed/${watchMatch[1]}`;
-  return url;
-};
+const GOLD_YOUTUBE_SEARCH_URL = toYouTubeSearchUrl(
+  "Bookmap Live Gold | GOLD FUTURES | GC - XAUUSD | Heatmap | Live Liquidity & Footprints 24/7"
+);
+const NQ_YOUTUBE_SEARCH_URL = toYouTubeSearchUrl(
+  "Bookmap Live NQ | Nasdaq FUTURES | NQ - Nasdaq | Heatmap | Live Liquidity & Footprints 24/7"
+);
+const ES_YOUTUBE_SEARCH_URL = toYouTubeSearchUrl(
+  "Bookmap Live ES | S&P 500 FUTURES | ES - S&P 500 | Heatmap | Live Liquidity & Footprints 24/7"
+);
 
 function LinkButton({ action, instrumentTitle, onOpen }: { action: LinkAction; instrumentTitle: string; onOpen: (stream: SelectedStream) => void }) {
   return (
@@ -58,25 +39,19 @@ function LinkButton({ action, instrumentTitle, onOpen }: { action: LinkAction; i
 }
 
 export default function ToolsPage() {
-  const [links, setLinks] = useState<OrderflowLinks>(EMPTY_LINKS);
-  const [loading, setLoading] = useState(true);
-  const [selectedStream, setSelectedStream] = useState<SelectedStream | null>(null);
+  const [loading] = useState(false);
+  const [status, setStatus] = useState("");
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch("/api/orderflow-links", { cache: "no-store" });
-        if (!res.ok) throw new Error();
-        const data = (await res.json()) as { links: OrderflowLinks | null };
-        setLinks(data.links ?? EMPTY_LINKS);
-      } catch {
-        setLinks(EMPTY_LINKS);
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
-  }, []);
+
+  const onOpenStream = (stream: SelectedStream) => {
+    if (!isValidUrl(stream.url)) {
+      setStatus(`${stream.instrument} ${stream.view} link is not set yet.`);
+      return;
+    }
+
+    setStatus("");
+    window.open(stream.url as string, "_blank", "noopener,noreferrer");
+  };
 
   const categories: Category[] = [
     {
@@ -87,22 +62,7 @@ export default function ToolsPage() {
           id: "xauusd",
           title: "XAU/USD",
           actions: [
-            { label: "Heat Map", url: links.gold_heat_map_url },
-            { label: "Foot Print", url: links.gold_foot_print_url },
-          ],
-        },
-      ],
-    },
-    {
-      id: "bitcoin",
-      title: "Bitcoin",
-      instruments: [
-        {
-          id: "btcusd",
-          title: "BTC/USD",
-          actions: [
-            { label: "Heat Map", url: links.bitcoin_heat_map_url },
-            { label: "Foot Print", url: links.bitcoin_foot_print_url },
+            { label: "Order Flow", url: GOLD_YOUTUBE_SEARCH_URL },
           ],
         },
       ],
@@ -115,16 +75,14 @@ export default function ToolsPage() {
           id: "nasdaq",
           title: "Nasdaq",
           actions: [
-            { label: "Heat Map", url: links.index_nasdaq_heat_map_url },
-            { label: "Foot Print", url: links.index_nasdaq_foot_print_url },
+            { label: "Order Flow", url: NQ_YOUTUBE_SEARCH_URL },
           ],
         },
         {
           id: "es",
           title: "ES",
           actions: [
-            { label: "Heat Map", url: links.index_es_heat_map_url },
-            { label: "Foot Print", url: links.index_es_foot_print_url },
+            { label: "Order Flow", url: ES_YOUTUBE_SEARCH_URL },
           ],
         },
       ],
@@ -161,7 +119,7 @@ export default function ToolsPage() {
                           key={`${instrument.id}-${action.label}`}
                           action={action}
                           instrumentTitle={instrument.title}
-                          onOpen={setSelectedStream}
+                          onOpen={onOpenStream}
                         />
                       ))}
                     </div>
@@ -171,32 +129,7 @@ export default function ToolsPage() {
             </div>
           ))}
           {loading ? <p className="text-xs text-[var(--ink-muted)]">Loading links...</p> : null}
-
-          {selectedStream ? (
-            <div className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] p-3">
-              <p className="text-sm font-semibold text-[var(--ink-primary)]">
-                {selectedStream.instrument} | {selectedStream.view}
-              </p>
-              <div className="mt-3 overflow-hidden rounded border border-[var(--line-strong)] bg-black/70">
-                {isValidUrl(selectedStream.url) ? (
-                  <iframe
-                    title={`${selectedStream.instrument} ${selectedStream.view}`}
-                    src={toYoutubeEmbedUrl(selectedStream.url as string)}
-                    className="h-[240px] w-full sm:h-[320px] md:h-[460px]"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                  />
-                ) : (
-                  <div className="flex h-[240px] w-full items-center justify-center px-4 text-center sm:h-[320px] md:h-[460px]">
-                    <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
-                      Live stream starts in a minute
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : null}
+          {status ? <p className="text-xs text-[#ff6b6b]">{status}</p> : null}
         </div>
       </section>
     </div>

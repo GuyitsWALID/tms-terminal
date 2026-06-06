@@ -1,65 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+#Financial Vibe
+<img width="1904" height="947" alt="Screenshot 2026-05-03 130209" src="https://github.com/user-attachments/assets/95d8cdbf-8cbf-4d52-9fae-b53cf28fd48e" />
+A lightweight **trading & macro “terminal”** built with **Next.js**.
 
-## Getting Started
+Financial Vibe aggregates market information (quotes/tickers) and a live economic calendar into a single web UI, exposing data through simple API routes that the frontend can consume.
 
-First, run the development server:
+> This repository is a Next.js application. The UI lives in the `app/` directory and data is provided by server-side routes under `app/api/*`.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Why this exists (Purpose)
 
-## Live Economic Calendar Setup
+Most retail trading workflows require multiple tabs/tools:
 
-The calendar endpoint is served from `GET /api/calendar` using the app's internal scraper pipeline.
+- a quote tool for quick prices
+- an economic calendar site for macro events
+- a custom dashboard/watchlist to glue it together
 
-## Live Ticker Setup (yfinance)
+**
 
-Tickers are served from `GET /api/tickers` and sourced only from Python `yfinance`.
-No mock ticker values are returned when upstream data fails.
+## What the app provides
 
-1. Install Python 3.10+.
-2. Install Python dependencies from the project root:
+### 1) Live Economic Calendar
 
-```bash
-pip install -r requirements.txt
-```
+- Endpoint: `GET /api/calendar`
+- Source: the app’s internal scraper pipeline
 
-3. (Optional) Create `.env.local` to override Python runner settings:
+This endpoint returns economic calendar data that the UI (or any client) can render.
 
-```bash
-# Optional: absolute path to Python executable.
-# Example on Windows:
-# PYTHON_EXECUTABLE=C:\\Python311\\python.exe
-PYTHON_EXECUTABLE=
+### 2) Live Tickers (Trading View Widgets)
 
-# Optional: absolute path to ticker script.
-# Default: src/lib/python/yfinance_quotes.py
-YFINANCE_SCRIPT_PATH=
-```
+- Endpoint: `GET /api/tickers`
+- Source: **Trading View Widgets**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Important behavior:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **No mock/fake values** are returned when upstream data fails.
+- 
+## Tech stack
 
-## Learn More
+- **Next.js (App Router)**
+- **Node.js**
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

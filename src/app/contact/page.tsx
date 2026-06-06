@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 
-const SUPPORT_EMAIL_PLACEHOLDER = "support@financialvibe.com";
+const SUPPORT_EMAIL = "vibetrading2026@gmail.com";
 
 export default function ContactPage() {
   const [name, setName] = useState("");
@@ -10,20 +10,48 @@ export default function ContactPage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const mailtoHref = useMemo(() => {
-    const body = `Name: ${name}\nEmail: ${email}\n\n${message}`;
-    return `mailto:${SUPPORT_EMAIL_PLACEHOLDER}?subject=${encodeURIComponent(subject || "Support Request")}&body=${encodeURIComponent(body)}`;
-  }, [name, email, subject, message]);
-
-  const onSubmit = (event: FormEvent) => {
+  const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!name.trim() || !email.trim() || !message.trim()) {
       setStatus("Please complete name, email, and message.");
       return;
     }
-    window.location.href = mailtoHref;
-    setStatus("Your email app should open now with pre-filled details.");
+
+    try {
+      setIsSubmitting(true);
+      setStatus("Sending your message...");
+
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          subject: subject.trim(),
+          message: message.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        setStatus(payload.error || "Unable to send your message right now.");
+        return;
+      }
+
+      setStatus("Message sent successfully. We will get back to you soon.");
+      setName("");
+      setEmail("");
+      setSubject("");
+      setMessage("");
+    } catch {
+      setStatus("Unable to send your message right now.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -38,11 +66,9 @@ export default function ContactPage() {
       <section className="ff-panel p-5">
         <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">Support Email</h2>
         <p className="mt-1 text-sm text-[var(--ink-muted)]">
-          Current placeholder: <span className="font-semibold text-[var(--ink-primary)]">{SUPPORT_EMAIL_PLACEHOLDER}</span>
+          <span className="font-semibold text-[var(--ink-primary)]">{SUPPORT_EMAIL}</span>
         </p>
-        <p className="mt-1 text-xs text-[var(--ink-muted)]">
-          Share your final support email and we will replace this placeholder immediately.
-        </p>
+        <p className="mt-1 text-xs text-[var(--ink-muted)]">All contact form submissions are addressed to this inbox.</p>
       </section>
 
       <section className="ff-panel p-5">
@@ -79,9 +105,10 @@ export default function ContactPage() {
           />
           <button
             type="submit"
+            disabled={isSubmitting}
             className="mt-1 inline-flex w-fit rounded bg-[var(--brand-strong)] px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
           >
-            Send Email
+            {isSubmitting ? "Sending..." : "Send Email"}
           </button>
           {status ? <p className="text-xs text-[var(--ink-muted)]">{status}</p> : null}
         </form>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import type { MarketKey } from "@/types";
 import type { NewsItem } from "@/types/api";
@@ -11,6 +11,19 @@ import { TIME_PREFERENCES_EVENT, formatDateWithPreferences, readTimePreferences,
 const HYDRATION_SAFE_TIME_PREFERENCES: TimePreferences = { timeZone: "UTC", timeFormat: "ampm" };
 
 const SOURCE_KEYWORD = "financial juice";
+const FULL_DAY_MS = 24 * 60 * 60 * 1000;
+const FALLBACK_POLL_BASE_MS = 30_000;
+const FALLBACK_POLL_CAP_MS = 120_000;
+const RECONNECT_BASE_MS = 1_200;
+const RECONNECT_CAP_MS = 10_000;
+const STREAM_HEALTHY_STREAK_THRESHOLD = 2;
+
+const isWithinLast24Hours = (publishedAt: string | undefined, nowMs: number) => {
+  if (!publishedAt) return false;
+  const publishedMs = new Date(publishedAt).getTime();
+  if (Number.isNaN(publishedMs)) return false;
+  return publishedMs >= nowMs - FULL_DAY_MS && publishedMs <= nowMs;
+};
 
 const dedupeById = (items: NewsItem[]) => {
   const seen = new Set<string>();
@@ -25,7 +38,7 @@ const isFinancialJuiceItem = (item: NewsItem) => item.source.toLowerCase().inclu
 
 const fetchFinancialJuiceFeed = async (market: MarketKey) => {
   const apiMarket = market === "stocks" ? "commodities" : market;
-  const response = await fetch(`/api/news/financialjuice?market=${apiMarket}`, { cache: "no-store" });
+  const response = await fetch(`/api/news/financialjuice?market=${apiMarket}`);
   if (!response.ok) {
     throw new Error("FinancialJuice fetch failed");
   }
@@ -42,8 +55,16 @@ export default function FinancialJuiceLivePanel() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [delayed, setDelayed] = useState(false);
+  const [streamConnected, setStreamConnected] = useState(false);
   const [timePreferences, setTimePreferences] = useState(HYDRATION_SAFE_TIME_PREFERENCES);
   const [copyStatus, setCopyStatus] = useState("");
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptRef = useRef(0);
+  const streamGenerationRef = useRef(0);
+  const latestSequenceRef = useRef(0);
+  const isHiddenRef = useRef(false);
+  const streamHealthyStreakRef = useRef(0);
 
   useEffect(() => {
     setTimePreferences(readTimePreferences());
@@ -73,7 +94,6 @@ export default function FinancialJuiceLivePanel() {
 
   useEffect(() => {
     let mounted = true;
-    let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const refresh = async (isInitial = false) => {
       if (isInitial) {
@@ -84,11 +104,13 @@ export default function FinancialJuiceLivePanel() {
         const response = await fetchFinancialJuiceFeed(market);
         if (!mounted) return;
 
-        const latest = response.rows.filter(isFinancialJuiceItem).slice(0, 12);
+        const nowMs = Date.now();
+        const latest = response.rows.filter((item) => isFinancialJuiceItem(item) && isWithinLast24Hours(item.publishedAt, nowMs));
         if (latest.length > 0) {
-          setItems((prev) => dedupeById([...latest, ...prev]).slice(0, 12));
+          setItems((prev) => dedupeById([...latest, ...prev]).filter((item) => isWithinLast24Hours(item.publishedAt, nowMs)));
           setDelayed(false);
         } else {
+          setItems([]);
           setDelayed(true);
         }
       } catch {
@@ -102,17 +124,61 @@ export default function FinancialJuiceLivePanel() {
     };
 
     void refresh(true);
-    intervalId = setInterval(() => {
-      void refresh(false);
-    }, 12000);
 
     return () => {
       mounted = false;
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
     };
   }, [market]);
+
+  useEffect(() => {
+    if (streamConnected && streamHealthyStreakRef.current >= STREAM_HEALTHY_STREAK_THRESHOLD) return;
+
+    let mounted = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let attempt = 0;
+
+    const scheduleNext = () => {
+      if (!mounted || (streamConnected && streamHealthyStreakRef.current >= STREAM_HEALTHY_STREAK_THRESHOLD)) return;
+      const delay = Math.min(FALLBACK_POLL_CAP_MS, FALLBACK_POLL_BASE_MS * (2 ** Math.min(attempt, 3)));
+      timer = setTimeout(runPoll, delay);
+    };
+
+    const runPoll = async () => {
+      if (!mounted || (streamConnected && streamHealthyStreakRef.current >= STREAM_HEALTHY_STREAK_THRESHOLD)) return;
+      if (document.hidden) {
+        scheduleNext();
+        return;
+      }
+
+      try {
+        const response = await fetchFinancialJuiceFeed(market);
+        if (!mounted) return;
+        const nowMs = Date.now();
+        const latest = response.rows.filter((item) => isFinancialJuiceItem(item) && isWithinLast24Hours(item.publishedAt, nowMs));
+        if (latest.length > 0) {
+          setItems((prev) => dedupeById([...latest, ...prev]).filter((item) => isWithinLast24Hours(item.publishedAt, nowMs)));
+          setDelayed(false);
+          attempt = 0;
+        } else {
+          setDelayed(true);
+          attempt += 1;
+        }
+      } catch {
+        if (!mounted) return;
+        setDelayed(true);
+        attempt += 1;
+      } finally {
+        scheduleNext();
+      }
+    };
+
+    scheduleNext();
+
+    return () => {
+      mounted = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [market, streamConnected]);
 
   const onFindArticle = async (item: NewsItem) => {
     const exactHeadline = item.headline.trim();
@@ -135,36 +201,122 @@ export default function FinancialJuiceLivePanel() {
   };
 
   useEffect(() => {
-    const streamUrl = `/api/news/live?market=${market}`;
-    const eventSource = new EventSource(streamUrl);
+    let mounted = true;
 
-    eventSource.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data) as { items?: NewsItem[] };
-        const incoming = payload.items;
-        if (!Array.isArray(incoming) || incoming.length === 0) return;
+    const clearReconnectTimer = () => {
+      if (!reconnectTimerRef.current) return;
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    };
 
-        const liveItems = incoming.filter(isFinancialJuiceItem);
-        if (liveItems.length === 0) return;
+    const closeStream = () => {
+      if (!eventSourceRef.current) return;
+      eventSourceRef.current.onopen = null;
+      eventSourceRef.current.onmessage = null;
+      eventSourceRef.current.onerror = null;
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+      setStreamConnected(false);
+    };
 
-        setItems((prev) => dedupeById([...liveItems, ...prev]).slice(0, 12));
-        setDelayed(false);
-      } catch {
-        // Ignore malformed events to keep stream alive.
+    const scheduleReconnect = () => {
+      if (!mounted || isHiddenRef.current) return;
+      clearReconnectTimer();
+      const attempt = reconnectAttemptRef.current++;
+      const expo = Math.min(RECONNECT_CAP_MS, RECONNECT_BASE_MS * (2 ** Math.min(attempt, 5)));
+      const jitter = Math.floor(Math.random() * 450);
+      reconnectTimerRef.current = setTimeout(() => {
+        connectStream();
+      }, expo + jitter);
+    };
+
+    const connectStream = () => {
+      if (!mounted) return;
+      if (document.hidden) {
+        isHiddenRef.current = true;
+        return;
       }
+      isHiddenRef.current = false;
+      clearReconnectTimer();
+      closeStream();
+      const localGeneration = ++streamGenerationRef.current;
+      const streamUrl = `/api/news/live?market=${market}`;
+      const eventSource = new EventSource(streamUrl);
+      eventSourceRef.current = eventSource;
+      setStreamConnected(false);
+
+      eventSource.onopen = () => {
+        if (!mounted || localGeneration !== streamGenerationRef.current) return;
+        reconnectAttemptRef.current = 0;
+        streamHealthyStreakRef.current = 0;
+        setStreamConnected(true);
+        setDelayed(false);
+      };
+
+      eventSource.onmessage = (event) => {
+        if (!mounted || localGeneration !== streamGenerationRef.current) return;
+        try {
+          const payload = JSON.parse(event.data) as { type?: string; sequence?: number; items?: NewsItem[] };
+
+          if (payload.type === "reconnect") {
+            closeStream();
+            scheduleReconnect();
+            return;
+          }
+
+          if (typeof payload.sequence === "number") {
+            if (payload.sequence < latestSequenceRef.current) return;
+            latestSequenceRef.current = payload.sequence;
+          }
+
+          const incoming = payload.items;
+          if (!Array.isArray(incoming) || incoming.length === 0) return;
+
+          const nowMs = Date.now();
+          const liveItems = incoming.filter((item) => isFinancialJuiceItem(item) && isWithinLast24Hours(item.publishedAt, nowMs));
+          if (liveItems.length === 0) return;
+
+          streamHealthyStreakRef.current += 1;
+          setItems((prev) => dedupeById([...liveItems, ...prev]).filter((item) => isWithinLast24Hours(item.publishedAt, nowMs)));
+          setDelayed(false);
+        } catch {
+          // Ignore malformed events to keep stream controller active.
+        }
+      };
+
+      eventSource.onerror = () => {
+        if (!mounted || localGeneration !== streamGenerationRef.current) return;
+        streamHealthyStreakRef.current = 0;
+        closeStream();
+        setDelayed(true);
+        scheduleReconnect();
+      };
     };
 
-    eventSource.onerror = () => {
-      setDelayed(true);
+    const onVisibilityChange = () => {
+      const hidden = document.hidden;
+      isHiddenRef.current = hidden;
+      if (hidden) {
+        clearReconnectTimer();
+        closeStream();
+        return;
+      }
+      connectStream();
     };
+
+    connectStream();
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
-      eventSource.close();
+      mounted = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      clearReconnectTimer();
+      closeStream();
     };
   }, [market]);
 
   return (
-    <section className="ff-panel overflow-hidden">
+    <section className="ff-panel flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex items-center justify-between gap-2 border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-2">
         <div>
           <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">Live News</h2>
@@ -178,7 +330,7 @@ export default function FinancialJuiceLivePanel() {
         </div>
       ) : null}
 
-      <div className="ff-scroll max-h-[320px] overflow-y-auto bg-[var(--surface-2)]">
+      <div className="ff-scroll min-h-[320px] flex-1 overflow-y-auto bg-[var(--surface-2)]">
         {items.length === 0 ? (
           <div className="p-4 text-sm text-[var(--ink-muted)]">
             {loading ? "Fetching current headlines..." : "No live FinancialJuice headlines available right now."}

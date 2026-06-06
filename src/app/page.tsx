@@ -9,18 +9,20 @@ import { MARKET_QUOTES_GROUPS, MARKET_TECHNICAL_SYMBOL } from "@/lib/tradingview
 import TradingViewSymbolInfoCard from "@/components/charts/TradingViewSymbolInfoCard";
 import TradingViewPanel from "@/components/tradingview/TradingViewPanel";
 import TradingViewWidget from "@/components/tradingview/TradingViewWidget";
-import NewsFeed from "@/components/news/NewsFeed";
 import FinancialJuiceLivePanel from "@/components/news/FinancialJuiceLivePanel";
-import EconomicCalendar from "@/components/calendar/EconomicCalendar";
+import EarningsReport from "@/components/calendar/EarningsReport";
 
 function HomeContent() {
   const searchParams = useSearchParams();
   const { market } = useMarket();
   const marketConfig = getMarketDefinition(market);
+
   const [newsWidgetFailed, setNewsWidgetFailed] = useState(false);
   const [calendarWidgetFailed, setCalendarWidgetFailed] = useState(false);
   const [marketDataWidgetFailed, setMarketDataWidgetFailed] = useState(false);
   const [technicalWidgetFailed, setTechnicalWidgetFailed] = useState(false);
+  const [selectedTechnicalSymbol, setSelectedTechnicalSymbol] = useState(MARKET_TECHNICAL_SYMBOL[market]);
+
   const [widgetTheme, setWidgetTheme] = useState<"dark" | "light">(() => {
     if (typeof window === "undefined") return "dark";
     return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
@@ -28,10 +30,7 @@ function HomeContent() {
 
   useEffect(() => {
     const code = searchParams.get("code");
-    if (!code) {
-      return;
-    }
-
+    if (!code) return;
     const next = searchParams.get("next") ?? "/profile";
     const callbackUrl = new URL("/auth/callback", window.location.origin);
     callbackUrl.searchParams.set("code", code);
@@ -44,10 +43,26 @@ function HomeContent() {
     const observer = new MutationObserver(() => {
       setWidgetTheme(root.getAttribute("data-theme") === "light" ? "light" : "dark");
     });
-
     observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    setSelectedTechnicalSymbol(MARKET_TECHNICAL_SYMBOL[market]);
+  }, [market]);
+
+  const technicalSymbolOptions = useMemo(() => {
+    const marketPairs = marketConfig.chartSymbols.map((pair) => ({
+      label: pair.display,
+      value: pair.tradingView,
+    }));
+    const existing = new Set(marketPairs.map((pair) => pair.value));
+    const fallback =
+      !existing.has(MARKET_TECHNICAL_SYMBOL[market])
+        ? [{ label: MARKET_TECHNICAL_SYMBOL[market].split(":")[1] ?? "Default", value: MARKET_TECHNICAL_SYMBOL[market] }]
+        : [];
+    return [...marketPairs, ...fallback];
+  }, [market, marketConfig.chartSymbols]);
 
   const marketDataConfig = useMemo(
     () => ({
@@ -82,7 +97,7 @@ function HomeContent() {
 
   const technicalConfig = useMemo(
     () => ({
-      symbol: MARKET_TECHNICAL_SYMBOL[market],
+      symbol: selectedTechnicalSymbol,
       interval: "1h",
       displayMode: "single",
       showIntervalTabs: true,
@@ -90,46 +105,64 @@ function HomeContent() {
       width: "100%",
       height: 560,
     }),
-    [market]
+    [selectedTechnicalSymbol]
   );
 
   return (
     <div className="space-y-3">
+      {/* ── Forex Majors symbol cards ─────────────────────────── */}
       <section className="ff-panel overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-3 py-2 sm:px-4">
-          <h1 className="ff-panel-title text-xs sm:text-sm text-[var(--ink-primary)]">{marketConfig.label} Majors</h1>
-          <Link href="/charts" className="text-[10px] font-semibold uppercase tracking-wider text-[var(--ink-primary)] sm:text-[11px]">
+          <h1 className="ff-panel-title text-xs sm:text-sm text-[var(--ink-primary)]">
+            {marketConfig.label} Majors
+          </h1>
+          <Link
+            href="/charts"
+            className="text-[10px] font-semibold uppercase tracking-wider text-[var(--ink-primary)] sm:text-[11px]"
+          >
             Open Market View
           </Link>
         </div>
         <div className="ff-scroll overflow-x-auto bg-[var(--surface-2)] p-2 sm:p-3">
           <div className="flex min-w-max gap-3">
             {marketConfig.chartSymbols.map((pair) => (
-              <div key={pair.compact} className="w-[260px] shrink-0 rounded border border-[var(--line-soft)] bg-[var(--surface-3)] p-2 sm:w-[320px] lg:w-[340px]">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink-muted)]">{pair.display}</p>
-                <TradingViewSymbolInfoCard symbol={pair.tradingView} title={`${pair.display} performance`} theme={widgetTheme} />
+              <div
+                key={pair.compact}
+                className="w-[260px] shrink-0 rounded border border-[var(--line-soft)] bg-[var(--surface-3)] p-2 sm:w-[320px] lg:w-[340px]"
+              >
+                <p className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink-muted)]">
+                  {pair.display}
+                </p>
+                <TradingViewSymbolInfoCard
+                  symbol={pair.tradingView}
+                  title={`${pair.display} performance`}
+                  theme={widgetTheme}
+                />
               </div>
             ))}
           </div>
         </div>
       </section>
 
+      {/* ── News + Economic Calendar ───────────────────────────── */}
       <section className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        <TradingViewPanel title="News / Top Stories" bodyClassName="p-0">
-          <div className="h-[340px] sm:h-[500px]">
-            {!newsWidgetFailed ? (
+        {!newsWidgetFailed ? (
+          <TradingViewPanel title="News / Top Stories" bodyClassName="p-0">
+            <div className="h-[340px] sm:h-[500px]">
               <TradingViewWidget
                 scriptName="embed-widget-timeline.js"
                 config={newsConfig}
                 onError={() => setNewsWidgetFailed(true)}
               />
-            ) : (
-              <div className="h-full overflow-y-auto p-2 sm:p-3">
-                <NewsFeed />
-              </div>
-            )}
-          </div>
-        </TradingViewPanel>
+            </div>
+          </TradingViewPanel>
+        ) : (
+          <TradingViewPanel title="News / Top Stories" bodyClassName="p-0">
+            <div className="flex h-[340px] items-center justify-center p-4 text-center text-xs text-[var(--ink-muted)] sm:h-[500px] sm:text-sm">
+              News widget unavailable in this environment.
+            </div>
+          </TradingViewPanel>
+        )}
 
         <TradingViewPanel title="Economic Calendar" bodyClassName="p-0">
           <div className="h-[340px] sm:h-[500px]">
@@ -140,16 +173,25 @@ function HomeContent() {
                 onError={() => setCalendarWidgetFailed(true)}
               />
             ) : (
-              <div className="h-full overflow-y-auto p-2 sm:p-3">
-                <EconomicCalendar />
+              <div className="flex h-full items-center justify-center p-4 text-center text-xs text-[var(--ink-muted)] sm:text-sm">
+                Economic Calendar widget unavailable in this environment.
               </div>
             )}
           </div>
         </TradingViewPanel>
       </section>
 
-      <FinancialJuiceLivePanel />
+      {/* ── FinancialJuice live feed + Earnings Report ─────────── */}
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+        <div className="xl:h-[620px]">
+          <FinancialJuiceLivePanel />
+        </div>
+        <div className="xl:h-[620px]">
+          <EarningsReport />
+        </div>
+      </div>
 
+      {/* ── Market Data + Technical Analysis ──────────────────── */}
       <section className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <TradingViewPanel title="Market Data" bodyClassName="p-0">
           <div className="h-[360px] sm:h-[500px] lg:h-[560px]">
@@ -161,13 +203,34 @@ function HomeContent() {
               />
             ) : (
               <div className="flex h-full items-center justify-center p-4 text-center text-xs text-[var(--ink-muted)] sm:text-sm">
-                Market Data widget could not load in this environment. Use the Markets page for chart + live selector fallback.
+                Market Data widget unavailable in this environment.{" "}
+                <Link href="/charts" className="ml-1 underline text-[var(--ink-primary)]">
+                  Open Markets page
+                </Link>{" "}
+                for live charts.
               </div>
             )}
           </div>
         </TradingViewPanel>
 
-        <TradingViewPanel title="Technical Analysis" bodyClassName="p-0">
+        <TradingViewPanel
+          title="Technical Analysis"
+          headerRight={
+            <select
+              value={selectedTechnicalSymbol}
+              onChange={(event) => setSelectedTechnicalSymbol(event.target.value)}
+              className="h-7 rounded border border-[var(--line-soft)] bg-[var(--surface-1)] px-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-primary)] outline-none sm:h-8 sm:text-[11px]"
+              aria-label="Select technical analysis pair"
+            >
+              {technicalSymbolOptions.map((pair) => (
+                <option key={pair.value} value={pair.value}>
+                  {pair.label}
+                </option>
+              ))}
+            </select>
+          }
+          bodyClassName="p-0"
+        >
           <div className="h-[360px] sm:h-[500px] lg:h-[560px]">
             {!technicalWidgetFailed ? (
               <TradingViewWidget
@@ -177,7 +240,11 @@ function HomeContent() {
               />
             ) : (
               <div className="flex h-full items-center justify-center p-4 text-center text-xs text-[var(--ink-muted)] sm:text-sm">
-                Technical Analysis widget could not load. Live chart remains available in Markets.
+                Technical Analysis widget unavailable in this environment.{" "}
+                <Link href="/charts" className="ml-1 underline text-[var(--ink-primary)]">
+                  Open Markets page
+                </Link>{" "}
+                for live charts.
               </div>
             )}
           </div>
@@ -189,7 +256,13 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-6xl py-10 text-sm text-[var(--ink-muted)]">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-6xl py-10 text-sm text-[var(--ink-muted)]">
+          Loading…
+        </div>
+      }
+    >
       <HomeContent />
     </Suspense>
   );

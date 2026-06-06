@@ -19,7 +19,8 @@ type CacheRecord = {
 };
 
 const TICKER_CACHE = new Map<string, CacheRecord>();
-const SOFT_TTL_MS = 1000;
+const SOFT_TTL_MS = 15_000;
+const CDN_CACHE_CONTROL = "public, s-maxage=15, stale-while-revalidate=60";
 
 const IN_FLIGHT_REFRESH = new Map<string, Promise<CacheRecord>>();
 
@@ -190,7 +191,7 @@ export async function GET(request: Request) {
   if (cached && cached.expiresAt > Date.now()) {
     return NextResponse.json(cached.data, {
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": CDN_CACHE_CONTROL,
         "x-ticker-cache": "HIT",
         "x-ticker-source": cached.source,
       },
@@ -212,7 +213,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(refreshed.data, {
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": CDN_CACHE_CONTROL,
         "x-ticker-cache": "MISS",
         "x-ticker-source": refreshed.source,
       },
@@ -226,7 +227,7 @@ export async function GET(request: Request) {
       {
         status: 503,
         headers: {
-          "Cache-Control": "no-store",
+          "Cache-Control": "public, s-maxage=5, stale-while-revalidate=15",
           "x-ticker-cache": "MISS",
           "x-ticker-source": "none",
           "x-ticker-fallback-reason": "yahoo-failed",

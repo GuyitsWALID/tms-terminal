@@ -432,19 +432,11 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
   return (
     <>
     <div className="ff-shell">
-      <div className="mx-auto w-full max-w-[1920px] xl:grid xl:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="hidden border-r border-[var(--line-strong)] bg-[var(--surface-2)] xl:block" aria-label="Left ad space">
-          <div className="sticky top-20 px-4 py-6">
-            <div className="rounded border border-dashed border-[var(--line-soft)] bg-[var(--surface-1)]/55 px-3 py-2 text-center text-[12px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-muted)]">
-              Ad Space 
-            </div>
-          </div>
-        </aside>
-
+      <div className="mx-auto w-full max-w-[1920px]">
         <div className="min-w-0">
           <header className="ff-topbar sticky top-0 z-50">
-            <div className="flex h-16 w-full items-center justify-between gap-2 px-2 md:px-4 xl:px-5 2xl:px-6">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-4 xl:gap-5">
+            <div className="flex min-h-16 w-full flex-wrap items-center justify-between gap-2 px-2 py-2 md:px-4 xl:px-5 2xl:px-6">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4 xl:gap-5">
             <Link href="/" className="flex shrink-0 items-center gap-2 border-r border-[var(--line-soft)] pr-3 xl:pr-4">
               <Image
                 src="/finacialvibe2.png"
@@ -480,7 +472,7 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
               Order Flow
             </Link>
 
-            <nav className="mr-1 hidden min-w-0 items-center gap-2 xl:mr-2 2xl:mr-3 lg:flex">
+            <nav className="mr-1 hidden min-w-0 flex-1 items-center gap-2 overflow-x-auto xl:mr-2 2xl:mr-3 lg:flex [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {menuItems.map((item) => (
                 <Link
                   key={item.id}

@@ -22,6 +22,11 @@ const rajdhani = Rajdhani({
 export const metadata: Metadata = {
   title: "Financial Vibe | Feel the Market. Act on Data",
   description: "High-density economic calendar, live market news, analyst opinions, and trader community signals.",
+  icons: {
+    icon: "/finacialvibe2.png",
+    shortcut: "/finacialvibe2.png",
+    apple: "/finacialvibe2.png",
+  },
 };
 
 export default function RootLayout({
@@ -34,6 +39,16 @@ export default function RootLayout({
       lang="en"
       className={cn("h-full", "antialiased", plexSans.variable, rajdhani.variable, "font-sans", geist.variable)}
     >
+      <head>
+        <link rel="icon" href="/finacialvibe2.png" type="image/png" />
+        <link rel="shortcut icon" href="/finacialvibe2.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/finacialvibe2.png" />
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9409595544624618"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <GlobalLayout>
           {children}

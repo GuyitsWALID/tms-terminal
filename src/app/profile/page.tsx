@@ -257,17 +257,12 @@ export default function ProfilePage() {
               </div>
               <div className="grid gap-2">
                 <input
-                  value={profileForm.avatarUrl}
-                  onChange={(e) => setProfileForm((current) => ({ ...current, avatarUrl: e.target.value }))}
-                  placeholder="Avatar image URL"
-                  className="w-full rounded border border-[var(--line-soft)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--ink-primary)] outline-none"
-                />
-                <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
                   className="text-xs text-[var(--ink-muted)]"
                 />
+                <p className="text-xs text-[var(--ink-muted)]">Upload a new profile picture to replace your current avatar.</p>
               </div>
             </div>
 
