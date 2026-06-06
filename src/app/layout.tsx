@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { cn } from "@/lib/utils";
+import { SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -20,8 +21,22 @@ const rajdhani = Rajdhani({
 });
 
 export const metadata: Metadata = {
-  title: "Financial Vibe | Feel the Market. Act on Data",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} | ${SITE_TAGLINE}`,
+    template: `%s | ${SITE_NAME}`,
+  },
   description: "High-density economic calendar, live market news, analyst opinions, and trader community signals.",
+  alternates: {
+    canonical: SITE_URL,
+  },
+  openGraph: {
+    title: `${SITE_NAME} | ${SITE_TAGLINE}`,
+    description: "Original market education, economic calendar context, charting tools, and risk-aware trading resources.",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    type: "website",
+  },
   icons: {
     icon: "/finacialvibe2.png",
     shortcut: "/finacialvibe2.png",

@@ -110,6 +110,62 @@ function HomeContent() {
 
   return (
     <div className="space-y-3">
+      <section className="ff-panel p-5">
+        <p className="ff-panel-title text-xs text-[var(--ink-muted)]">Financial Vibe Market Desk</p>
+        <h1 className="mt-2 font-rajdhani text-3xl font-bold uppercase leading-none text-[var(--ink-primary)] sm:text-4xl">
+          Market Tools With Educational Context
+        </h1>
+        <p className="mt-3 max-w-4xl text-sm leading-6 text-[var(--ink-muted)]">
+          Financial Vibe helps retail traders prepare before the market moves: economic calendar timing, live chart context,
+          market news awareness, educational macro guides, and community discussion in one workspace. The platform is built
+          for preparation and learning, not promises of profit or personal financial advice.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {[
+            { label: "Start Learning", href: "/learn" },
+            { label: "Read Risk Disclaimer", href: "/disclaimer" },
+            { label: "Open Calendar", href: "/calendar" },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+            className={`rounded border px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:bg-[var(--surface-hover)] ${
+              item.href === "/disclaimer"
+                ? "border-[var(--line-soft)] bg-[var(--surface-1)] text-[var(--ink-primary)] hover:border-[#ff4b55] focus-visible:border-[#ff4b55]"
+                : "border-[var(--line-soft)] bg-[var(--surface-1)] text-[var(--ink-primary)]"
+            }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        {[
+          {
+            title: "Prepare With Calendar Context",
+            body: "Use high-impact events to identify risk windows before you trade. Compare the event, active session, and affected instruments before making decisions.",
+            href: "/learn/read-economic-calendar-before-trading-news",
+          },
+          {
+            title: "Read Charts With Risk First",
+            body: "Charts and widgets are context tools. Define levels, invalidation, and event risk before treating a price move as a trade idea.",
+            href: "/learn/risk-management-around-high-impact-news",
+          },
+          {
+            title: "Build Process Through Education",
+            body: "The Learn library explains macro releases, sessions, order flow, heatmaps, gold, and journaling in plain language for developing traders.",
+            href: "/learn",
+          },
+        ].map((item) => (
+          <Link key={item.href} href={item.href} className="ff-panel block p-4 hover:bg-[var(--surface-hover)]">
+            <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">{item.title}</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--ink-muted)]">{item.body}</p>
+          </Link>
+        ))}
+      </section>
+
       {/* ── Forex Majors symbol cards ─────────────────────────── */}
       <section className="ff-panel overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-3 py-2 sm:px-4">
