@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Wrench } from "lucide-react";
 
 type SelectedStream = {
@@ -96,12 +97,24 @@ export default function ToolsPage() {
           <Wrench size={12} />
           Order Flow Tool
         </div>
+        <h1 className="mt-3 font-rajdhani text-2xl font-bold uppercase leading-none text-[var(--ink-primary)] sm:text-3xl">
+          Order Flow Resource Desk
+        </h1>
+        <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--ink-muted)]">
+          These links help traders research public order flow and liquidity resources for gold and index products. External
+          resources should be used as context only; always confirm instrument, session, delay, and risk before acting.
+        </p>
+        <Link href="/learn/trading-psychology-discipline-risk-awareness" className="mt-2 inline-block text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)] underline">
+          Learn how discipline and risk awareness protect decision quality
+        </Link>
       </section>
 
       <section className="ff-panel overflow-hidden">
         <div className="border-b border-[var(--line-strong)] bg-[var(--surface-header)] px-4 py-2">
           <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">Order Flow</h2>
-          <p className="mt-1 text-xs text-[var(--ink-muted)]">Live routing links managed from Admin.</p>
+          <p className="mt-1 text-xs text-[var(--ink-muted)]">
+            External educational research links. Availability, delay, and accuracy are controlled by the third-party source.
+          </p>
         </div>
 
         <div className="space-y-4 bg-[var(--surface-2)] p-4">
@@ -113,6 +126,9 @@ export default function ToolsPage() {
                 {category.instruments.map((instrument) => (
                   <article key={instrument.id} className="rounded border border-[var(--line-soft)] bg-[var(--surface-1)] p-3">
                     <p className="text-sm font-semibold text-[var(--ink-primary)]">{instrument.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">
+                      Review liquidity behavior with the chart and calendar before using this as supporting context.
+                    </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {instrument.actions.map((action) => (
                         <LinkButton

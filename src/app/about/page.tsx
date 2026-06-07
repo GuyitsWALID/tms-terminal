@@ -1,3 +1,14 @@
+import type { Metadata } from "next";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: `About | ${SITE_NAME}`,
+  description: "Learn about Financial Vibe's educational market tools, original trading guides, community standards, and publisher mission.",
+  alternates: {
+    canonical: `${SITE_URL}/about`,
+  },
+};
+
 export default function AboutPage() {
   return (
     <div className="space-y-4">
@@ -7,6 +18,10 @@ export default function AboutPage() {
           Financial Vibe is a trader-focused terminal built to reduce friction between information, context, and execution timing.
           Our goal is simple: make high-quality market intelligence accessible, fast, and actionable for serious retail traders and
           developing professionals.
+        </p>
+        <p className="mt-3 text-sm text-[var(--ink-muted)]">
+          We publish original educational guides alongside market tools so visitors can understand the reasoning, risks, and limitations
+          behind the data they are viewing.
         </p>
       </section>
 
@@ -35,6 +50,14 @@ export default function AboutPage() {
         <p className="text-sm text-[var(--ink-muted)]">
           We maintain high standards around accuracy, accountability, and professionalism. Verified contributors, moderation controls,
           and auditable admin actions are part of our commitment to keeping the platform useful and trustworthy.
+        </p>
+      </section>
+
+      <section className="ff-panel p-5 space-y-3">
+        <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">Editorial Standard</h2>
+        <p className="text-sm text-[var(--ink-muted)]">
+          Financial Vibe content is educational and process-focused. We separate market information from personal financial advice,
+          label third-party resources clearly, and encourage users to verify data before making decisions.
         </p>
       </section>
     </div>

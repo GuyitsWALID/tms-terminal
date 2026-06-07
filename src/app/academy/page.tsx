@@ -177,7 +177,12 @@ export default function AcademyPage() {
     <div className="space-y-3">
       <div className="ff-panel p-4">
         <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Academy XP Arena</h1>
-        <p className="mt-1 text-sm text-[var(--ink-muted)]">Gamified macro training with AI-generated fundamentals and progression rewards.</p>
+        <p className="mt-1 text-sm text-[var(--ink-muted)]">
+          Daily fundamentals practice with macro concepts, risk vocabulary, and progression rewards.
+        </p>
+        <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">
+          Academy material is educational. Always verify current data, market conditions, and event timing before making decisions.
+        </p>
         {academyStatus ? <p className="mt-1 text-xs text-[var(--ink-muted)]">{academyStatus}</p> : null}
       </div>
 
@@ -311,7 +316,7 @@ export default function AcademyPage() {
               <h3 className="ff-panel-title text-sm">Learning Loop</h3>
             </div>
             <ul className="space-y-1 text-xs text-[var(--ink-muted)]">
-              <li>- Daily AI fundamentals refresh every 24 hours.</li>
+              <li>- Daily fundamentals refresh every 24 hours.</li>
               <li>- Correct answers grant XP and unlock new modules.</li>
               <li>- Weak topics are recycled in adaptive review rounds.</li>
             </ul>

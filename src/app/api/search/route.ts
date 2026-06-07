@@ -23,6 +23,14 @@ const WEBSITE_INDEX: HeaderSearchResult[] = [
     sourceLabel: "Website",
   },
   {
+    id: "website-learn",
+    title: "Learn",
+    snippet: "Original Financial Vibe guides for macro trading, risk management, calendar preparation, psychology, and market process.",
+    href: "/learn",
+    sourceType: "website",
+    sourceLabel: "Website",
+  },
+  {
     id: "website-news",
     title: "News",
     snippet: "Real-time macro/news feed including FinancialJuice live wire.",

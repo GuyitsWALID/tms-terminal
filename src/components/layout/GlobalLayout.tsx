@@ -19,6 +19,7 @@ import {
   Sun,
   Moon,
   BarChart3,
+  BookOpen,
   Wrench,
   Home,
   User,
@@ -43,6 +44,7 @@ import {
 } from "@/lib/timePreferences";
 
 const menuItems = [
+  { id: "learn", name: "Learn", icon: BookOpen, path: "/learn" },
   { id: "calendar", name: "Calendar", icon: Calendar, path: "/calendar" },
   { id: "news", name: "News", icon: Newspaper, path: "/news" },
   { id: "analysis", name: "Analysis", icon: LineChart, path: "/analysis" },
@@ -960,10 +962,13 @@ function GlobalLayoutBody({ children }: { children: React.ReactNode }) {
               rel="noreferrer"
               className="hover:underline text-[var(--ink-primary)] text-center"
             >
-              &quot;if you want to join an elite high quality academy and community join us&quot;
+              Community and support channel
             </a>
             <Link href="/about" className="hover:underline text-[var(--ink-primary)]">About</Link>
             <Link href="/privacy" className="hover:underline text-[var(--ink-primary)]">Privacy Policy</Link>
+            <Link href="/cookies" className="hover:underline text-[var(--ink-primary)]">Cookies</Link>
+            <Link href="/terms" className="hover:underline text-[var(--ink-primary)]">Terms</Link>
+            <Link href="/disclaimer" className="hover:underline text-[var(--ink-primary)]">Disclaimer</Link>
             <Link href="/contact" className="hover:underline text-[var(--ink-primary)]">Contact</Link>
           </div>
         </div>

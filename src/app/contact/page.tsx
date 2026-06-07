@@ -1,8 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-
-const SUPPORT_EMAIL = "vibetrading2026@gmail.com";
+import { SUPPORT_EMAIL } from "@/lib/site";
 
 export default function ContactPage() {
   const [name, setName] = useState("");
@@ -60,6 +59,7 @@ export default function ContactPage() {
         <h1 className="font-rajdhani text-3xl font-bold uppercase text-[var(--ink-primary)]">Contact</h1>
         <p className="mt-2 text-sm text-[var(--ink-muted)]">
           Reach out for support, partnership requests, or account-related concerns. We typically respond in the order received.
+          You can also use this page for privacy, advertising, copyright, or content policy questions.
         </p>
       </section>
 

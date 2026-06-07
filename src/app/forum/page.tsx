@@ -153,7 +153,10 @@ export default function ForumPage() {
     <div className="space-y-3">
       <div className="ff-panel p-4">
         <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">Community Forum</h1>
-        <p className="mt-1 text-sm text-[var(--ink-muted)]">Pick a thread, read full context, and follow replies in one focused workspace.</p>
+        <p className="mt-1 max-w-4xl text-sm leading-6 text-[var(--ink-muted)]">
+          Pick a thread, read full context, and follow replies in one focused workspace. Community posts are discussion and education,
+          not personal financial advice. Verified analyst badges and moderation tools help keep market conversations accountable.
+        </p>
       </div>
 
       <div className="ff-panel p-3">

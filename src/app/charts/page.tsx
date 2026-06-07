@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import Link from "next/link";
 import { useMarket } from "@/components/layout/MarketContext";
 import TickerTape from "@/components/charts/TickerTape";
 import TradingChart from "@/components/charts/TradingChart";
@@ -61,8 +62,27 @@ export default function ChartsPage() {
     <div className="space-y-3">
       <div className="ff-panel p-4">
         <h1 className="font-rajdhani text-2xl font-bold uppercase leading-none sm:text-3xl">{marketConfig.label} Market</h1>
-        <p className="mt-1 text-sm text-[var(--ink-muted)]">Live TradingView charting, signals, and market data optimized for desktop and mobile.</p>
+        <p className="mt-1 max-w-4xl text-sm leading-6 text-[var(--ink-muted)]">
+          Live TradingView charting, signals, and market data optimized for desktop and mobile. Use the chart to define
+          levels, trend, volatility, and invalidation before considering any trade idea.
+        </p>
+        <Link href="/learn/trading-psychology-discipline-risk-awareness" className="mt-2 inline-block text-xs font-semibold uppercase tracking-wide text-[var(--ink-primary)] underline">
+          Learn trading psychology and decision discipline
+        </Link>
       </div>
+
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        {[
+          "Mark prior session highs and lows before reacting to a breakout.",
+          "Check whether a technical signal appears before or after a major economic event.",
+          "Keep risk defined; a chart is useful only when it helps locate invalidation.",
+        ].map((body, index) => (
+          <div key={body} className="ff-panel p-3">
+            <h2 className="ff-panel-title text-xs text-[var(--ink-primary)]">Chart Routine {index + 1}</h2>
+            <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">{body}</p>
+          </div>
+        ))}
+      </section>
 
       <TickerTape />
 
