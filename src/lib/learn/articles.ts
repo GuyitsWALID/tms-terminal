@@ -399,6 +399,339 @@ export const learnArticles: LearnArticle[] = [
       "One process improvement for next week.",
     ],
   },
+  {
+    slug: "interest-rates-central-banks-forex-markets",
+    title: "How Interest Rates and Central Banks Move Forex Markets",
+    description: "A beginner-practical guide to policy rates, central bank guidance, inflation mandates, and why currencies react to changes in expected rate paths.",
+    category: "Macro Drivers",
+    publishedAt: "2026-06-08",
+    updatedAt: "2026-06-08",
+    readingMinutes: 9,
+    relatedLinks: [
+      { label: "Open economic calendar", href: "/calendar" },
+      { label: "Read CPI guide", href: "/learn/cpi-core-inflation-market-reaction" },
+      { label: "View market charts", href: "/charts" },
+    ],
+    sections: [
+      {
+        heading: "Why rates sit at the center of macro trading",
+        body: [
+          "Interest rates matter because they shape the return investors can earn for holding money in one currency instead of another. When traders compare currencies, they are often comparing expected policy paths: which central bank may keep rates higher, cut earlier, or signal more caution about inflation and growth.",
+          "The Federal Reserve frames its policy around maximum employment and stable prices, while the European Central Bank emphasizes price stability for the euro area. Those mandates are not trading signals by themselves, but they explain why inflation, labor data, growth, and central bank language can quickly change currency pricing.",
+          "For a retail trader, the useful lesson is simple: a currency often moves before the policy rate actually changes. Markets reprice when expectations change, not only when the decision is announced.",
+        ],
+      },
+      {
+        heading: "Policy rates versus rate expectations",
+        body: [
+          "A policy rate is the official short-term rate target or facility rate controlled by a central bank. Rate expectations are what markets believe that central bank may do next. Forex reactions usually depend more on the surprise in expectations than on the headline decision alone.",
+          "If a rate hike is fully expected, the currency may not rally on the announcement. If the central bank sounds less confident about future hikes, the currency can weaken even after a hike. The opposite can also happen: a central bank may leave rates unchanged, but hawkish language can support the currency if traders expected a softer tone.",
+        ],
+      },
+      {
+        heading: "Guidance can move markets as much as the decision",
+        body: [
+          "Central banks communicate through statements, press conferences, projections, meeting minutes, and speeches. Traders read this guidance for clues about the balance of risks. Words like persistent inflation, restrictive policy, labor-market cooling, or downside growth risk can shift expectations for future meetings.",
+          "The market response depends on the gap between the message and the prior consensus. A statement that sounds hawkish in isolation may still disappoint if traders expected an even stronger inflation warning. This is why preparation before the release matters more than reacting to one phrase after the fact.",
+        ],
+      },
+      {
+        heading: "Inflation mandates explain why data matters",
+        body: [
+          "Central banks care about inflation because stable prices support household planning, business investment, and long-term borrowing decisions. When inflation runs above target, policymakers may keep policy restrictive. When inflation cools convincingly, markets may begin to price lower future rates.",
+          "Forex traders should connect inflation data to the policy path. A strong CPI print can support the currency if it makes rate cuts less likely. A weak inflation print can pressure the currency if it encourages easier policy. The effect is strongest when the data changes the market's view of what the central bank will do next.",
+        ],
+      },
+      {
+        heading: "Relative policy matters more than one country alone",
+        body: [
+          "Currencies trade in pairs, so the question is rarely only whether one central bank is hawkish. EUR/USD reflects both the euro-area and US policy stories. GBP/JPY reflects the Bank of England story against the Bank of Japan story. A currency can look strong domestically but still weaken if the other side of the pair has the stronger repricing.",
+          "A practical macro routine compares both sides of the pair: inflation trend, labor data, growth conditions, central bank tone, and market expectations. This prevents the common mistake of studying only the currency you want to buy or sell.",
+        ],
+      },
+      {
+        heading: "How to prepare for a central bank event",
+        body: [
+          "Before a rate decision, write down the expected decision, the market's focus, the most exposed currency pairs, and the risk window. Decide whether you are observing, standing aside, or waiting for post-event structure. The goal is to avoid making the first volatile move your entire plan.",
+          "After the event, separate the decision from the message. Ask whether the statement, projections, vote split, or press conference changed the next-meeting path. Then compare that shift with the chart and with cross-market confirmation from yields, gold, and equity risk sentiment.",
+        ],
+      },
+    ],
+    checklist: [
+      "Identify the expected central bank decision before the event.",
+      "Compare the policy path on both sides of the currency pair.",
+      "Read the guidance, projections, and press-conference tone, not only the headline rate.",
+      "Watch whether yields confirm the currency reaction.",
+      "Treat central bank events as risk windows, not automatic trade signals.",
+    ],
+  },
+  {
+    slug: "cpi-core-inflation-market-reaction",
+    title: "CPI, Core Inflation, and Why Inflation Surprises Move Markets",
+    description: "How headline CPI, core inflation, consensus expectations, yields, the dollar, and gold fit into a practical news-preparation routine.",
+    category: "Inflation",
+    publishedAt: "2026-06-08",
+    updatedAt: "2026-06-08",
+    readingMinutes: 9,
+    relatedLinks: [
+      { label: "Open live calendar", href: "/calendar" },
+      { label: "Read central bank guide", href: "/learn/interest-rates-central-banks-forex-markets" },
+      { label: "Read news risk guide", href: "/learn/risk-management-around-high-impact-news" },
+    ],
+    sections: [
+      {
+        heading: "What CPI measures",
+        body: [
+          "The Consumer Price Index tracks the average change over time in prices paid by consumers for a representative basket of goods and services. In plain language, it is one of the main ways markets measure consumer inflation pressure.",
+          "The headline CPI number includes broad consumer prices, while core CPI removes food and energy because those categories can be volatile. Both can matter. Headline inflation affects households directly, but core inflation is often watched for the underlying trend that may influence central bank policy.",
+        ],
+      },
+      {
+        heading: "Why the surprise matters more than the number alone",
+        body: [
+          "Markets usually react to the difference between the actual release and consensus expectations. A 0.3 percent monthly reading can be bullish, bearish, or neutral depending on what traders expected and what the recent inflation trend looked like before the release.",
+          "The prior reading also matters. If inflation has been cooling for several months, one firm print may be treated as noise or as a warning depending on the details. If inflation has already been sticky, the same print may reinforce a higher-for-longer policy narrative.",
+        ],
+      },
+      {
+        heading: "How CPI connects to rates and yields",
+        body: [
+          "Inflation data matters to forex because it can change expected central bank policy. If CPI is stronger than expected, traders may price a lower chance of near-term rate cuts or a higher chance of restrictive policy lasting longer. Bond yields may rise as the market adjusts.",
+          "Currency reactions are often cleaner when yields move in the same direction as the inflation surprise. For example, a hotter US CPI print with rising US yields can support the dollar. If yields do not confirm the headline, the currency reaction may be less reliable or more short-lived.",
+        ],
+      },
+      {
+        heading: "Dollar and gold reactions are not automatic",
+        body: [
+          "A stronger CPI print can support the dollar when it pushes US rate expectations higher. Gold can come under pressure if the dollar and real-yield expectations rise. But this is a relationship, not a guarantee. Risk sentiment, positioning, and the details inside the report can change the response.",
+          "Gold traders should be especially careful around CPI because the first move can be fast and spreads can widen. A practical approach is to mark nearby levels before the release, then wait to see whether price accepts or rejects the first reaction zone.",
+        ],
+      },
+      {
+        heading: "Look inside the inflation report",
+        body: [
+          "The market may focus on different components at different times. Shelter inflation, services inflation, goods prices, energy, and food can each carry different policy implications. When traders say the details matter, they mean the headline number may hide where inflation pressure is actually coming from.",
+          "For beginners, the goal is not to memorize every component. The goal is to know whether the report supports the current market theme. If the market is worried about sticky services inflation, a soft energy number may not be enough to calm rate expectations.",
+        ],
+      },
+      {
+        heading: "Build a CPI preparation routine",
+        body: [
+          "Before CPI, record the release time, consensus, previous reading, active session, and most exposed markets. Write down the question the market is asking: is inflation cooling enough for cuts, or is it staying too firm for comfort?",
+          "After CPI, compare actual versus forecast, check whether yields confirm the move, and wait for the chart to form a tradable structure. The release tells you new information. It does not require immediate action.",
+        ],
+      },
+    ],
+    checklist: [
+      "Check headline CPI, core CPI, forecast, and previous reading.",
+      "Identify the inflation theme the market cared about before the release.",
+      "Watch yields and the dollar for confirmation.",
+      "Treat gold reactions carefully because first moves can reverse.",
+      "Wait for post-release structure instead of chasing the first candle.",
+    ],
+  },
+  {
+    slug: "nfp-unemployment-wage-growth-labor-data",
+    title: "NFP, Unemployment, and Wage Growth: Reading Labor Market Data",
+    description: "A practical guide to nonfarm payrolls, unemployment, participation, wage growth, revisions, and why labor data can reshape rate expectations.",
+    category: "Labor Market",
+    publishedAt: "2026-06-08",
+    updatedAt: "2026-06-08",
+    readingMinutes: 9,
+    relatedLinks: [
+      { label: "Open economic calendar", href: "/calendar" },
+      { label: "Read central bank guide", href: "/learn/interest-rates-central-banks-forex-markets" },
+      { label: "Practice academy", href: "/academy" },
+    ],
+    sections: [
+      {
+        heading: "Why the labor market moves macro assets",
+        body: [
+          "Labor data matters because employment connects directly to income, spending, inflation pressure, and central bank policy. A strong labor market can support growth and household demand. A weakening labor market can raise concerns that the economy is slowing too quickly.",
+          "For the Federal Reserve, employment is part of the policy mandate alongside stable prices. That is why payrolls, unemployment, wages, and participation can move the dollar, yields, gold, equities, and risk sentiment in the same release window.",
+        ],
+      },
+      {
+        heading: "What NFP actually refers to",
+        body: [
+          "Nonfarm payrolls estimate the change in paid employees on nonfarm business and government payrolls. It excludes categories such as farm workers and some private household workers. Markets watch it because it gives a broad read on job creation in the US economy.",
+          "The headline payroll number is important, but it is not the entire report. The unemployment rate, average hourly earnings, labor force participation, and revisions to prior months can all change the interpretation.",
+        ],
+      },
+      {
+        heading: "Unemployment and participation add context",
+        body: [
+          "The unemployment rate can rise because more people lost jobs, but it can also move when more people enter the labor force and start looking for work. That is why participation matters. A labor report can look weaker or stronger depending on what is happening beneath the headline.",
+          "For traders, the question is whether the labor market is tight enough to keep wage pressure and inflation risk alive, or soft enough to make easier policy more likely. The same payroll number can produce different reactions in different policy environments.",
+        ],
+      },
+      {
+        heading: "Wage growth can be the hidden driver",
+        body: [
+          "Average hourly earnings are watched because wage growth can influence inflation pressure, especially when service-sector inflation is a market concern. A strong payroll number with soft wages may be read differently from a moderate payroll number with hot wage growth.",
+          "When inflation is the dominant theme, wage data can sometimes matter as much as job creation. If wages suggest persistent pressure, traders may price a more cautious central bank even if other parts of the report are mixed.",
+        ],
+      },
+      {
+        heading: "Revisions can change the story",
+        body: [
+          "Labor reports are revised as more complete data becomes available. A current payroll number may look strong, but large downward revisions to prior months can make the trend look less impressive. Upward revisions can do the opposite.",
+          "A practical release review should compare the current number with both the forecast and the revised trend. Markets often respond to whether the labor market is accelerating, cooling gradually, or weakening suddenly.",
+        ],
+      },
+      {
+        heading: "How to trade the information without chasing it",
+        body: [
+          "Before NFP, mark the consensus, prior readings, exposed markets, and active session. Decide whether the event is too volatile for your process. NFP often creates fast first moves, sharp reversals, and temporary spread widening.",
+          "After the release, summarize the report in one sentence before looking for action. For example: strong jobs, firm wages, low unemployment, yields rising. That summary keeps you focused on the macro message instead of reacting emotionally to the candle.",
+        ],
+      },
+    ],
+    checklist: [
+      "Compare payrolls with forecast and prior revisions.",
+      "Read unemployment together with labor force participation.",
+      "Check average hourly earnings for wage-pressure clues.",
+      "Watch yields and USD pairs for confirmation.",
+      "Avoid treating the headline payroll number as the whole report.",
+    ],
+  },
+  {
+    slug: "gdp-growth-recession-risk-macro-traders",
+    title: "GDP, Growth, and Recession Risk for Macro Traders",
+    description: "How real GDP, consumption, investment, trade, revisions, and recession narratives help traders understand growth-sensitive markets.",
+    category: "Growth",
+    publishedAt: "2026-06-08",
+    updatedAt: "2026-06-08",
+    readingMinutes: 8,
+    relatedLinks: [
+      { label: "Open market analysis", href: "/analysis" },
+      { label: "Open economic calendar", href: "/calendar" },
+      { label: "Read journal checklist", href: "/learn/trading-journal-checklist-new-macro-traders" },
+    ],
+    sections: [
+      {
+        heading: "What GDP tells traders",
+        body: [
+          "Gross domestic product measures the value of final goods and services produced in an economy. Real GDP adjusts for inflation, making it a cleaner way to judge whether economic activity is expanding or contracting.",
+          "For traders, GDP is not a short-term signal by itself. It is a broad context tool. It helps explain whether markets are pricing resilience, slowdown, recession risk, or a soft landing. That context can shape currencies, yields, equities, commodities, and gold.",
+        ],
+      },
+      {
+        heading: "Growth is made of several parts",
+        body: [
+          "GDP includes components such as consumer spending, business investment, government spending, inventories, exports, and imports. The headline number can hide very different underlying stories. Growth driven by strong consumer demand may be read differently from growth driven by inventories or volatile trade swings.",
+          "Personal consumption is especially important in the US because household spending is a major part of economic activity. If consumption weakens, traders may become more sensitive to recession risk, earnings pressure, and future rate cuts.",
+        ],
+      },
+      {
+        heading: "Revisions are part of the process",
+        body: [
+          "GDP is released in estimates that can be revised as more complete data arrives. A first estimate gives an early picture, but later revisions can change the growth narrative. Traders should avoid treating one GDP print as final truth.",
+          "The direction of revisions matters. Upward revisions can support a resilience story. Downward revisions can make prior optimism look less secure. The market reaction depends on whether the revision changes expectations for policy, profits, or recession risk.",
+        ],
+      },
+      {
+        heading: "Soft landing versus recession narratives",
+        body: [
+          "A soft landing describes an economy that slows enough to reduce inflation pressure without a severe rise in unemployment or a deep contraction. Markets often like this combination because it can support risk assets while allowing central banks to become less restrictive.",
+          "A recession-risk narrative is different. Weak growth, weaker labor data, falling confidence, and tighter credit conditions can push traders toward defensive positioning. In that environment, rate-cut expectations may rise, but risk assets may not automatically benefit if cuts are being priced because growth is deteriorating.",
+        ],
+      },
+      {
+        heading: "How currencies react to growth",
+        body: [
+          "A currency can benefit from strong growth when that growth supports higher yields and a more confident central bank. But if growth is too hot and inflation rises, the reaction may depend on whether the central bank is behind the curve. If growth weakens sharply, the currency may suffer as markets price easier policy or lower confidence.",
+          "Always compare growth across both sides of a currency pair. A weak GDP report may not weaken a currency much if the other economy looks worse or if the data was already expected.",
+        ],
+      },
+      {
+        heading: "Use GDP as a background map",
+        body: [
+          "GDP is usually less explosive than CPI or NFP at the moment of release, but it can anchor the bigger macro story. Use it to understand whether market debates are about inflation, growth, recession, or policy timing.",
+          "A practical routine is to write one growth sentence each week: growth is resilient, slowing, contracting, or mixed. Then connect that sentence to the calendar events ahead and the assets most likely to respond.",
+        ],
+      },
+    ],
+    checklist: [
+      "Read real GDP, not only nominal growth.",
+      "Check whether consumption, investment, trade, or inventories drove the headline.",
+      "Look for revisions that change the trend.",
+      "Separate soft-landing optimism from recession-risk pricing.",
+      "Compare growth stories across both currencies in a pair.",
+    ],
+  },
+  {
+    slug: "bond-yields-risk-sentiment-dollar-gold",
+    title: "Bond Yields, Risk Sentiment, and the Dollar-Gold Connection",
+    description: "A cross-market guide to Treasury yields, real-yield thinking, risk-on and risk-off behavior, USD, gold, equities, and confirmation across markets.",
+    category: "Cross-Market Analysis",
+    publishedAt: "2026-06-08",
+    updatedAt: "2026-06-08",
+    readingMinutes: 10,
+    relatedLinks: [
+      { label: "Open charts", href: "/charts" },
+      { label: "Open analysis desk", href: "/analysis" },
+      { label: "Read gold basics", href: "/learn/gold-trading-basics-drivers-sessions-risk-events" },
+    ],
+    sections: [
+      {
+        heading: "Why yields matter outside the bond market",
+        body: [
+          "Bond yields influence the relative appeal of currencies, equities, gold, and other assets. When yields rise because markets expect tighter policy or stronger growth, the dollar can find support and gold can face pressure. When yields fall because growth fear is rising, the reaction can be more defensive and less straightforward.",
+          "Yields are not just another chart. They are a macro price that reflects expectations about policy, inflation, growth, and risk. That makes them useful confirmation for traders who want to understand whether a currency or gold move has broader support.",
+        ],
+      },
+      {
+        heading: "Nominal yields and real-yield thinking",
+        body: [
+          "A nominal yield is the stated yield on a bond. Real-yield thinking adjusts that idea for inflation expectations. Gold traders often care about real yields because gold does not pay income. When inflation-adjusted return expectations rise, holding gold can become less attractive.",
+          "Retail traders do not need to calculate every real-yield measure intraday. The practical point is to watch whether yields are rising because policy expectations are becoming more restrictive, and whether gold is confirming or rejecting that pressure.",
+        ],
+      },
+      {
+        heading: "Risk-on and risk-off are market conditions, not slogans",
+        body: [
+          "Risk-on describes conditions where traders are more willing to hold growth-sensitive or higher-risk assets. Risk-off describes conditions where capital moves toward perceived safety, liquidity, or defensive exposure. These regimes can affect equities, the dollar, yen, franc, gold, and commodity currencies.",
+          "The mistake is assuming every risk-off day looks the same. Sometimes the dollar and gold can both rise during stress. Sometimes gold lags if yields are rising sharply. Sometimes equities fall while the dollar response is muted because the catalyst is not US-centered.",
+        ],
+      },
+      {
+        heading: "The dollar-gold relationship",
+        body: [
+          "Gold is priced globally in dollars, so dollar strength can pressure XAU/USD by making gold more expensive for non-dollar buyers. Higher yields can add pressure when they increase the opportunity cost of holding a non-yielding asset.",
+          "That relationship can break down during stress. If investors seek safety, gold may rise even when the dollar is firm. The job of cross-market analysis is not to force one rule onto every session, but to identify which driver is dominant today.",
+        ],
+      },
+      {
+        heading: "Use confirmation across markets",
+        body: [
+          "A macro move is usually more reliable when related markets confirm it. If the dollar is rallying after hot inflation data, check whether yields are rising and gold is under pressure. If equities are selling off on growth fear, check whether yields are falling and defensive currencies are responding.",
+          "Confirmation does not remove risk, but it helps separate broad macro repricing from isolated noise. A move that appears in only one market may still matter, but it deserves more caution.",
+        ],
+      },
+      {
+        heading: "Know which catalyst is in control",
+        body: [
+          "The same asset can react differently depending on the catalyst. Rising yields from strong growth may support risk appetite. Rising yields from sticky inflation may pressure equities. Falling yields from friendly inflation can support risk assets, while falling yields from recession fear can hurt them.",
+          "Before using cross-market signals, name the driver: inflation, central bank policy, growth, liquidity stress, geopolitical risk, or positioning. That one sentence keeps analysis from becoming a random collection of charts.",
+        ],
+      },
+      {
+        heading: "Build a simple cross-market dashboard",
+        body: [
+          "A practical dashboard can include the dollar index, major USD pairs, gold, Treasury yields, major equity indices, and the economic calendar. The point is not to watch everything all day. The point is to check whether the market is telling one consistent story.",
+          "After a major event, write down what confirmed and what did not. If CPI is hot but yields fade and gold recovers, that is different from a hot CPI print with yields rising, USD strength broadening, and gold breaking lower. Context turns color on a screen into a usable market read.",
+        ],
+      },
+    ],
+    checklist: [
+      "Check whether yields confirm the currency or gold move.",
+      "Separate inflation-driven yield moves from growth-driven yield moves.",
+      "Watch USD and gold together, but do not assume a fixed inverse relationship.",
+      "Compare equities, yields, dollar, and gold after major events.",
+      "Name the dominant catalyst before forming a market view.",
+    ],
+  },
 ];
 
 export const getLearnArticle = (slug: string) => learnArticles.find((article) => article.slug === slug);
