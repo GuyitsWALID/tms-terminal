@@ -45,11 +45,11 @@ export default function PrivacyPage() {
       </section>
 
       <section className="ff-panel p-5 space-y-3">
-        <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">Advertising and Google Services</h2>
+        <h2 className="ff-panel-title text-sm text-[var(--ink-primary)]">Advertising Services</h2>
         <p className="text-sm text-[var(--ink-muted)]">
-          Financial Vibe may use Google AdSense to show ads after approval. Google and its partners may use cookies or similar
-          technologies to serve, personalize, measure, and limit ads. Users can manage Google ad personalization through Google&apos;s
-          ad settings and browser controls.
+          Financial Vibe may work with third-party advertising providers. Advertising partners may use cookies or similar
+          technologies to serve, personalize, measure, and limit ads where permitted. Users can manage ad-related storage and
+          tracking through browser controls and any choices made available by the relevant advertising provider.
         </p>
       </section>
 

@@ -30,7 +30,7 @@ export default function CookiesPage() {
         },
         {
           title: "Advertising",
-          body: "Financial Vibe may use Google AdSense. Google and its partners may use cookies or similar identifiers to serve ads, limit ad frequency, measure performance, and support ad personalization where permitted.",
+          body: "Financial Vibe may work with third-party advertising providers. Advertising partners may use cookies or similar identifiers to serve ads, limit ad frequency, measure performance, and support ad personalization where permitted.",
         },
         {
           title: "Third-Party Embeds",
@@ -38,7 +38,7 @@ export default function CookiesPage() {
         },
         {
           title: "Your Choices",
-          body: `You can manage cookies through your browser settings and Google ad personalization controls. For privacy questions, contact ${SUPPORT_EMAIL}.`,
+          body: `You can manage cookies through your browser settings and any controls made available by advertising providers. For privacy questions, contact ${SUPPORT_EMAIL}.`,
         },
       ].map((section) => (
         <section key={section.title} className="ff-panel p-5">

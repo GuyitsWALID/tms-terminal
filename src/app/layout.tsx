@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, Rajdhani, Geist } from "next/font/google";
+import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import GlobalLayout from "@/components/layout/GlobalLayout";
@@ -58,10 +59,9 @@ export default function RootLayout({
         <link rel="icon" href="/finacialvibe2.png" type="image/png" />
         <link rel="shortcut icon" href="/finacialvibe2.png" type="image/png" />
         <link rel="apple-touch-icon" href="/finacialvibe2.png" />
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9409595544624618"
-          crossOrigin="anonymous"
+        <Script
+          src="https://pl29681653.effectivecpmnetwork.com/b2/6d/a2/b26da29f6ef59d38cca1d63e46535276.js"
+          strategy="beforeInteractive"
         />
       </head>
       <body className="min-h-full flex flex-col">
