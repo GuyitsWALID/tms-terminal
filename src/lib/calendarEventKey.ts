@@ -15,11 +15,10 @@ export const normalizeEventTitle = (value: string) => {
     .trim();
 };
 
-export const buildCalendarEventKey = ({ eventDate, currency, event, impact }: CalendarKeyInput) => {
+export const buildCalendarEventKey = ({ eventDate, currency, event }: CalendarKeyInput) => {
   const datePart = (eventDate ?? "unknown-date").trim();
   const currencyPart = (currency || "N/A").toUpperCase().trim();
-  const impactPart = impact ?? "low";
   const titlePart = normalizeEventTitle(event);
 
-  return `${datePart}|${currencyPart}|${impactPart}|${titlePart}`;
+  return `${datePart}|${currencyPart}|${titlePart}`;
 };

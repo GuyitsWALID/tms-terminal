@@ -138,6 +138,8 @@ export type CreateVerifiedPerspectiveInput = {
   analystDesk?: string;
 };
 
+export type UpdateVerifiedPerspectiveInput = Pick<CreateVerifiedPerspectiveInput, "impact" | "bias" | "confidence" | "thesis" | "analystDesk">;
+
 export async function createVerifiedPerspective(input: CreateVerifiedPerspectiveInput): Promise<VerifiedPerspective> {
   const url = new URL("/api/verified-perspectives", window.location.origin);
 
@@ -156,6 +158,41 @@ export async function createVerifiedPerspective(input: CreateVerifiedPerspective
 
   const payload = (await res.json()) as { perspective: VerifiedPerspective };
   return payload.perspective;
+}
+
+export async function updateVerifiedPerspective(id: string, input: UpdateVerifiedPerspectiveInput): Promise<VerifiedPerspective> {
+  const url = new URL("/api/verified-perspectives", window.location.origin);
+  url.searchParams.set("id", id);
+
+  const res = await fetch(url.toString(), {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!res.ok) {
+    const payload = (await res.json().catch(() => ({ error: "Unable to update perspective" }))) as { error?: string };
+    throw new Error(payload.error ?? "Unable to update perspective");
+  }
+
+  const payload = (await res.json()) as { perspective: VerifiedPerspective };
+  return payload.perspective;
+}
+
+export async function deleteVerifiedPerspective(id: string): Promise<void> {
+  const url = new URL("/api/verified-perspectives", window.location.origin);
+  url.searchParams.set("id", id);
+
+  const res = await fetch(url.toString(), {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    const payload = (await res.json().catch(() => ({ error: "Unable to delete perspective" }))) as { error?: string };
+    throw new Error(payload.error ?? "Unable to delete perspective");
+  }
 }
 
 export async function fetchAuthStatus(): Promise<AuthStatus> {

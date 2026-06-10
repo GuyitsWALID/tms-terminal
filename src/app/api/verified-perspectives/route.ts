@@ -146,6 +146,14 @@ type CreatePerspectiveInput = {
   analystDesk?: string;
 };
 
+type UpdatePerspectiveInput = {
+  impact?: string;
+  bias?: string;
+  confidence?: number;
+  thesis?: string;
+  analystDesk?: string;
+};
+
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
 
@@ -262,4 +270,122 @@ export async function POST(request: NextRequest) {
     : createConsensus(eventKey, [mapPerspectiveRow(upsertedRow as PerspectiveRow)]);
 
   return NextResponse.json({ perspective: mapPerspectiveRow(upsertedRow as PerspectiveRow), consensus }, { status: 201 });
+}
+
+export async function PATCH(request: NextRequest) {
+  const supabase = await createSupabaseServerClient();
+  const id = request.nextUrl.searchParams.get("id")?.trim();
+
+  if (!id) {
+    return NextResponse.json({ error: "Perspective id is required." }, { status: 400 });
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, is_verified_analyst")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError || !profile?.is_verified_analyst) {
+    return NextResponse.json({ error: "Only verified analyst accounts can update perspectives." }, { status: 403 });
+  }
+
+  const input = (await request.json()) as UpdatePerspectiveInput;
+
+  if (!input.thesis || input.thesis.trim().length < 20) {
+    return NextResponse.json({ error: "Thesis must be at least 20 characters." }, { status: 400 });
+  }
+
+  if (!input.impact || !isImpact(input.impact) || !input.bias || !isBias(input.bias)) {
+    return NextResponse.json({ error: "Invalid perspective payload." }, { status: 400 });
+  }
+
+  const { data: existingRow, error: existingError } = await supabase
+    .from("verified_perspectives")
+    .select("*")
+    .eq("id", id)
+    .eq("analyst_id", user.id)
+    .single();
+
+  if (existingError || !existingRow) {
+    return NextResponse.json({ error: "Perspective not found." }, { status: 404 });
+  }
+
+  const existing = existingRow as PerspectiveRow;
+
+  await supabase
+    .from("economic_events")
+    .update({ impact: input.impact })
+    .eq("event_key", existing.event_key);
+
+  const { data: updatedRow, error: updateError } = await supabase
+    .from("verified_perspectives")
+    .update({
+      impact: input.impact,
+      bias: input.bias,
+      confidence: clampConfidence(input.confidence ?? existing.confidence),
+      thesis: input.thesis.trim(),
+      analyst_desk: input.analystDesk?.trim() || null,
+    })
+    .eq("id", id)
+    .eq("analyst_id", user.id)
+    .select("*")
+    .single();
+
+  if (updateError || !updatedRow) {
+    return NextResponse.json({ error: "Unable to update perspective." }, { status: 500 });
+  }
+
+  return NextResponse.json({ perspective: mapPerspectiveRow(updatedRow as PerspectiveRow) });
+}
+
+export async function DELETE(request: NextRequest) {
+  const supabase = await createSupabaseServerClient();
+  const id = request.nextUrl.searchParams.get("id")?.trim();
+
+  if (!id) {
+    return NextResponse.json({ error: "Perspective id is required." }, { status: 400 });
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, is_verified_analyst")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError || !profile?.is_verified_analyst) {
+    return NextResponse.json({ error: "Only verified analyst accounts can delete perspectives." }, { status: 403 });
+  }
+
+  const { data: deletedRow, error: deleteError } = await supabase
+    .from("verified_perspectives")
+    .delete()
+    .eq("id", id)
+    .eq("analyst_id", user.id)
+    .select("id")
+    .single();
+
+  if (deleteError || !deletedRow) {
+    return NextResponse.json({ error: "Perspective not found." }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true });
 }
